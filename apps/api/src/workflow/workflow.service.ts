@@ -16,6 +16,7 @@ import { decodeCursor, encodeCursor } from "../common/http";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
 import { OutboxService } from "../jobs/jobs.service";
+import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
 
 const assignSchema = z.object({
@@ -389,8 +390,17 @@ export class WorkflowService {
           title: "Submission approved",
           text: `Your submission for ${assignment.formVersion.template.name} at ${assignment.exhibition.name} was approved. The approved answers are now locked.`,
           link: `/vendor/assignments/${assignment.id}`,
+          audience: "vendor",
           idempotencyKey,
         },
+      });
+      await this.notifyAdmins(tx, user.organizationId, {
+        idempotencyKey,
+        template: "approved",
+        subject: `${assignment.vendor.companyName} was approved`,
+        title: "Submission approved",
+        text: `${assignment.vendor.companyName} was approved for ${assignment.formVersion.template.name} at ${assignment.exhibition.name}.`,
+        link: `/admin/reviews/${assignment.id}`,
       });
       await this.audit.record(tx, {
         organizationId: user.organizationId,
@@ -417,6 +427,31 @@ export class WorkflowService {
         data: { status: "REJECTED", lockVersion: { increment: 1 } },
       });
       if (updated.count !== 1) throw new ConflictException("This record was updated by someone else. Reload and try again.");
+      const rejectionKey = `rejection:${id}:${input.lockVersion}`;
+      await this.outbox.enqueue(tx, {
+        organizationId: user.organizationId,
+        type: "email.rejected",
+        idempotencyKey: rejectionKey,
+        payload: {
+          to: assignment.vendor.email,
+          userId: assignment.vendor.users[0]?.id,
+          template: "rejected",
+          audience: "vendor",
+          subject: `${assignment.formVersion.template.name} was not approved`,
+          title: "Submission not approved",
+          text: `Your submission for ${assignment.formVersion.template.name} at ${assignment.exhibition.name} was not approved.\n\n${input.reason}`,
+          link: `/vendor/assignments/${assignment.id}`,
+          idempotencyKey: rejectionKey,
+        },
+      });
+      await this.notifyAdmins(tx, user.organizationId, {
+        idempotencyKey: rejectionKey,
+        template: "rejected",
+        subject: `${assignment.vendor.companyName} was not approved`,
+        title: "Submission not approved",
+        text: `${assignment.vendor.companyName} was not approved for ${assignment.formVersion.template.name}.\n\n${input.reason}`,
+        link: `/admin/reviews/${assignment.id}`,
+      });
       await this.audit.record(tx, {
         organizationId: user.organizationId,
         actorId: user.id,
@@ -478,6 +513,8 @@ export class WorkflowService {
       where: { assignmentId: input.assignmentId, purpose: input.purpose, usedAt: null, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { settings: true } });
+    const invitationHours = effectiveSettings(parseStored(organization?.settings)).invitationTtlHours;
     const token = randomToken();
     const invitation = await tx.invitation.create({
       data: {
@@ -487,7 +524,7 @@ export class WorkflowService {
         tokenHash: sha256(token),
         vendorId: input.vendor.id,
         assignmentId: input.assignmentId,
-        expiresAt: new Date(Date.now() + env().INVITATION_TTL_HOURS * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + invitationHours * 60 * 60 * 1000),
         createdById: user.id,
       },
     });
@@ -503,11 +540,49 @@ export class WorkflowService {
         template: input.purpose === "CORRECTION" ? "correction" : "invitation",
         subject: input.subject,
         title: input.subject,
-        text: `${input.intro}\n\nOpen this secure link: ${link}\nThe link expires in ${env().INVITATION_TTL_HOURS} hours and can be used once.`,
+        text: `${input.intro}\n\nOpen this secure link: ${link}\nThe link expires in ${invitationHours} hours and can be used once.`,
         link: `/invite/${token}`,
+        audience: "vendor",
         idempotencyKey,
       },
     });
+    await this.notifyAdmins(tx, user.organizationId, {
+      idempotencyKey,
+      template: input.purpose === "CORRECTION" ? "correction" : "invitation",
+      subject: input.purpose === "CORRECTION" ? `Corrections sent to ${input.vendor.companyName}` : `Invitation sent to ${input.vendor.companyName}`,
+      title: input.purpose === "CORRECTION" ? "Corrections sent" : "Invitation sent",
+      text: `${input.vendor.companyName} (${input.vendor.email}) received this request. The secure link was sent only to the vendor.`,
+      link: `/admin/reviews`,
+    });
+  }
+
+  private async notifyAdmins(
+    tx: Tx,
+    organizationId: string,
+    input: { idempotencyKey: string; template: string; subject: string; title: string; text: string; link: string },
+  ) {
+    const admins = await tx.user.findMany({
+      where: { organizationId, status: "ACTIVE", vendorId: null, roles: { some: { role: { name: "ORG_ADMIN" } } } },
+    });
+    for (const admin of admins) {
+      const key = `${input.idempotencyKey}:admin:${admin.id}`;
+      await this.outbox.enqueue(tx, {
+        organizationId,
+        type: `email.${input.template}`,
+        idempotencyKey: key,
+        payload: {
+          to: admin.email,
+          userId: admin.id,
+          template: input.template,
+          audience: "admin",
+          subject: input.subject,
+          title: input.title,
+          text: input.text,
+          link: input.link,
+          idempotencyKey: key,
+        },
+      });
+    }
   }
 
   private async notifyReviewers(
@@ -536,6 +611,7 @@ export class WorkflowService {
         title: input.subject,
         text: input.vendorText,
         link: `/vendor/assignments/${input.link.split("/").pop()}`,
+        audience: "vendor",
         idempotencyKey: vendorKey,
       },
     });
@@ -560,6 +636,7 @@ export class WorkflowService {
           title: input.subject,
           text: input.text,
           link: input.link,
+          audience: "admin",
           idempotencyKey: key,
         },
       });

@@ -12,6 +12,7 @@ import { z } from "zod";
 import type { AuthContext } from "../common/auth";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
+import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService } from "../prisma/prisma.service";
 
 const rowSchema = z.object({
@@ -65,7 +66,11 @@ export class ImportsService {
     }
     const buffer = file.buffer ?? (file.path ? await readFileBuffer(file.path) : undefined);
     if (!buffer) throw new ConflictException("The import file could not be read.");
-    const rows = filename.endsWith(".csv") ? await parseCsvStream(buffer, env().IMPORT_MAX_ROWS) : await parseXlsx(buffer, env().IMPORT_MAX_ROWS);
+    const importLimit = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { settings: true } });
+      return effectiveSettings(parseStored(organization?.settings)).importMaxRows;
+    });
+    const rows = filename.endsWith(".csv") ? await parseCsvStream(buffer, importLimit) : await parseXlsx(buffer, importLimit);
     const header = rows.length ? Object.keys(rows[0]) : [];
     const missing = VENDOR_IMPORT_COLUMNS.filter((column) => !header.includes(column));
     if (missing.length) throw new ConflictException(`The file is missing columns: ${missing.join(", ")}`);

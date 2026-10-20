@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
@@ -9,7 +10,7 @@ import { useSession } from "@/components/providers";
 export default function LoginPage() {
   const router = useRouter();
   const { refresh } = useSession();
-  const [email, setEmail] = useState("admin@harbor.example");
+  const [email, setEmail] = useState("info@vehda.ae");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [mfaToken, setMfaToken] = useState("");
@@ -62,6 +63,7 @@ export default function LoginPage() {
           </>
         )}
         <Button type="submit" variant="primary">Continue</Button>
+        <Link className="text-sm underline" href="/forgot-password">Forgot password?</Link>
       </form>
     </main>
   );

@@ -11,15 +11,17 @@ async function main() {
   }
   const adminEmail = (process.env.SEED_ADMIN_EMAIL ?? "admin@harbor.example").toLowerCase();
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe!Admin1";
-  const reviewerEmail = (process.env.SEED_REVIEWER_EMAIL ?? "reviewer@harbor.example").toLowerCase();
-  const reviewerPassword = process.env.SEED_REVIEWER_PASSWORD ?? "ChangeMe!Review1";
+  const reviewerEmail = process.env.SEED_REVIEWER_EMAIL?.trim().toLowerCase();
+  const reviewerPassword = process.env.SEED_REVIEWER_PASSWORD;
+  const adminHash = await hash(adminPassword, argon);
+  const reviewerHash = reviewerEmail && reviewerPassword ? await hash(reviewerPassword, argon) : null;
 
   await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`;
     const organization = await tx.organization.upsert({
-      where: { slug: "harbor" },
-      update: { name: "Harbor Exhibitions" },
-      create: { name: "Harbor Exhibitions", slug: "harbor" },
+      where: { slug: "vehda" },
+      update: { name: "Vehda" },
+      create: { name: "Vehda", slug: "vehda" },
     });
     const permissions = new Map<string, string>();
     for (const key of ALL_PERMISSIONS) {
@@ -42,51 +44,55 @@ async function main() {
     const reviewerRole = await tx.role.findUniqueOrThrow({ where: { name: "REVIEWER" } });
     const admin = await tx.user.upsert({
       where: { email: adminEmail },
-      update: { name: "Harbor Admin", status: "ACTIVE", passwordHash: await hash(adminPassword, argon) },
+      update: { name: "Vehda Admin", status: "ACTIVE", passwordHash: adminHash },
       create: {
         organizationId: organization.id,
         email: adminEmail,
-        name: "Harbor Admin",
+        name: "Vehda Admin",
         status: "ACTIVE",
-        passwordHash: await hash(adminPassword, argon),
+        passwordHash: adminHash,
       },
     });
-    const reviewer = await tx.user.upsert({
-      where: { email: reviewerEmail },
-      update: { name: "Harbor Reviewer", status: "ACTIVE", passwordHash: await hash(reviewerPassword, argon) },
-      create: {
-        organizationId: organization.id,
-        email: reviewerEmail,
-        name: "Harbor Reviewer",
-        status: "ACTIVE",
-        passwordHash: await hash(reviewerPassword, argon),
-      },
-    });
+    const reviewer = reviewerEmail && reviewerPassword
+      ? await tx.user.upsert({
+          where: { email: reviewerEmail },
+          update: { name: "Reviewer", status: "ACTIVE", passwordHash: reviewerHash ?? undefined },
+          create: {
+            organizationId: organization.id,
+            email: reviewerEmail,
+            name: "Reviewer",
+            status: "ACTIVE",
+            passwordHash: reviewerHash,
+          },
+        })
+      : null;
     await tx.userRole.upsert({
       where: { userId_roleId: { userId: admin.id, roleId: adminRole.id } },
       update: {},
       create: { userId: admin.id, roleId: adminRole.id },
     });
-    await tx.userRole.upsert({
-      where: { userId_roleId: { userId: reviewer.id, roleId: reviewerRole.id } },
-      update: {},
-      create: { userId: reviewer.id, roleId: reviewerRole.id },
-    });
+    if (reviewer) {
+      await tx.userRole.upsert({
+        where: { userId_roleId: { userId: reviewer.id, roleId: reviewerRole.id } },
+        update: {},
+        create: { userId: reviewer.id, roleId: reviewerRole.id },
+      });
+    }
     await tx.exhibition.upsert({
-      where: { organizationId_code: { organizationId: organization.id, code: "HL-2026" } },
+      where: { organizationId_code: { organizationId: organization.id, code: "VEHDA-2026" } },
       update: {},
       create: {
         organizationId: organization.id,
-        name: "Harbor Lights 2026",
-        code: "HL-2026",
-        venue: "Pier 4 Hall",
-        description: "Annual harbor trade exhibition.",
+        name: "Vehda Exhibition",
+        code: "VEHDA-2026",
+        venue: "Vehda",
+        description: "Exhibition vendor registration.",
         startsAt: new Date("2026-11-12T09:00:00.000Z"),
         endsAt: new Date("2026-11-15T18:00:00.000Z"),
         status: "PUBLISHED",
       },
     });
-  });
+  }, { maxWait: 20_000, timeout: 120_000 });
 }
 
 main()

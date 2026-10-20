@@ -7,6 +7,7 @@ import { decodeCursor, encodeCursor } from "../common/http";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
 import { OutboxProcessor, OutboxService } from "../jobs/jobs.service";
+import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 
@@ -26,7 +27,11 @@ export class DocumentsService {
     fields: { vendorId?: string; assignmentId?: string; fieldId?: string; category?: string },
   ) {
     if (!file) throw new ConflictException("Choose a file to upload.");
-    if (file.size > env().MAX_UPLOAD_BYTES) throw new ConflictException("The file is larger than the allowed limit.");
+    const uploadLimit = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { settings: true } });
+      return effectiveSettings(parseStored(organization?.settings)).maxUploadBytes;
+    });
+    if (file.size > uploadLimit) throw new ConflictException("The file is larger than the allowed limit.");
     const vendorId = user.vendorId ?? fields.vendorId;
     if (!vendorId) throw new ForbiddenException("A vendor is required.");
     if (user.vendorId && fields.vendorId && fields.vendorId !== user.vendorId) throw new NotFoundException();

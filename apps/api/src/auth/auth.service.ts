@@ -10,6 +10,7 @@ import { decryptString, encryptString, randomToken, sha256 } from "../common/cry
 import { assertRateLimit } from "../common/http";
 import { AuditService } from "../audit/audit.service";
 import { OutboxService } from "../jobs/jobs.service";
+import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
 
 const argonOptions = { algorithm: Algorithm.Argon2id, memoryCost: 19_456, timeCost: 2, parallelism: 1 };
@@ -301,6 +302,7 @@ export class AuthService {
           title: "Password reset",
           text: `A password reset was requested. Open ${link} within one hour. If you did not request this, you can ignore the message.`,
           link,
+          audience: "vendor",
           idempotencyKey: `password-reset:${invitation.id}`,
         },
       });
@@ -392,7 +394,10 @@ export class AuthService {
   private async createSession(userId: string, request: Request, response: Response) {
     const rawSession = randomToken();
     const rawCsrf = randomToken();
-    const ttl = env().SESSION_TTL_HOURS * 60 * 60 * 1000;
+    const account = await this.tenant.unscoped((tx) =>
+      tx.user.findUnique({ where: { id: userId }, include: { organization: true } }),
+    );
+    const ttl = effectiveSettings(parseStored(account?.organization.settings)).sessionTtlHours * 60 * 60 * 1000;
     await this.tenant.unscoped((tx) =>
       tx.session.create({
         data: {

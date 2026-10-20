@@ -1,11 +1,14 @@
-import { Inject, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { ConflictException, Inject, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { toCsv } from "@vmp/shared";
 import { z } from "zod";
 import type { AuthContext } from "../common/auth";
 import { safeEqualText } from "../common/crypto";
 import { env } from "../config/env";
+import { AuditService } from "../audit/audit.service";
 import { OutboxProcessor } from "../jobs/jobs.service";
 import { PrismaService, TenantService } from "../prisma/prisma.service";
+import { nextStored, parseStored, publicSettings, settingsBody } from "./org-settings";
 
 @Injectable()
 export class PlatformService {
@@ -13,6 +16,7 @@ export class PlatformService {
     @Inject(TenantService) private readonly tenant: TenantService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(OutboxProcessor) private readonly processor: OutboxProcessor,
+    @Inject(AuditService) private readonly audit: AuditService,
   ) {}
 
   async dashboard(user: AuthContext) {
@@ -273,15 +277,53 @@ export class PlatformService {
     const organization = await this.tenant.transaction(user.organizationId, (tx) =>
       tx.organization.findUnique({ where: { id: user.organizationId } }),
     );
-    return { data: organization };
+    if (!organization) throw new NotFoundException();
+    return { data: this.presentOrganization(organization) };
   }
 
   async updateOrganization(user: AuthContext, body: unknown) {
-    const input = z.object({ name: z.string().min(2).max(200) }).parse(body);
-    const organization = await this.tenant.transaction(user.organizationId, (tx) =>
-      tx.organization.update({ where: { id: user.organizationId }, data: { name: input.name } }),
-    );
-    return { data: organization };
+    const input = settingsBody.parse(body);
+    const uploadCeilingMb = Math.max(1, Math.floor(env().MAX_UPLOAD_BYTES / (1024 * 1024)));
+    if (input.maxUploadMb > uploadCeilingMb) {
+      throw new ConflictException(`Upload size cannot exceed the server limit of ${uploadCeilingMb} MB.`);
+    }
+    if (input.importMaxRows > env().IMPORT_MAX_ROWS) {
+      throw new ConflictException(`Import rows cannot exceed the server limit of ${env().IMPORT_MAX_ROWS}.`);
+    }
+    const organization = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const existing = await tx.organization.findUnique({ where: { id: user.organizationId } });
+      if (!existing) throw new NotFoundException();
+      const settings = nextStored(parseStored(existing.settings), input);
+      const updated = await tx.organization.update({
+        where: { id: user.organizationId },
+        data: { name: input.name, settings },
+      });
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "organization.settings_updated",
+        resourceType: "organization",
+        resourceId: user.organizationId,
+        newValue: publicSettings(parseStored(updated.settings)),
+      });
+      return updated;
+    });
+    return { data: this.presentOrganization(organization) };
+  }
+
+  private presentOrganization(organization: { id: string; name: string; slug: string; settings: Prisma.JsonValue }) {
+    const config = env();
+    return {
+      id: organization.id,
+      name: organization.name,
+      slug: organization.slug,
+      settings: publicSettings(parseStored(organization.settings)),
+      limits: {
+        maxUploadMb: Math.max(1, Math.floor(config.MAX_UPLOAD_BYTES / (1024 * 1024))),
+        importMaxRows: config.IMPORT_MAX_ROWS,
+      },
+    };
   }
 
   async providerEvent(header: string | undefined, body: unknown) {

@@ -6,7 +6,9 @@ import { env } from "../config/env";
 import { decryptString, encryptString } from "../common/crypto";
 import { AuditService } from "../audit/audit.service";
 import { scanBuffer } from "../documents/scan";
+import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
+import { absoluteUrl, renderEmail, type EmailAudience } from "./email-templates";
 import { StorageService } from "../storage/storage.service";
 
 export type OutboxPayload = Record<string, unknown>;
@@ -221,21 +223,35 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
     });
     if (existing.status === "SENT" || existing.status === "DELIVERED") return;
 
-    const config = env();
-    const transport = config.SMTP_HOST === "json"
+    const organization = await this.tenant.transaction(organizationId, (tx) =>
+      tx.organization.findUnique({ where: { id: organizationId }, select: { name: true, settings: true } }),
+    );
+    const mail = effectiveSettings(parseStored(organization?.settings));
+    const actionUrl = absoluteUrl(String(payload.link ?? ""), env().WEB_ORIGIN);
+    const audience: EmailAudience = payload.audience === "admin" ? "admin" : "vendor";
+    const rendered = renderEmail({
+      template,
+      audience,
+      organizationName: organization?.name ?? "Vendor Portal",
+      title: String(payload.title ?? subject),
+      body: text,
+      actionUrl,
+    });
+    const transport = mail.smtpHost === "json"
       ? nodemailer.createTransport({ jsonTransport: true })
       : nodemailer.createTransport({
-          host: config.SMTP_HOST,
-          port: config.SMTP_PORT,
-          secure: config.SMTP_SECURE,
-          auth: config.SMTP_USER ? { user: config.SMTP_USER, pass: config.SMTP_PASS } : undefined,
+          host: mail.smtpHost,
+          port: mail.smtpPort,
+          secure: mail.smtpSecure,
+          auth: mail.smtpUser ? { user: mail.smtpUser, pass: mail.smtpPassword } : undefined,
         });
     try {
       const info = await transport.sendMail({
-        from: config.SMTP_FROM,
+        from: mail.emailFrom,
         to,
         subject,
-        text,
+        text: rendered.text,
+        html: rendered.html,
         headers: { "X-Idempotency-Key": idempotencyKey },
       });
       await this.tenant.transaction(organizationId, async (tx) => {
