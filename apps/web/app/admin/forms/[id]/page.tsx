@@ -134,7 +134,7 @@ export default function FormBuilderPage() {
               <div className="grid gap-2 rounded-lg border border-border bg-secondary p-3">
                 {schema.fields.length === 0 ? <p className="text-sm text-muted">Add a field from the palette. You can also drag fields to reorder them.</p> : null}
                 {schema.fields.map((item) => (
-                  <SortableField key={item.id} id={item.id} label={item.label} type={item.type} selected={item.id === selected} onSelect={() => setSelected(item.id)} />
+                  <SortableField key={item.id} id={item.id} label={item.label} type={item.type} required={item.required} selected={item.id === selected} onSelect={() => setSelected(item.id)} />
                 ))}
               </div>
             </SortableContext>
@@ -146,7 +146,8 @@ export default function FormBuilderPage() {
                 <Field label="Label"><input className={inputClass} value={field.label} onChange={(event) => updateField(field.id, { label: event.target.value })} /></Field>
                 <Field label="Internal key"><input className={inputClass} value={field.key} onChange={(event) => updateField(field.id, { key: event.target.value })} /></Field>
                 <Field label="Help text"><input className={inputClass} value={field.description ?? ""} onChange={(event) => updateField(field.id, { description: event.target.value })} /></Field>
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={field.required} onChange={(event) => updateField(field.id, { required: event.target.checked })} /> Required</label>
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={field.required} onChange={(event) => updateField(field.id, { required: event.target.checked })} /> Compulsory</label>
+                <p className="text-xs text-muted">A compulsory field must be filled before the vendor can submit.</p>
                 <p className="text-xs text-muted">Field id {field.id} stays on published versions.</p>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => move(field.id, -1)}>Move up</Button>
@@ -170,7 +171,7 @@ export default function FormBuilderPage() {
   }
 }
 
-function SortableField({ id, label, type, selected, onSelect }: { id: string; label: string; type: string; selected: boolean; onSelect: () => void }) {
+function SortableField({ id, label, type, required, selected, onSelect }: { id: string; label: string; type: string; required: boolean; selected: boolean; onSelect: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
   return (
     <button
@@ -183,6 +184,7 @@ function SortableField({ id, label, type, selected, onSelect }: { id: string; la
     >
       <span className="font-medium">{label}</span>
       <span className="ml-2 text-xs text-muted">{type}</span>
+      {required ? <span className="ml-2 text-xs font-semibold text-danger">Compulsory</span> : null}
     </button>
   );
 }

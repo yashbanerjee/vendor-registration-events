@@ -28,6 +28,11 @@ export class SessionGuard implements CanActivate {
       throw new UnauthorizedException("Your session has expired.");
     }
     request.user = user;
+    const path = (request.originalUrl ?? request.url).split("?")[0];
+    const passwordChangeAllowed = new Set(["/api/v1/auth/me", "/api/v1/auth/logout", "/api/v1/auth/password/change"]);
+    if (user.mustChangePassword && !passwordChangeAllowed.has(path)) {
+      throw new ForbiddenException("Change the temporary password before continuing.");
+    }
     return true;
   }
 }

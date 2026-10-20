@@ -7,6 +7,7 @@ const themes: Record<string, { label: string; color: string; action: string }> =
   approved: { label: "Approved", color: "#16803D", action: "View the approved form" },
   rejected: { label: "Not approved", color: "#C9372C", action: "View the submission" },
   "password-reset": { label: "Password reset", color: "#2457D6", action: "Reset password" },
+  credentials: { label: "Account ready", color: "#2457D6", action: "Open the portal" },
 };
 
 function escapeHtml(value: string) {

@@ -27,6 +27,7 @@ import { WorkflowModule } from "./workflow/workflow.module";
             "req.headers.cookie",
             'res.headers["set-cookie"]',
             "req.body.password",
+            "req.body.currentPassword",
             "req.body.smtpPassword",
             "req.body.storageSecret",
             "req.body.token",

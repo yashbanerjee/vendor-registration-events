@@ -24,7 +24,7 @@ export default function ImportsPage() {
   });
   return (
     <div>
-      <PageHeader title="Bulk import" description="Download the template, upload CSV or Excel, then review row errors. Existing emails and references are skipped so a retry does not create duplicates." actions={<a className="inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold" href="/api/v1/imports/template">Download template</a>} />
+      <PageHeader title="Bulk import" description="Upload a CSV or Excel vendor list. Valid rows become vendor accounts, and each new contact receives a portal link and a temporary password. Configure the exhibition form next, then review submissions." actions={<a className="inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold" href="/api/v1/imports/template">Download template</a>} />
       <ErrorNote message={error} />
       <label className="mt-3 block text-sm">
         Upload file

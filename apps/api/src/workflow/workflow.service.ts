@@ -328,17 +328,18 @@ export class WorkflowService {
       });
       if (updated.count !== 1) throw new ConflictException("This record was updated by someone else. Reload and try again.");
       const labels = input.fields
-        .map((field) => {
+        .map((field, index) => {
           const match = schema.fields.find((item) => item.id === field.fieldId);
-          return `- ${match?.label ?? field.fieldId}: ${field.note}`;
+          return `${index + 1}. ${match?.label ?? field.fieldId}\nComment: ${field.note}`;
         })
-        .join("\n");
+        .join("\n\n");
       await this.issueInvitation(tx, user, {
         vendor: assignment.vendor,
         assignmentId: assignment.id,
         purpose: "CORRECTION",
-        subject: `Corrections requested for ${assignment.formVersion.template.name}`,
-        intro: `Please update only the requested fields.\n\n${labels}`,
+        subject: `Update ${input.fields.length} field${input.fields.length === 1 ? "" : "s"} on ${assignment.formVersion.template.name}`,
+        intro: `Please update only these fields. The rest of your submission stays locked.\n\n${labels}`,
+        notifyAdmins: false,
       });
       for (const field of input.fields) {
         await this.audit.record(tx, {
@@ -507,6 +508,7 @@ export class WorkflowService {
       purpose: "FORM_ASSIGNMENT" | "CORRECTION";
       subject: string;
       intro: string;
+      notifyAdmins?: boolean;
     },
   ) {
     await tx.invitation.updateMany({
@@ -546,6 +548,7 @@ export class WorkflowService {
         idempotencyKey,
       },
     });
+    if (input.notifyAdmins === false) return;
     await this.notifyAdmins(tx, user.organizationId, {
       idempotencyKey,
       template: input.purpose === "CORRECTION" ? "correction" : "invitation",

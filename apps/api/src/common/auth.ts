@@ -17,4 +17,5 @@ export type AuthContext = {
   permissions: string[];
   sessionId: string;
   csrfHash: string;
+  mustChangePassword: boolean;
 };

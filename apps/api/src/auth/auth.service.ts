@@ -70,6 +70,7 @@ export class AuthService {
         permissions,
         sessionId: session.id,
         csrfHash: session.csrfHash,
+        mustChangePassword: session.user.mustChangePassword,
       };
     });
   }
@@ -137,6 +138,38 @@ export class AuthService {
     return { data: { signedOut: true } };
   }
 
+  async changePassword(user: AuthContext, body: unknown) {
+    const input = z
+      .object({
+        currentPassword: z.string().min(1).max(200),
+        password: passwordSchema,
+      })
+      .parse(body);
+    if (input.password === input.currentPassword) {
+      throw new ConflictException("Choose a password that is different from the temporary password.");
+    }
+    const account = await this.tenant.transaction(user.organizationId, (tx) => tx.user.findUnique({ where: { id: user.id } }));
+    if (!account?.passwordHash) throw new UnauthorizedException("The current password is incorrect.");
+    const valid = await argonVerify(account.passwordHash, input.currentPassword).catch(() => false);
+    if (!valid) throw new UnauthorizedException("The current password is incorrect.");
+    const passwordHash = await argonHash(input.password, argonOptions);
+    await this.tenant.transaction(user.organizationId, async (tx) => {
+      await tx.user.update({ where: { id: user.id }, data: { passwordHash, mustChangePassword: false, status: "ACTIVE" } });
+      if (user.vendorId) {
+        await tx.vendor.updateMany({ where: { id: user.vendorId, organizationId: user.organizationId, status: "INVITED" }, data: { status: "ACTIVE" } });
+      }
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "password.changed",
+        resourceType: "user",
+        resourceId: user.id,
+      });
+    });
+    return { data: { changed: true } };
+  }
+
   me(user: AuthContext) {
     return {
       data: {
@@ -147,6 +180,7 @@ export class AuthService {
         vendorId: user.vendorId,
         roles: user.roles,
         permissions: user.permissions,
+        mustChangePassword: user.mustChangePassword,
       },
     };
   }

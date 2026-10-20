@@ -71,6 +71,12 @@ export class AuthController {
     return this.auth.resetPassword(body);
   }
 
+  @Post("password/change")
+  @ApiOperation({ summary: "Replace the temporary password after the first sign-in" })
+  changePassword(@Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.auth.changePassword(request.user!, body);
+  }
+
   @Post("mfa/setup")
   @ApiOperation({ summary: "Begin multi-factor enrollment" })
   setup(@Req() request: AuthedRequest) {

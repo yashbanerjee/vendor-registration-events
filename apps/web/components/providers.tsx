@@ -12,6 +12,7 @@ type Session = {
   vendorId: string | null;
   roles: string[];
   permissions: string[];
+  mustChangePassword: boolean;
 };
 
 const SessionContext = createContext<{ session?: Session; loading: boolean; refresh: () => Promise<void> }>({

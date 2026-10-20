@@ -158,7 +158,9 @@ export function ShellFrame({ items, home, children }: { items: NavItem[]; home: 
   const { session, loading } = useSession();
   const router = useRouter();
   useEffect(() => {
-    if (!loading && !session) router.replace("/login");
+    if (loading) return;
+    if (!session) router.replace("/login");
+    else if (session.mustChangePassword) router.replace("/change-password");
   }, [loading, session, router]);
   if (loading) return <p className="p-6 text-sm text-muted">Loading workspace…</p>;
   if (!session) return null;

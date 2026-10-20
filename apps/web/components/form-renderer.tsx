@@ -10,6 +10,7 @@ export function FormRenderer({
   onChange,
   editableFieldIds,
   notes,
+  errors,
   disabled,
   onUpload,
 }: {
@@ -18,6 +19,7 @@ export function FormRenderer({
   onChange?: (fieldId: string, value: unknown) => void;
   editableFieldIds?: string[];
   notes?: { fieldId: string; note: string }[];
+  errors?: { fieldId: string; message: string }[];
   disabled?: boolean;
   onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
 }) {
@@ -35,7 +37,7 @@ export function FormRenderer({
               .sort((a, b) => a.order - b.order)
               .filter((field) => isFieldVisible(field, values, byId))
               .map((field) => (
-                <FieldControl key={field.id} field={field} value={values[field.id]} note={notes?.find((item) => item.fieldId === field.id)?.note} editable={isEditable(field.id, editableFieldIds, disabled)} onChange={onChange} onUpload={onUpload} />
+                <FieldControl key={field.id} field={field} value={values[field.id]} note={notes?.find((item) => item.fieldId === field.id)?.note} error={errors?.find((item) => item.fieldId === field.id)?.message} editable={isEditable(field.id, editableFieldIds, disabled)} onChange={onChange} onUpload={onUpload} />
               ))}
           </div>
         </section>
@@ -48,6 +50,7 @@ function FieldControl({
   field,
   value,
   note,
+  error,
   editable,
   onChange,
   onUpload,
@@ -55,15 +58,16 @@ function FieldControl({
   field: FormField;
   value: unknown;
   note?: string;
+  error?: string;
   editable: boolean;
   onChange?: (fieldId: string, value: unknown) => void;
   onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
 }) {
   if (field.type === "heading") return <h3 className="text-sm font-semibold">{field.label}</h3>;
   if (field.type === "info") return <p className="text-sm text-muted">{field.description || field.label}</p>;
-  const describedBy = note ? `${field.id}-note` : undefined;
+  const describedBy = [note ? `${field.id}-note` : "", error ? `${field.id}-error` : ""].filter(Boolean).join(" ") || undefined;
   return (
-    <div className={note ? "rounded-md border border-[var(--warning)] bg-[var(--badge-warning-bg)] p-3" : ""}>
+    <div className={note || error ? "rounded-md border border-[var(--warning)] bg-[var(--badge-warning-bg)] p-3" : ""}>
       <label className="grid gap-1 text-sm" htmlFor={field.id}>
         <span className="font-medium">
           {field.label}
@@ -73,8 +77,13 @@ function FieldControl({
         {field.description ? <span className="text-xs text-muted">{field.description}</span> : null}
         <Control id={field.id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
       </label>
+      {error ? (
+        <p id={`${field.id}-error`} className="mt-2 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
       {note ? (
-        <p id={describedBy} className="mt-2 text-sm text-[var(--badge-warning-fg)]">
+        <p id={`${field.id}-note`} className="mt-2 text-sm text-[var(--badge-warning-fg)]">
           Correction: {note}
         </p>
       ) : null}

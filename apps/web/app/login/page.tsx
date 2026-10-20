@@ -32,9 +32,10 @@ export default function LoginPage() {
           return;
         }
       }
-      const me = await api<{ data: { vendorId: string | null } }>("/auth/me");
+      const me = await api<{ data: { vendorId: string | null; mustChangePassword: boolean } }>("/auth/me");
       await refresh();
-      router.push(me.data.vendorId ? "/vendor" : "/admin");
+      if (me.data.mustChangePassword) router.push("/change-password");
+      else router.push(me.data.vendorId ? "/vendor" : "/admin");
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "Sign-in failed.");
     }

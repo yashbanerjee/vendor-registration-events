@@ -2,9 +2,10 @@ import { createReadStream } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import { Readable } from "node:stream";
 import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Algorithm, hash as argonHash } from "@node-rs/argon2";
 import { toCsv, VENDOR_IMPORT_COLUMNS } from "@vmp/shared";
 import { parse } from "csv-parse";
 import ExcelJS from "exceljs";
@@ -12,6 +13,7 @@ import { z } from "zod";
 import type { AuthContext } from "../common/auth";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
+import { OutboxService } from "../jobs/jobs.service";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService } from "../prisma/prisma.service";
 
@@ -31,11 +33,28 @@ const rowSchema = z.object({
   category: z.string().optional().default(""),
 });
 
+const argonOptions = { algorithm: Algorithm.Argon2id, memoryCost: 19_456, timeCost: 2, parallelism: 1 };
+
+function temporaryPassword() {
+  const lower = "abcdefghijkmnopqrstuvwxyz";
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const digits = "23456789";
+  const alphabet = `${lower}${upper}${digits}`;
+  const chars = [lower[randomInt(lower.length)], upper[randomInt(upper.length)], digits[randomInt(digits.length)]];
+  while (chars.length < 16) chars.push(alphabet[randomInt(alphabet.length)]);
+  for (let index = chars.length - 1; index > 0; index -= 1) {
+    const swap = randomInt(index + 1);
+    [chars[index], chars[swap]] = [chars[swap], chars[index]];
+  }
+  return chars.join("");
+}
+
 @Injectable()
 export class ImportsService {
   constructor(
     @Inject(TenantService) private readonly tenant: TenantService,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(OutboxService) private readonly outbox: OutboxService,
   ) {}
 
   template() {
@@ -75,6 +94,17 @@ export class ImportsService {
     const missing = VENDOR_IMPORT_COLUMNS.filter((column) => !header.includes(column));
     if (missing.length) throw new ConflictException(`The file is missing columns: ${missing.join(", ")}`);
     const fileSha256 = createHash("sha256").update(buffer).digest("hex");
+    const prepared: { row: Record<string, string>; password?: string; passwordHash?: string }[] = [];
+    for (const row of rows) {
+      const parsed = rowSchema.safeParse(row);
+      if (!parsed.success) {
+        prepared.push({ row });
+        continue;
+      }
+      const password = temporaryPassword();
+      prepared.push({ row, password, passwordHash: await argonHash(password, argonOptions) });
+    }
+    const portal = `${env().WEB_ORIGIN.replace(/\/$/, "")}/login`;
     const job = await this.tenant.transaction(user.organizationId, async (tx) => {
       const created = await tx.importJob.create({
         data: {
@@ -88,10 +118,13 @@ export class ImportsService {
       });
       const seenEmails = new Set<string>();
       const seenReferences = new Set<string>();
+      const vendorRole = await tx.role.findUnique({ where: { name: "VENDOR" } });
+      if (!vendorRole) throw new ConflictException("Vendor access is not configured.");
       let createdCount = 0;
       let skippedCount = 0;
       let errorCount = 0;
-      for (const [index, row] of rows.entries()) {
+      for (const [index, item] of prepared.entries()) {
+        const row = item.row;
         const rowNumber = index + 2;
         const parsed = rowSchema.safeParse(row);
         if (!parsed.success) {
@@ -144,6 +177,21 @@ export class ImportsService {
           });
           continue;
         }
+        const existingUser = await tx.user.findUnique({ where: { email } });
+        if (existingUser) {
+          errorCount += 1;
+          await tx.importJobRow.create({
+            data: {
+              organizationId: user.organizationId,
+              importJobId: created.id,
+              rowNumber,
+              status: "ERROR",
+              payload: row,
+              messages: ["This email already has a portal account."],
+            },
+          });
+          continue;
+        }
         const vendor = await tx.vendor.create({
           data: {
             organizationId: user.organizationId,
@@ -160,6 +208,35 @@ export class ImportsService {
             postalCode: parsed.data.postalCode,
             country: parsed.data.country.toUpperCase(),
             category: parsed.data.category,
+          },
+        });
+        if (!item.password || !item.passwordHash) throw new ConflictException("The account password could not be prepared.");
+        const account = await tx.user.create({
+          data: {
+            organizationId: user.organizationId,
+            email,
+            name: parsed.data.contactName,
+            passwordHash: item.passwordHash,
+            status: "ACTIVE",
+            mustChangePassword: true,
+            vendorId: vendor.id,
+            roles: { create: { roleId: vendorRole.id } },
+          },
+        });
+        await this.outbox.enqueue(tx, {
+          organizationId: user.organizationId,
+          type: "email.credentials",
+          idempotencyKey: `credentials:${vendor.id}`,
+          payload: {
+            to: email,
+            userId: account.id,
+            template: "credentials",
+            audience: "vendor",
+            subject: "Your vendor portal login",
+            title: "Your account is ready",
+            text: `Use these details to sign in. Change the temporary password before you open an exhibition form.\n\nPortal: ${portal}\nEmail: ${email}\nTemporary password: ${item.password}`,
+            link: "/login",
+            idempotencyKey: `credentials:${vendor.id}`,
           },
         });
         createdCount += 1;

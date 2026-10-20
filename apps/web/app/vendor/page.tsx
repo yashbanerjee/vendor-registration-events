@@ -19,7 +19,7 @@ export default function VendorHomePage() {
   const rows = query.data?.data ?? [];
   return (
     <div>
-      <PageHeader title="Your forms" description="Complete assigned exhibition forms and respond to correction requests." />
+      <PageHeader title="Your forms" description="Sign in, complete the exhibition form, and submit it for review. If an organizer flags fields, edit only those fields and resubmit. Approved answers stay locked." />
       {rows.length === 0 && !query.isLoading ? <EmptyState title="No forms yet" body="When an organizer assigns a form, it will appear here." /> : null}
       <div className="grid gap-3">
         {rows.map((row) => (

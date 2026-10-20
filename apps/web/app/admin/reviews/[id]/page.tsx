@@ -32,18 +32,30 @@ export default function ReviewDetailPage() {
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const review = query.data?.data;
+  const chosen = Object.entries(selected);
+  const readyFields = chosen.filter(([, value]) => value.trim().length >= 3).map(([fieldId, value]) => ({ fieldId, note: value.trim() }));
 
   const correct = useMutation({
-    mutationFn: () => api(`/assignments/${params.id}/corrections`, {
-      method: "POST",
-      body: JSON.stringify({
-        lockVersion: review?.lockVersion,
-        fields: Object.entries(selected).filter(([, value]) => value.trim().length >= 3).map(([fieldId, value]) => ({ fieldId, note: value })),
-      }),
-    }),
-    onSuccess: async () => { setError(""); await client.invalidateQueries({ queryKey: ["assignment", params.id] }); },
-    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Correction request failed."),
+    mutationFn: () => {
+      if (chosen.length === 0) throw new Error("Select at least one field.");
+      if (readyFields.length !== chosen.length) throw new Error("Write a comment on every selected field.");
+      return api(`/assignments/${params.id}/corrections`, {
+        method: "POST",
+        body: JSON.stringify({
+          lockVersion: review?.lockVersion,
+          fields: readyFields,
+        }),
+      });
+    },
+    onSuccess: async () => {
+      setError("");
+      setSelected({});
+      setMessage(`One email was sent to ${review?.vendor.email} with ${readyFields.length} field${readyFields.length === 1 ? "" : "s"} and the comments.`);
+      await client.invalidateQueries({ queryKey: ["assignment", params.id] });
+    },
+    onError: (caught) => setError(caught instanceof ApiError ? caught.message : caught instanceof Error ? caught.message : "Correction request failed."),
   });
   const approve = useMutation({
     mutationFn: () => api(`/assignments/${params.id}/approve`, { method: "POST", body: JSON.stringify({ lockVersion: review?.lockVersion }) }),
@@ -62,13 +74,14 @@ export default function ReviewDetailPage() {
       <PageHeader title={review.vendor.companyName} description={`${review.form.name} v${review.form.versionNumber} · ${review.exhibition.name}`} actions={<Badge tone={statusTone(review.status)}>{review.status}</Badge>} />
       <p className="mb-3 text-sm text-muted">{review.vendor.contactName} · {review.vendor.email} · {review.exhibition.venue}</p>
       <ErrorNote message={error} />
+      {message ? <p className="mb-3 text-sm text-success">{message}</p> : null}
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <FormRenderer schema={review.form.schema} values={review.values} disabled editableFieldIds={[]} notes={review.correction?.fields} />
         <aside className="grid h-fit gap-3 rounded-lg border border-border bg-surface p-3">
           <h2 className="text-sm font-semibold">Decision</h2>
           {reviewable ? (
             <>
-              <p className="text-xs text-muted">Select the fields the vendor may change and write a note for each one.</p>
+              <p className="text-xs text-muted">Select each field that needs new data and write a comment. The vendor receives one email listing those fields and comments.</p>
               {review.form.schema.fields.filter((field) => field.type !== "heading" && field.type !== "info").map((field) => (
                 <label key={field.id} className="grid gap-1 text-sm">
                   <span className="flex items-center gap-2">
@@ -82,10 +95,11 @@ export default function ReviewDetailPage() {
                     }} />
                     {field.label}
                   </span>
-                  {field.id in selected ? <textarea className={`${inputClass} min-h-16 py-2`} value={selected[field.id]} onChange={(event) => setSelected({ ...selected, [field.id]: event.target.value })} placeholder="What needs to change?" /> : null}
+                  {field.id in selected ? <textarea className={`${inputClass} min-h-16 py-2`} value={selected[field.id]} onChange={(event) => setSelected({ ...selected, [field.id]: event.target.value })} placeholder="Comment for this field" /> : null}
                 </label>
               ))}
-              <Button variant="primary" onClick={() => correct.mutate()} disabled={correct.isPending}>Request correction</Button>
+              <p className="text-xs text-muted">{chosen.length === 0 ? "No fields selected." : `${readyFields.length} of ${chosen.length} selected fields have a comment. One email will be sent.`}</p>
+              <Button variant="primary" onClick={() => correct.mutate()} disabled={correct.isPending || chosen.length === 0 || readyFields.length !== chosen.length}>Request correction</Button>
               <Button onClick={() => approve.mutate()} disabled={approve.isPending}>Approve submission</Button>
             </>
           ) : <p className="text-sm text-muted">This submission is not waiting for a decision.</p>}
