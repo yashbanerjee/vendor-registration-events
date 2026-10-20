@@ -22,7 +22,7 @@ const loginSchema = z.object({
 
 const acceptSchema = z.object({
   token: z.string().min(20),
-  password: passwordSchema,
+  password: z.string().min(1).max(200),
   name: z.string().min(2).max(200),
 });
 
@@ -130,11 +130,11 @@ export class AuthService {
   async logout(user: AuthContext | undefined, response: Response) {
     if (user) {
       await this.tenant.unscoped((tx) =>
-        tx.session.update({ where: { id: user.sessionId }, data: { revokedAt: new Date() } }),
+        tx.session.updateMany({ where: { id: user.sessionId, revokedAt: null }, data: { revokedAt: new Date() } }),
       );
     }
-    response.clearCookie("sid", { path: "/" });
-    response.clearCookie("csrf", { path: "/" });
+    response.clearCookie("sid", this.sessionCookie(true));
+    response.clearCookie("csrf", this.sessionCookie(false));
     return { data: { signedOut: true } };
   }
 
@@ -252,10 +252,10 @@ export class AuthService {
         resourceId: invitation.id,
         vendorId: vendor.id,
       });
-      return user;
+      return { user, assignmentId: invitation.assignmentId };
     });
-    await this.createSession(result.id, request, response);
-    return { data: { accepted: true } };
+    await this.createSession(result.user.id, request, response);
+    return { data: { accepted: true, assignmentId: result.assignmentId } };
   }
 
   async previewInvitation(body: unknown) {
@@ -278,7 +278,7 @@ export class AuthService {
 
   async openInvitation(body: unknown, request: Request, response: Response) {
     const input = z.object({ token: z.string().min(20) }).parse(body);
-    const user = await this.tenant.unscoped(async (tx) => {
+    const opened = await this.tenant.unscoped(async (tx) => {
       const invitation = await this.findOpenInvitation(tx, input.token);
       const account = await tx.user.findUnique({ where: { email: invitation.email.toLowerCase() } });
       if (!account?.passwordHash) throw new ConflictException({ message: "Create a password to continue.", code: "PASSWORD_REQUIRED" });
@@ -299,10 +299,10 @@ export class AuthService {
         resourceId: invitation.id,
         vendorId: invitation.vendorId,
       });
-      return account;
+      return { account, assignmentId: invitation.assignmentId };
     });
-    await this.createSession(user.id, request, response);
-    return { data: { opened: true, assignmentId: undefined } };
+    await this.createSession(opened.account.id, request, response);
+    return { data: { opened: true, assignmentId: opened.assignmentId } };
   }
 
   async forgotPassword(body: unknown) {
@@ -444,9 +444,12 @@ export class AuthService {
         },
       }),
     );
-    const secure = env().COOKIE_SECURE;
-    response.cookie("sid", rawSession, { httpOnly: true, secure, sameSite: "lax", path: "/", maxAge: ttl });
-    response.cookie("csrf", rawCsrf, { httpOnly: false, secure, sameSite: "lax", path: "/", maxAge: ttl });
+    response.cookie("sid", rawSession, { ...this.sessionCookie(true), maxAge: ttl });
+    response.cookie("csrf", rawCsrf, { ...this.sessionCookie(false), maxAge: ttl });
+  }
+
+  private sessionCookie(httpOnly: boolean) {
+    return { httpOnly, secure: env().COOKIE_SECURE, sameSite: "lax" as const, path: "/" };
   }
 
   private placeholderHash() {

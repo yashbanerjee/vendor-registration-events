@@ -4,7 +4,8 @@ import { Slot } from "@radix-ui/react-slot";
 import * as Dialog from "@radix-ui/react-dialog";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { usePublishFlag } from "@/components/flags";
+import { cn, formatLabel } from "@/lib/utils";
 
 const buttonStyles = cva(
   "inline-flex items-center justify-center gap-2 rounded-md text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
@@ -53,6 +54,10 @@ export function Badge({ tone, children }: { tone: "success" | "warning" | "dange
   return <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold", styles[tone])}>{children}</span>;
 }
 
+export function StatusBadge({ status }: { status: string }) {
+  return <Badge tone={statusTone(status)}>{formatLabel(status)}</Badge>;
+}
+
 export function statusTone(status: string): "success" | "warning" | "danger" | "info" | "neutral" {
   if (status === "APPROVED" || status === "AVAILABLE" || status === "ACTIVE" || status === "SENT" || status === "DELIVERED") return "success";
   if (status.includes("PENDING") || status === "CORRECTION_REQUESTED" || status === "QUARANTINED" || status === "QUEUED") return "warning";
@@ -61,12 +66,12 @@ export function statusTone(status: string): "success" | "warning" | "danger" | "
   return "neutral";
 }
 
-export function Modal({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
+export function Modal({ open, title, onClose, wide, children }: { open: boolean; title: string; onClose: () => void; wide?: boolean; children: React.ReactNode }) {
   return (
     <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-[#091e42]/50 backdrop-blur-md" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-4rem)] w-[min(560px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-[0_8px_16px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]">
+        <Dialog.Content className={cn("fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-4rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-[0_8px_16px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]", wide ? "w-[min(960px,calc(100%-2rem))]" : "w-[min(560px,calc(100%-2rem))]")}>
           <div className="mb-4 flex items-start justify-between gap-4">
             <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
             <Dialog.Close className="rounded p-1 hover:bg-secondary" aria-label="Close">
@@ -91,8 +96,13 @@ export function EmptyState({ title, body, action }: { title: string; body: strin
 }
 
 export function ErrorNote({ message }: { message?: string }) {
-  if (!message) return null;
-  return <p className="rounded-md bg-[var(--badge-danger-bg)] px-3 py-2 text-sm text-[var(--badge-danger-fg)]">{message}</p>;
+  usePublishFlag(message, "error");
+  return null;
+}
+
+export function Notice({ message, appearance = "success" }: { message?: string; appearance?: "success" | "information" | "warning" }) {
+  usePublishFlag(message, appearance);
+  return null;
 }
 
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: React.ReactNode }) {

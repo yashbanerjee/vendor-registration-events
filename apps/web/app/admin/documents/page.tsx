@@ -4,7 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { api } from "@/lib/api";
-import { Badge, PageHeader, inputClass, statusTone } from "@/components/ui";
+import { formatLabel } from "@/lib/utils";
+import { FileLink } from "@/components/file-preview";
+import { PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type DocumentRow = { id: string; status: string; category: string; vendor: { id: string; companyName: string }; versions: { filename: string; sizeBytes: number }[] };
 
@@ -21,10 +23,10 @@ export default function DocumentsPage() {
           <tbody>
             {(query.data?.data ?? []).map((row) => (
               <tr key={row.id}>
-                <td><a className="underline" href={`/api/v1/documents/${row.id}/content`}>{row.versions[0]?.filename ?? "File"}</a></td>
+                <td><FileLink documentId={row.id} filename={row.versions[0]?.filename ?? "File"} /></td>
                 <td><Link className="underline" href={`/admin/documents/vendors/${row.vendor.id}`}>{row.vendor.companyName}</Link></td>
-                <td>{row.category}</td>
-                <td><Badge tone={statusTone(row.status)}>{row.status}</Badge></td>
+                <td>{formatLabel(row.category)}</td>
+                <td><StatusBadge status={row.status} /></td>
               </tr>
             ))}
           </tbody>

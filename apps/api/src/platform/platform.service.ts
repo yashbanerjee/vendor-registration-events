@@ -52,6 +52,11 @@ export class PlatformService {
         }),
         tx.auditLog.findMany({ where: { organizationId }, orderBy: { createdAt: "desc" }, take: 12 }),
       ]);
+      const actorIds = [...new Set(activity.flatMap((row) => (row.actorId ? [row.actorId] : [])))];
+      const actors = actorIds.length
+        ? await tx.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true } })
+        : [];
+      const actorNames = new Map(actors.map((actor) => [actor.id, actor.name]));
       const count = (status: string) => grouped.find((row) => row.status === status)?._count._all ?? 0;
       return {
         data: {
@@ -87,7 +92,7 @@ export class PlatformService {
             action: row.action,
             resourceType: row.resourceType,
             createdAt: row.createdAt,
-            actorId: row.actorId,
+            actorName: row.actorId ? (actorNames.get(row.actorId) ?? "Unknown user") : "System",
           })),
         },
       };

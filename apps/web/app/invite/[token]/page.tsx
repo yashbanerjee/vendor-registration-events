@@ -1,6 +1,5 @@
 "use client";
 
-import { passwordSchema } from "@vmp/shared";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
@@ -11,13 +10,13 @@ export default function InvitePage() {
   const params = useParams<{ token: string }>();
   const router = useRouter();
   const { refresh } = useSession();
-  const [preview, setPreview] = useState<{ email: string; companyName: string; needsPassword: boolean; purpose: string } | null>(null);
+  const [preview, setPreview] = useState<{ email: string; companyName: string; needsPassword: boolean; purpose: string; assignmentId: string | null } | null>(null);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    void api<{ data: { email: string; companyName: string; needsPassword: boolean; purpose: string } }>("/auth/invitations/preview", {
+    void api<{ data: { email: string; companyName: string; needsPassword: boolean; purpose: string; assignmentId: string | null } }>("/auth/invitations/preview", {
       method: "POST",
       body: JSON.stringify({ token: params.token }),
     }).then((result) => setPreview(result.data)).catch((caught) => setError(caught instanceof ApiError ? caught.message : "This invitation is not valid."));
@@ -27,18 +26,12 @@ export default function InvitePage() {
     event.preventDefault();
     setError("");
     try {
-      if (preview?.needsPassword) {
-        const parsed = passwordSchema.safeParse(password);
-        if (!parsed.success) {
-          setError(parsed.error.issues[0]?.message ?? "Choose a stronger password.");
-          return;
-        }
-        await api("/auth/invitations/accept", { method: "POST", body: JSON.stringify({ token: params.token, password, name }) });
-      } else {
-        await api("/auth/invitations/open", { method: "POST", body: JSON.stringify({ token: params.token }) });
-      }
+      const result = preview?.needsPassword
+        ? await api<{ data: { assignmentId: string | null } }>("/auth/invitations/accept", { method: "POST", body: JSON.stringify({ token: params.token, password, name }) })
+        : await api<{ data: { assignmentId: string | null } }>("/auth/invitations/open", { method: "POST", body: JSON.stringify({ token: params.token }) });
       await refresh();
-      router.push("/vendor");
+      const assignmentId = result.data.assignmentId ?? preview?.assignmentId;
+      router.push(assignmentId ? `/vendor/assignments/${assignmentId}` : "/vendor");
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "The invitation could not be opened.");
     }
@@ -53,7 +46,7 @@ export default function InvitePage() {
         {preview?.needsPassword ? (
           <>
             <Field label="Your name"><input className={inputClass} required value={name} onChange={(event) => setName(event.target.value)} /></Field>
-            <Field label="Password" hint="At least 12 characters with upper, lower, and a number.">
+            <Field label="Password">
               <input className={inputClass} type="password" required value={password} onChange={(event) => setPassword(event.target.value)} />
             </Field>
           </>

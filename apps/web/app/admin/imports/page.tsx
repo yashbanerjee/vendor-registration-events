@@ -3,7 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
-import { Badge, Button, ErrorNote, PageHeader, statusTone } from "@/components/ui";
+import { formatLabel } from "@/lib/utils";
+import { Button, ErrorNote, PageHeader, StatusBadge } from "@/components/ui";
 
 type Job = { id: string; filename: string; status: string; totalRows: number; createdCount: number; skippedCount: number; errorCount: number; rows?: { rowNumber: number; status: string; messages: string[] }[] };
 
@@ -37,7 +38,7 @@ export default function ImportsPage() {
             {(list.data?.data ?? []).map((job) => (
               <tr key={job.id}>
                 <td><button className="underline" onClick={() => setActive(job.id)}>{job.filename}</button></td>
-                <td><Badge tone={statusTone(job.status)}>{job.status}</Badge></td>
+                <td><StatusBadge status={job.status} /></td>
                 <td>{job.createdCount}</td>
                 <td>{job.skippedCount}</td>
                 <td>{job.errorCount}</td>
@@ -57,7 +58,7 @@ export default function ImportsPage() {
               <thead><tr><th>Row</th><th>Status</th><th>Messages</th></tr></thead>
               <tbody>
                 {(detail.data.data.rows ?? []).map((row) => (
-                  <tr key={row.rowNumber}><td>{row.rowNumber}</td><td>{row.status}</td><td>{row.messages.join(" ")}</td></tr>
+                  <tr key={row.rowNumber}><td>{row.rowNumber}</td><td>{formatLabel(row.status)}</td><td>{row.messages.join(" ")}</td></tr>
                 ))}
               </tbody>
             </table>

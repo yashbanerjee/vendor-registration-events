@@ -24,6 +24,7 @@ export class AuthController {
     return this.auth.verifyMfa(body, request, response);
   }
 
+  @Public()
   @Post("logout")
   @ApiOperation({ summary: "Revoke the current session" })
   logout(@Req() request: AuthedRequest, @Res({ passthrough: true }) response: Response) {

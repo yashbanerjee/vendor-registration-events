@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { applyTheme, readTheme, type ThemeChoice } from "@/lib/theme";
-import { Badge, Button, ErrorNote, Field, PageHeader, inputClass } from "@/components/ui";
+import { Badge, Button, ErrorNote, Field, Notice, PageHeader, inputClass } from "@/components/ui";
 
 type Settings = {
   sessionTtlHours: number;
@@ -151,7 +151,7 @@ export default function SettingsPage() {
         description="The database connection stays in the server environment. Session, email, and Railway storage values are saved for this organization."
         actions={<Button type="submit" form="organization-settings" variant="primary" disabled={save.isPending}>{save.isPending ? "Saving…" : "Save settings"}</Button>}
       />
-      {message ? <p className="rounded-md bg-[var(--badge-success-bg)] px-3 py-2 text-sm text-[var(--badge-success-fg)]">{message}</p> : null}
+      <Notice message={message} />
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <form
           id="organization-settings"
@@ -231,7 +231,7 @@ export default function SettingsPage() {
                   {testMail.isPending ? "Sending…" : "Send test"}
                 </Button>
               </div>
-              {testNote ? <p className="text-sm text-success">{testNote}</p> : null}
+              <Notice message={testNote} />
               <ErrorNote message={testError} />
             </div>
           </Card>

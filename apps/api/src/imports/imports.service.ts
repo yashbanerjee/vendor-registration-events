@@ -254,6 +254,7 @@ export class ImportsService {
             title: "Your account is ready",
             text: `Use these details to sign in. Change the temporary password before you open an exhibition form.\n\nPortal: ${portal}\nEmail: ${email}\nTemporary password: ${item.password}`,
             link: "/login",
+            actionUrl: portal,
             idempotencyKey: `credentials:${vendor.id}`,
           },
         });

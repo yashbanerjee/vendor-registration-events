@@ -628,6 +628,7 @@ export class WorkflowService {
         title: input.subject,
         text: `${input.intro}\n\nOpen this secure link: ${link}\nThe link expires in ${invitationHours} hours and can be used once.`,
         link: `/invite/${token}`,
+        actionUrl: link,
         audience: "vendor",
         idempotencyKey,
       },

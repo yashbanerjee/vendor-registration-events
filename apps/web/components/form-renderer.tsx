@@ -1,6 +1,7 @@
 "use client";
 
 import { COUNTRIES, isFieldVisible, type FormField, type FormSchemaDefinition } from "@vmp/shared";
+import { FileLink } from "./file-preview";
 import { isEditable } from "@/lib/locking";
 import { inputClass } from "./ui";
 
@@ -167,10 +168,13 @@ function Control({
     return <input id={id} type="checkbox" disabled={!editable} checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />;
   }
   if (field.type === "file" || field.type === "image" || field.type === "files") {
-    const current = value && typeof value === "object" && "filename" in (value as object) ? String((value as { filename?: string }).filename ?? "Uploaded file") : "";
+    const record = value && typeof value === "object" ? (value as { filename?: string; documentId?: string }) : null;
+    const current = record?.filename ? String(record.filename) : "";
+    const documentId = typeof record?.documentId === "string" ? record.documentId : "";
     return (
       <div className="grid gap-1">
-        {current ? <span className="text-xs text-muted">{current}</span> : null}
+        {current && documentId ? <FileLink documentId={documentId} filename={current} /> : null}
+        {current && !documentId ? <span className="text-xs text-muted">{current}</span> : null}
         <input
           id={id}
           type="file"

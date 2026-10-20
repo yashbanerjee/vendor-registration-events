@@ -7,7 +7,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FormRenderer } from "@/components/form-renderer";
 import { ApiError, api } from "@/lib/api";
-import { Button, ErrorNote, Field, PageHeader, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, Notice, PageHeader, inputClass } from "@/components/ui";
 
 type Template = {
   data: {
@@ -98,7 +98,7 @@ export default function FormBuilderPage() {
         }
       />
       <ErrorNote message={error} />
-      {message ? <p className="mb-3 text-sm text-success">{message}</p> : null}
+      <Notice message={message} />
       <Field label="Form name">
         <input className={`${inputClass} max-w-md`} value={name} onChange={(event) => setName(event.target.value)} />
       </Field>

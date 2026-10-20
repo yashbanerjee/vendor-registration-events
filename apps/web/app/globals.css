@@ -72,6 +72,13 @@ body {
   outline-offset: 2px;
 }
 
+@keyframes flag-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.flag-enter { animation: flag-enter 180ms ease-out; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

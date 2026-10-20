@@ -197,8 +197,7 @@ export class DocumentsService {
     });
     const version = document.versions[0];
     const bytes = await this.storage.get(user.organizationId, version.storageKey);
-    const image = version.mimeType.startsWith("image/") && version.mimeType !== "image/svg+xml";
-    const inline = disposition === "inline" && image;
+    const inline = disposition === "inline" && previewableMime(version.mimeType);
     const filename = version.filename.replace(/["\r\n]/g, "");
     return { bytes, mimeType: version.mimeType, filename, inline };
   }
@@ -243,6 +242,11 @@ export class DocumentsService {
     });
     return { data: { archived: true } };
   }
+}
+
+function previewableMime(mimeType: string) {
+  if (mimeType === "application/pdf") return true;
+  return mimeType.startsWith("image/") && mimeType !== "image/svg+xml";
 }
 
 export const uploadFields = z.object({

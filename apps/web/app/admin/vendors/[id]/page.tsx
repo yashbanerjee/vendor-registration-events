@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
-import { formatDate } from "@/lib/utils";
-import { Badge, Button, ErrorNote, Field, Modal, PageHeader, inputClass, statusTone } from "@/components/ui";
+import { formatDate, formatLabel } from "@/lib/utils";
+import { Button, ErrorNote, Field, Modal, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type Profile = {
   data: {
@@ -24,6 +24,7 @@ type Profile = {
     assignments: { id: string; status: string; exhibition: { id: string; name: string }; formVersion: { id: string; template: { name: string }; versionNumber: number } }[];
     documents: { id: string; status: string; category: string; versions: { filename: string }[] }[];
     audits: { id: string; action: string; createdAt: string; fieldId: string | null }[];
+    emails: { id: string; toAddress: string; template: string; subject: string; status: string; createdAt: string }[];
   };
 };
 
@@ -48,11 +49,6 @@ export default function VendorProfilePage() {
   const publishedForms = (forms.data?.data ?? []).flatMap((item) =>
     item.status === "PUBLISHED" ? (item.versions ?? []).map((version) => ({ id: version.id, label: `${item.name} v${version.versionNumber}` })) : [],
   );
-  const resetMail = useMutation({
-    mutationFn: () => api(`/assignments/${current?.id}/resend`, { method: "POST" }),
-    onSuccess: async () => { setNotice("The invitation email was sent again."); await client.invalidateQueries({ queryKey: ["vendor", params.id] }); },
-    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not resend the email."),
-  });
   const changeForm = useMutation({
     mutationFn: () => current
       ? api(`/assignments/${current.id}/form`, { method: "POST", body: JSON.stringify({ formVersionId: nextFormId }) })
@@ -73,14 +69,13 @@ export default function VendorProfilePage() {
         description={`${vendor.reference} · ${vendor.contactName} · ${vendor.email}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={statusTone(vendor.status)}>{vendor.status}</Badge>
-            <Button size="sm" disabled={!current || resetMail.isPending} onClick={() => { setError(""); resetMail.mutate(); }}>Reset mail</Button>
+            <StatusBadge status={vendor.status} />
             <Button size="sm" onClick={() => { setError(""); setNextFormId(current?.formVersion.id ?? ""); setNextExhibitionId(current?.exhibition.id ?? ""); setChanging(true); }}>Change form</Button>
             <Button size="sm" variant="danger" onClick={() => { setError(""); setRemoving(true); }}>Delete</Button>
           </div>
         }
       />
-      {notice ? <p className="mb-3 rounded-md bg-[var(--badge-success-bg)] px-3 py-2 text-sm text-[var(--badge-success-fg)]">{notice}</p> : null}
+      <Notice message={notice} />
       <ErrorNote message={error} />
       <p className="mb-4 text-sm text-muted">{[vendor.addressLine1, vendor.city, vendor.country, vendor.phone, vendor.category].filter(Boolean).join(" · ")}</p>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -94,7 +89,7 @@ export default function VendorProfilePage() {
                   <tr key={assignment.id}>
                     <td>{assignment.exhibition.name}</td>
                     <td><Link className="underline" href={`/admin/reviews/${assignment.id}`}>{assignment.formVersion.template.name} v{assignment.formVersion.versionNumber}</Link></td>
-                    <td><Badge tone={statusTone(assignment.status)}>{assignment.status}</Badge></td>
+                    <td><StatusBadge status={assignment.status} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -110,7 +105,7 @@ export default function VendorProfilePage() {
                 {vendor.documents.map((document) => (
                   <tr key={document.id}>
                     <td><Link className="underline" href={`/admin/documents/vendors/${vendor.id}`}>{document.versions[0]?.filename ?? document.category}</Link></td>
-                    <td><Badge tone={statusTone(document.status)}>{document.status}</Badge></td>
+                    <td><StatusBadge status={document.status} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -120,13 +115,29 @@ export default function VendorProfilePage() {
       </div>
       <h2 className="mb-2 mt-4 text-sm font-semibold">Audit history</h2>
       <ul className="grid gap-2 text-sm">
-        {vendor.audits.map((audit) => (
-          <li key={audit.id} className="rounded border border-border bg-surface px-3 py-2">
-            <span className="font-medium">{audit.action}</span>
-            {audit.fieldId ? <span className="ml-2 text-muted">field {audit.fieldId.slice(0, 8)}</span> : null}
-            <span className="float-right text-muted">{formatDate(audit.createdAt)}</span>
-          </li>
-        ))}
+        {[
+          ...vendor.audits.map((audit) => ({ kind: "audit" as const, ...audit })),
+          ...(vendor.emails ?? []).map((email) => ({ kind: "email" as const, ...email })),
+        ]
+          .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+          .map((entry) => (
+            <li key={`${entry.kind}-${entry.id}`} className="rounded border border-border bg-surface px-3 py-2">
+              {entry.kind === "email" ? (
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  <span className="font-medium">Email {formatLabel(entry.template).toLowerCase()}</span>
+                  <StatusBadge status={entry.status} />
+                  <span className="text-muted">{entry.toAddress}</span>
+                  {entry.subject ? <span className="text-muted">{entry.subject}</span> : null}
+                </span>
+              ) : (
+                <>
+                  <span className="font-medium">{formatLabel(entry.action)}</span>
+                  {entry.fieldId ? <span className="ml-2 text-muted">field {entry.fieldId.slice(0, 8)}</span> : null}
+                </>
+              )}
+              <span className="float-right text-muted">{formatDate(entry.createdAt)}</span>
+            </li>
+          ))}
       </ul>
       <Modal open={changing} title="Change form" onClose={() => setChanging(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); setError(""); changeForm.mutate(); }}>

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { api } from "@/lib/api";
+import { formatLabel } from "@/lib/utils";
 import { Button, Field, Modal, PageHeader, inputClass } from "@/components/ui";
 
 type FormRow = { id: string; name: string; scope: string; status: string; description: string; versions: { versionNumber: number }[] };
@@ -27,8 +28,8 @@ export default function FormsPage() {
             {(query.data?.data ?? []).map((form) => (
               <tr key={form.id}>
                 <td><Link className="font-medium underline" href={`/admin/forms/${form.id}`}>{form.name}</Link></td>
-                <td>{form.scope}</td>
-                <td>{form.status}</td>
+                <td>{formatLabel(form.scope)}</td>
+                <td>{formatLabel(form.status)}</td>
                 <td>{form.versions[0]?.versionNumber ?? "Draft"}</td>
               </tr>
             ))}

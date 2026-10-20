@@ -9,14 +9,13 @@ import { api } from "@/lib/api";
 import { applyTheme, readTheme, type ThemeChoice } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useSession } from "./providers";
-import { Button } from "./ui";
+import { Button, Modal } from "./ui";
 
 export type NavItem = { href: string; label: string; icon: React.ReactNode };
 
 export function AppShell({ items, home }: { items: NavItem[]; home: string }) {
   const pathname = usePathname();
   const router = useRouter();
-  const client = useQueryClient();
   const { session } = useSession();
   const [collapsed, setCollapsed] = useState(false);
   const [query, setQuery] = useState("");
@@ -42,12 +41,6 @@ export function AppShell({ items, home }: { items: NavItem[]; home: string }) {
       localStorage.setItem("sidebar", current ? "open" : "collapsed");
       return !current;
     });
-  }
-
-  async function signOut() {
-    await api("/auth/logout", { method: "POST" });
-    await client.invalidateQueries({ queryKey: ["me"] });
-    router.push("/login");
   }
 
   const crumbs = pathname.split("/").filter(Boolean);
@@ -119,9 +112,7 @@ export function AppShell({ items, home }: { items: NavItem[]; home: string }) {
             <UserRound size={16} />
             <span>{session?.name}</span>
           </div>
-          <Button size="sm" variant="ghost" onClick={() => void signOut()} aria-label="Sign out">
-            <LogOut size={16} />
-          </Button>
+          <SignOutButton />
         </header>
         <div className="px-4 py-2 text-xs text-muted">
           {crumbs.map((crumb, index) => (
@@ -134,6 +125,42 @@ export function AppShell({ items, home }: { items: NavItem[]; home: string }) {
         <main className="px-4 pb-10">{pathname ? null : null}</main>
       </div>
     </div>
+  );
+}
+
+function SignOutButton() {
+  const router = useRouter();
+  const client = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  async function signOut() {
+    setPending(true);
+    try {
+      await api("/auth/logout", { method: "POST" });
+    } catch {
+      // The server session may already be gone. Still leave this browser.
+    }
+    await client.cancelQueries({ queryKey: ["me"] });
+    client.setQueryData(["me"], null);
+    router.replace("/login");
+  }
+
+  return (
+    <>
+      <Button type="button" size="sm" variant="ghost" aria-label="Sign out" onClick={() => setOpen(true)}>
+        <LogOut size={16} />
+      </Button>
+      <Modal open={open} title="Sign out" onClose={() => { if (!pending) setOpen(false); }}>
+        <p className="text-sm text-muted">Sign out of this account on this browser?</p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button type="button" disabled={pending} onClick={() => setOpen(false)}>Cancel</Button>
+          <Button type="button" variant="primary" disabled={pending} onClick={() => void signOut()}>
+            {pending ? "Signing out…" : "Sign out"}
+          </Button>
+        </div>
+      </Modal>
+    </>
   );
 }
 
@@ -207,7 +234,6 @@ function ShellNav({ items, home }: { items: NavItem[]; home: string }) {
 function ShellMain({ children, home }: { children: React.ReactNode; home: string }) {
   const pathname = usePathname();
   const router = useRouter();
-  const client = useQueryClient();
   const { session } = useSession();
   const [query, setQuery] = useState("");
   const [openSearch, setOpenSearch] = useState(false);
@@ -257,9 +283,7 @@ function ShellMain({ children, home }: { children: React.ReactNode; home: string
           ) : null}
         </div>
         <span className="hidden text-sm sm:inline">{session?.name}</span>
-        <Button size="sm" variant="ghost" aria-label="Sign out" onClick={async () => { await api("/auth/logout", { method: "POST" }); await client.invalidateQueries({ queryKey: ["me"] }); router.push("/login"); }}>
-          <LogOut size={16} />
-        </Button>
+        <SignOutButton />
       </header>
       <div className="px-4 pt-3 text-xs text-muted" aria-label="Breadcrumb">
         <Link href={home}>Home</Link>

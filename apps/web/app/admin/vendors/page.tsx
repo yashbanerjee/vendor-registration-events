@@ -5,7 +5,7 @@ import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { ApiError, api, download } from "@/lib/api";
-import { Badge, Button, ErrorNote, Field, Modal, PageHeader, inputClass, statusTone } from "@/components/ui";
+import { Button, ErrorNote, Field, Modal, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type Assignment = {
   id: string;
@@ -38,10 +38,9 @@ function formLabel(vendor: Vendor) {
   return `${assignment.formVersion.template.name} v${assignment.formVersion.versionNumber}`;
 }
 
-function VendorActions({ vendor, resetting, onReset, onChange, onDelete }: { vendor: Vendor; resetting: boolean; onReset: (vendor: Vendor) => void; onChange: (vendor: Vendor) => void; onDelete: (vendor: Vendor) => void }) {
+function VendorActions({ vendor, onChange, onDelete }: { vendor: Vendor; onChange: (vendor: Vendor) => void; onDelete: (vendor: Vendor) => void }) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [menu, setMenu] = useState<{ top: number; left: number } | null>(null);
-  const assignment = vendor.assignments[0];
 
   function toggle() {
     const node = anchorRef.current;
@@ -51,7 +50,7 @@ function VendorActions({ vendor, resetting, onReset, onChange, onDelete }: { ven
     }
     const rect = node.getBoundingClientRect();
     const width = 176;
-    const height = 132;
+    const height = 88;
     const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
     const top = rect.bottom + 4 + height > window.innerHeight ? Math.max(8, rect.top - height - 4) : rect.bottom + 4;
     setMenu({ top, left });
@@ -62,7 +61,6 @@ function VendorActions({ vendor, resetting, onReset, onChange, onDelete }: { ven
       <Button size="sm" aria-expanded={Boolean(menu)} aria-haspopup="menu" onClick={toggle}>Actions</Button>
       {menu ? (
         <div role="menu" className="fixed z-50 w-44 rounded-md border border-border bg-surface p-1 shadow-panel" style={{ top: menu.top, left: menu.left }}>
-          <button type="button" role="menuitem" className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-secondary disabled:opacity-50" disabled={!assignment || resetting} onClick={() => { setMenu(null); onReset(vendor); }}>Reset mail</button>
           <button type="button" role="menuitem" className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-secondary" onClick={() => { setMenu(null); onChange(vendor); }}>Change form</button>
           <button type="button" role="menuitem" className="block w-full rounded px-2 py-1.5 text-left text-sm text-danger hover:bg-secondary" onClick={() => { setMenu(null); onDelete(vendor); }}>Delete</button>
         </div>
@@ -115,11 +113,6 @@ export default function VendorsPage() {
       await refresh();
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not create the vendor."),
-  });
-  const resetMail = useMutation({
-    mutationFn: (assignmentId: string) => api(`/assignments/${assignmentId}/resend`, { method: "POST" }),
-    onSuccess: () => setNotice("The invitation email was sent again."),
-    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not resend the email."),
   });
   const changeForm = useMutation({
     mutationFn: () => {
@@ -185,15 +178,13 @@ export default function VendorsPage() {
     }),
     helper.accessor("email", { header: "Email", cell: (info) => <span className="block max-w-[220px] truncate" title={info.getValue()}>{info.getValue()}</span> }),
     helper.display({ id: "form", header: "Form", cell: (info) => formLabel(info.row.original) }),
-    helper.accessor("status", { header: "Status", cell: (info) => <Badge tone={statusTone(info.getValue())}>{info.getValue()}</Badge> }),
+    helper.accessor("status", { header: "Status", cell: (info) => <StatusBadge status={info.getValue()} /> }),
     helper.display({
       id: "actions",
       header: "",
       cell: (info) => (
         <VendorActions
           vendor={info.row.original}
-          resetting={resetMail.isPending}
-          onReset={(vendor) => { setError(""); const assignment = vendor.assignments[0]; if (assignment) resetMail.mutate(assignment.id); }}
           onChange={(vendor) => { setError(""); const assignment = vendor.assignments[0]; setNextFormId(assignment?.formVersion.id ?? ""); setNextExhibitionId(assignment?.exhibitionId ?? ""); setChanging(vendor); }}
           onDelete={(vendor) => { setError(""); setRemoving(vendor); }}
         />
@@ -205,7 +196,7 @@ export default function VendorsPage() {
     <div>
       <PageHeader
         title="Vendors"
-        description="Directory of exhibiting companies. Each vendor can be invited, re-sent their link, or moved to another form."
+        description="Directory of exhibiting companies. Each vendor can be invited or moved to another form."
         actions={
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => void download("/imports/template", "vendor-demo.csv").catch(() => setError("Could not download the demo CSV."))}>Demo CSV</Button>
@@ -215,7 +206,7 @@ export default function VendorsPage() {
           </div>
         }
       />
-      {notice ? <p className="mb-3 rounded-md bg-[var(--badge-success-bg)] px-3 py-2 text-sm text-[var(--badge-success-fg)]">{notice}</p> : null}
+      <Notice message={notice} />
       <ErrorNote message={error} />
       <input className={`${inputClass} mb-3 mt-3 max-w-sm`} placeholder="Search company, email, or reference" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Filter vendors" />
       <div className="table-wrap">

@@ -3,7 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { Badge, PageHeader, statusTone } from "@/components/ui";
+import { formatLabel } from "@/lib/utils";
+import { FileLink } from "@/components/file-preview";
+import { PageHeader, StatusBadge } from "@/components/ui";
 
 type Archive = {
   data: {
@@ -34,10 +36,10 @@ export default function VendorArchivePage() {
               <tbody>
                 {documents.map((document) => (
                   <tr key={document.id}>
-                    <td><a className="underline" href={`/api/v1/documents/${document.id}/content`}>{document.versions[0]?.filename}</a></td>
-                    <td>{document.assignment?.formVersion.template.name ?? document.category}</td>
+                    <td>{document.versions[0]?.filename ? <FileLink documentId={document.id} filename={document.versions[0].filename} /> : document.category}</td>
+                    <td>{document.assignment?.formVersion.template.name ?? formatLabel(document.category)}</td>
                     <td>{document.versions.length}</td>
-                    <td><Badge tone={statusTone(document.status)}>{document.status}</Badge></td>
+                    <td><StatusBadge status={document.status} /></td>
                   </tr>
                 ))}
               </tbody>

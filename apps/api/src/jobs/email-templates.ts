@@ -24,6 +24,33 @@ export function absoluteUrl(link: string, origin: string) {
   return `${base}${link.startsWith("/") ? link : `/${link}`}`;
 }
 
+export function publicActionUrl(input: { link: string; text?: string; origin: string }) {
+  const resolved = absoluteUrl(input.link, input.origin);
+  if (!resolved || !isLoopback(resolved)) return resolved;
+  const path = input.link.startsWith("/") ? input.link : "";
+  if (!path) return resolved;
+  const embedded = input.text?.match(/https:\/\/[^\s<>"']+/g) ?? [];
+  const match = embedded
+    .map((url) => url.replace(/[).,]+$/, ""))
+    .find((url) => {
+      try {
+        return new URL(url).pathname === path;
+      } catch {
+        return false;
+      }
+    });
+  return match ?? resolved;
+}
+
+function isLoopback(url: string) {
+  try {
+    const host = new URL(url).hostname;
+    return host === "localhost" || host === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
 export function renderEmail(input: {
   template: string;
   audience: EmailAudience;

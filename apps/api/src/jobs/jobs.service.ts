@@ -8,7 +8,7 @@ import { AuditService } from "../audit/audit.service";
 import { scanBuffer } from "../documents/scan";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
-import { absoluteUrl, renderEmail, type EmailAudience } from "./email-templates";
+import { publicActionUrl, renderEmail, type EmailAudience } from "./email-templates";
 import { StorageService } from "../storage/storage.service";
 
 export type OutboxPayload = Record<string, unknown>;
@@ -227,7 +227,11 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
       tx.organization.findUnique({ where: { id: organizationId }, select: { name: true, settings: true } }),
     );
     const mail = effectiveSettings(parseStored(organization?.settings));
-    const actionUrl = absoluteUrl(String(payload.link ?? ""), env().WEB_ORIGIN);
+    const actionUrl = publicActionUrl({
+      link: String(payload.actionUrl ?? payload.link ?? ""),
+      text: text,
+      origin: env().WEB_ORIGIN,
+    });
     const audience: EmailAudience = payload.audience === "admin" ? "admin" : "vendor";
     const rendered = renderEmail({
       template,

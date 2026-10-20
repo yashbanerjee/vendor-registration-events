@@ -1,12 +1,12 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FormValidationError, validateSubmission, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { FormRenderer } from "@/components/form-renderer";
 import { ApiError, api } from "@/lib/api";
-import { Badge, Button, ErrorNote, PageHeader, statusTone } from "@/components/ui";
+import { Button, ErrorNote, Notice, PageHeader, StatusBadge } from "@/components/ui";
 
 type Assignment = {
   data: {
@@ -23,6 +23,7 @@ type Assignment = {
 
 export default function VendorAssignmentPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const client = useQueryClient();
   const query = useQuery({ queryKey: ["assignment", params.id], queryFn: () => api<Assignment>(`/assignments/${params.id}`) });
   const [values, setValues] = useState<Record<string, unknown>>({});
@@ -59,10 +60,14 @@ export default function VendorAssignmentPage() {
         body: JSON.stringify({ lockVersion: assignment?.lockVersion, values }),
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, mode) => {
       setError("");
       setFieldErrors([]);
-      setMessage("Saved.");
+      if (mode === "submit") {
+        router.push("/vendor?submitted=1");
+        return;
+      }
+      setMessage("Draft saved.");
       await client.invalidateQueries({ queryKey: ["assignment", params.id] });
     },
     onError: (caught) => {
@@ -87,9 +92,9 @@ export default function VendorAssignmentPage() {
   const editable = assignment.status === "INVITED" || assignment.status === "IN_PROGRESS" || assignment.status === "CORRECTION_REQUESTED";
   return (
     <div>
-      <PageHeader title={assignment.form.name} description={assignment.exhibition.name} actions={<Badge tone={statusTone(assignment.status)}>{assignment.status}</Badge>} />
+      <PageHeader title={assignment.form.name} description={assignment.exhibition.name} actions={<StatusBadge status={assignment.status} />} />
       <ErrorNote message={error} />
-      {message ? <p className="mb-3 text-sm text-success">{message}</p> : null}
+      <Notice message={message} />
       {assignment.status === "SUBMITTED_PENDING_REVIEW" || assignment.status === "RESUBMITTED_PENDING_REVIEW" ? (
         <p className="mb-3 text-sm">This submission is pending review. Approved answers stay locked.</p>
       ) : null}

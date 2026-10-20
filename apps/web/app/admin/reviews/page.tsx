@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
-import { Badge, Button, ErrorNote, Field, Modal, PageHeader, inputClass, statusTone } from "@/components/ui";
+import { Button, ErrorNote, Field, Modal, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type QueueItem = { id: string; status: string; vendor: { companyName: string }; exhibition: { name: string }; form: { name: string }; submittedAt: string | null };
 type Option = { id: string; name?: string; companyName?: string; code?: string; versions?: { id: string; versionNumber: number }[] };
@@ -35,7 +35,7 @@ export default function ReviewsPage() {
                 <td><Link className="font-medium underline" href={`/admin/reviews/${row.id}`}>{row.vendor.companyName}</Link></td>
                 <td>{row.exhibition.name}</td>
                 <td>{row.form.name}</td>
-                <td><Badge tone={statusTone(row.status)}>{row.status}</Badge></td>
+                <td><StatusBadge status={row.status} /></td>
               </tr>
             ))}
           </tbody>

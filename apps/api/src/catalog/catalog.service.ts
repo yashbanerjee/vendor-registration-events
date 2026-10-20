@@ -123,12 +123,20 @@ export class CatalogService {
       }),
     );
     if (!vendor) throw new NotFoundException();
-    const audits = user.vendorId
-      ? []
-      : await this.tenant.transaction(user.organizationId, (tx) =>
-          tx.auditLog.findMany({ where: { organizationId: user.organizationId, vendorId: id }, orderBy: { createdAt: "desc" }, take: 50 }),
-        );
-    return { data: { ...vendor, audits } };
+    const addresses = [vendor.email, ...vendor.additionalEmails].map((email) => email.toLowerCase());
+    const [audits, emails] = user.vendorId
+      ? [[], []]
+      : await this.tenant.transaction(user.organizationId, async (tx) => {
+          const history = await tx.auditLog.findMany({ where: { organizationId: user.organizationId, vendorId: id }, orderBy: { createdAt: "desc" }, take: 50 });
+          const messages = await tx.emailMessage.findMany({
+            where: { organizationId: user.organizationId, toAddress: { in: addresses, mode: "insensitive" } },
+            orderBy: { createdAt: "desc" },
+            take: 50,
+            select: { id: true, toAddress: true, template: true, subject: true, status: true, createdAt: true },
+          });
+          return [history, messages] as const;
+        });
+    return { data: { ...vendor, audits, emails } };
   }
 
   async createVendor(user: AuthContext, body: unknown) {

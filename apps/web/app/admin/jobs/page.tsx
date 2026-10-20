@@ -2,8 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { formatDate } from "@/lib/utils";
-import { Badge, Button, PageHeader, statusTone } from "@/components/ui";
+import { formatDate, formatLabel } from "@/lib/utils";
+import { Button, PageHeader, StatusBadge } from "@/components/ui";
 
 type Jobs = { data: { outbox: { id: string; type: string; status: string; attempts: number; lastError: string; createdAt: string }[]; emails: { id: string; toAddress: string; template: string; status: string; lastError: string; createdAt: string }[] } };
 
@@ -24,8 +24,8 @@ export default function JobsPage() {
           <tbody>
             {(query.data?.data.outbox ?? []).map((row) => (
               <tr key={row.id}>
-                <td>{row.type}</td>
-                <td><Badge tone={statusTone(row.status)}>{row.status}</Badge></td>
+                <td>{formatLabel(row.type)}</td>
+                <td><StatusBadge status={row.status} /></td>
                 <td>{row.attempts}</td>
                 <td>{row.lastError}</td>
                 <td>{row.status === "FAILED" ? <Button size="sm" onClick={() => retry.mutate(row.id)}>Retry</Button> : formatDate(row.createdAt)}</td>
@@ -40,7 +40,7 @@ export default function JobsPage() {
           <thead><tr><th>To</th><th>Template</th><th>Status</th><th>When</th></tr></thead>
           <tbody>
             {(query.data?.data.emails ?? []).map((row) => (
-              <tr key={row.id}><td>{row.toAddress}</td><td>{row.template}</td><td><Badge tone={statusTone(row.status)}>{row.status}</Badge></td><td>{formatDate(row.createdAt)}</td></tr>
+              <tr key={row.id}><td>{row.toAddress}</td><td>{formatLabel(row.template)}</td><td><StatusBadge status={row.status} /></td><td>{formatDate(row.createdAt)}</td></tr>
             ))}
           </tbody>
         </table>

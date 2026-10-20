@@ -43,6 +43,11 @@ export class DocumentsController {
     return this.documents.archiveTree(user, vendorId);
   }
 
+  @Get(":id/content/:filename")
+  namedContent(@Req() request: AuthedRequest, @Param("id") id: string, @Query("disposition") disposition: string, @Res({ passthrough: true }) response: Response) {
+    return this.content(request, id, disposition, response);
+  }
+
   @Get(":id/content")
   async content(@Req() request: AuthedRequest, @Param("id") id: string, @Query("disposition") disposition: string, @Res({ passthrough: true }) response: Response) {
     const user = request.user!;

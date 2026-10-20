@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { createContext, useContext, useMemo, useState } from "react";
+import { FlagProvider } from "@/components/flags";
 import { api } from "@/lib/api";
 
 type Session = {
@@ -28,7 +29,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } }));
   return (
     <QueryClientProvider client={client}>
-      <SessionBoundary>{children}</SessionBoundary>
+      <FlagProvider>
+        <SessionBoundary>{children}</SessionBoundary>
+      </FlagProvider>
     </QueryClientProvider>
   );
 }
