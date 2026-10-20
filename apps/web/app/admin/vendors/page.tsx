@@ -27,7 +27,7 @@ type Vendor = {
 
 type FormOption = { id: string; name: string; status: string; versions?: { id: string; versionNumber: number }[] };
 type ExhibitionOption = { id: string; name: string };
-type ImportResult = { id: string; filename: string; createdCount: number; skippedCount: number; errorCount: number };
+type ImportResult = { id: string; filename: string; createdCount: number; skippedCount: number; errorCount: number; createdVendorIds: string[] };
 
 const emptyVendor = { companyName: "", contactName: "", email: "", category: "", phone: "", exhibitionId: "", formVersionId: "" };
 const helper = createColumnHelper<Vendor>();
@@ -39,19 +39,35 @@ function formLabel(vendor: Vendor) {
 }
 
 function VendorActions({ vendor, resetting, onReset, onChange, onDelete }: { vendor: Vendor; resetting: boolean; onReset: (vendor: Vendor) => void; onChange: (vendor: Vendor) => void; onDelete: (vendor: Vendor) => void }) {
-  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [menu, setMenu] = useState<{ top: number; left: number } | null>(null);
   const assignment = vendor.assignments[0];
+
+  function toggle() {
+    const node = anchorRef.current;
+    if (!node || menu) {
+      setMenu(null);
+      return;
+    }
+    const rect = node.getBoundingClientRect();
+    const width = 176;
+    const height = 132;
+    const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
+    const top = rect.bottom + 4 + height > window.innerHeight ? Math.max(8, rect.top - height - 4) : rect.bottom + 4;
+    setMenu({ top, left });
+  }
+
   return (
-    <div className="relative">
-      <Button size="sm" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((value) => !value)}>Actions</Button>
-      {open ? (
-        <div role="menu" className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-border bg-surface p-1 shadow-panel">
-          <button type="button" role="menuitem" className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-secondary disabled:opacity-50" disabled={!assignment || resetting} onClick={() => { setOpen(false); onReset(vendor); }}>Reset mail</button>
-          <button type="button" role="menuitem" className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-secondary" onClick={() => { setOpen(false); onChange(vendor); }}>Change form</button>
-          <button type="button" role="menuitem" className="block w-full rounded px-2 py-1.5 text-left text-sm text-danger hover:bg-secondary" onClick={() => { setOpen(false); onDelete(vendor); }}>Delete</button>
+    <span ref={anchorRef} className="inline-flex">
+      <Button size="sm" aria-expanded={Boolean(menu)} aria-haspopup="menu" onClick={toggle}>Actions</Button>
+      {menu ? (
+        <div role="menu" className="fixed z-50 w-44 rounded-md border border-border bg-surface p-1 shadow-panel" style={{ top: menu.top, left: menu.left }}>
+          <button type="button" role="menuitem" className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-secondary disabled:opacity-50" disabled={!assignment || resetting} onClick={() => { setMenu(null); onReset(vendor); }}>Reset mail</button>
+          <button type="button" role="menuitem" className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-secondary" onClick={() => { setMenu(null); onChange(vendor); }}>Change form</button>
+          <button type="button" role="menuitem" className="block w-full rounded px-2 py-1.5 text-left text-sm text-danger hover:bg-secondary" onClick={() => { setMenu(null); onDelete(vendor); }}>Delete</button>
         </div>
       ) : null}
-    </div>
+    </span>
   );
 }
 
@@ -68,11 +84,13 @@ export default function VendorsPage() {
   const [nextExhibitionId, setNextExhibitionId] = useState("");
   const [removing, setRemoving] = useState<Vendor | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [bulkFormId, setBulkFormId] = useState("");
+  const [bulkExhibitionId, setBulkExhibitionId] = useState("");
   const query = useQuery({
     queryKey: ["vendors", q],
     queryFn: () => api<{ data: Vendor[] }>(`/vendors?q=${encodeURIComponent(q)}`),
   });
-  const pickerOpen = open || Boolean(changing);
+  const pickerOpen = open || Boolean(changing) || Boolean(importResult);
   const exhibitions = useQuery({
     queryKey: ["exhibitions"],
     queryFn: () => api<{ data: ExhibitionOption[] }>("/exhibitions"),
@@ -133,11 +151,23 @@ export default function VendorsPage() {
       return api<{ data: ImportResult }>("/imports", { method: "POST", body });
     },
     onSuccess: async (result) => {
+      setBulkFormId("");
+      setBulkExhibitionId("");
       setImportResult(result.data);
       setError("");
       await refresh();
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Import failed."),
+  });
+  const sendImported = useMutation({
+    mutationFn: () => api("/assignments/bulk", { method: "POST", body: JSON.stringify({ vendorIds: importResult?.createdVendorIds ?? [], exhibitionId: bulkExhibitionId, formVersionId: bulkFormId }) }),
+    onSuccess: async () => {
+      const count = importResult?.createdVendorIds.length ?? 0;
+      setImportResult(null);
+      setNotice(`The form was emailed to ${count} imported vendor${count === 1 ? "" : "s"}.`);
+      await refresh();
+    },
+    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not send the form."),
   });
   const columns = [
     helper.accessor("companyName", {
@@ -178,7 +208,7 @@ export default function VendorsPage() {
         description="Directory of exhibiting companies. Each vendor can be invited, re-sent their link, or moved to another form."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void download("/imports/template", "vendor-import-template.csv").catch(() => setError("Could not download the template."))}>Template</Button>
+            <Button onClick={() => void download("/imports/template", "vendor-demo.csv").catch(() => setError("Could not download the demo CSV."))}>Demo CSV</Button>
             <Button disabled={upload.isPending} onClick={() => fileRef.current?.click()}>{upload.isPending ? "Uploading…" : "Bulk upload"}</Button>
             <Button variant="primary" onClick={() => { setError(""); setOpen(true); }}>Add vendor</Button>
             <input ref={fileRef} className="hidden" type="file" accept=".csv,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) upload.mutate(file); }} />
@@ -258,13 +288,31 @@ export default function VendorsPage() {
           </div>
         </form>
       </Modal>
-      <Modal open={Boolean(importResult)} title="Bulk upload finished" onClose={() => setImportResult(null)}>
+      <Modal open={Boolean(importResult)} title="Send a form to the upload" onClose={() => setImportResult(null)}>
         {importResult ? (
-          <div className="grid gap-3 text-sm">
-            <p>{importResult.filename}: {importResult.createdCount} created, {importResult.skippedCount} skipped, {importResult.errorCount} errors.</p>
-            <p className="text-muted">New contacts receive a portal login email with a temporary password.</p>
-            {importResult.errorCount > 0 ? <Button onClick={() => void download(`/imports/${importResult.id}/errors.csv`, "import-errors.csv")}>Download error report</Button> : null}
-          </div>
+          <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); setError(""); sendImported.mutate(); }}>
+            <ErrorNote message={error} />
+            <p className="text-sm">{importResult.filename}: {importResult.createdCount} created, {importResult.skippedCount} skipped, {importResult.errorCount} errors.</p>
+            {importResult.createdVendorIds.length > 0 ? (
+              <>
+                <p className="text-sm text-muted">Choose the form to email to everyone created in this file. Each vendor receives a one-time link.</p>
+                <Field label="Exhibition">
+                  <select className={inputClass} required value={bulkExhibitionId} onChange={(event) => setBulkExhibitionId(event.target.value)}>
+                    <option value="">Select</option>
+                    {(exhibitions.data?.data ?? []).map((exhibition) => <option key={exhibition.id} value={exhibition.id}>{exhibition.name}</option>)}
+                  </select>
+                </Field>
+                <Field label="Form">
+                  <select className={inputClass} required value={bulkFormId} onChange={(event) => setBulkFormId(event.target.value)}>
+                    <option value="">Select</option>
+                    {publishedForms.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                  </select>
+                </Field>
+                <Button type="submit" variant="primary" disabled={sendImported.isPending || !bulkFormId || !bulkExhibitionId}>Send form</Button>
+              </>
+            ) : <p className="text-sm text-muted">No new vendors were created, so there is nobody to email.</p>}
+            {importResult.errorCount > 0 ? <Button type="button" onClick={() => void download(`/imports/${importResult.id}/errors.csv`, "import-errors.csv")}>Download error report</Button> : null}
+          </form>
         ) : null}
       </Modal>
     </div>

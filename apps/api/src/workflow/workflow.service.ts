@@ -95,6 +95,25 @@ export class WorkflowService {
     return this.get(user, data);
   }
 
+  async assignMany(user: AuthContext, body: unknown) {
+    const input = z.object({
+      vendorIds: z.array(z.string().uuid()).min(1).max(500),
+      exhibitionId: z.string().uuid(),
+      formVersionId: z.string().uuid(),
+    }).parse(body);
+    const assigned = await this.tenant.transaction(user.organizationId, async (tx) => {
+      for (const vendorId of input.vendorIds) {
+        await this.createAssignment(tx, user, {
+          vendorId,
+          exhibitionId: input.exhibitionId,
+          formVersionId: input.formVersionId,
+        });
+      }
+      return input.vendorIds.length;
+    });
+    return { data: { assigned } };
+  }
+
   async createAssignment(tx: Tx, user: AuthContext, input: z.infer<typeof assignSchema>) {
     const [vendor, exhibition, version] = await Promise.all([
       tx.vendor.findFirst({

@@ -16,7 +16,7 @@ export class ImportsController {
   @RequirePermissions(PERMISSIONS.vendorsImport)
   template(@Res() response: Response) {
     response.setHeader("Content-Type", "text/csv; charset=utf-8");
-    response.setHeader("Content-Disposition", "attachment; filename=\"vendor-import-template.csv\"");
+    response.setHeader("Content-Disposition", "attachment; filename=\"vendor-demo.csv\"");
     response.send(this.imports.template());
   }
 

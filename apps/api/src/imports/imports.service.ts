@@ -58,22 +58,39 @@ export class ImportsService {
   ) {}
 
   template() {
-    const sample = {
-      reference: "VND-1001",
-      companyName: "Northwind Displays",
-      contactName: "Amina Shah",
-      email: "amina@northwind.example",
-      additionalEmails: "ops@northwind.example",
-      phone: "+1-202-555-0101",
-      addressLine1: "18 Market Street",
-      addressLine2: "",
-      city: "Boston",
-      region: "MA",
-      postalCode: "02110",
-      country: "US",
-      category: "Booth builder",
-    };
-    return toCsv([sample], [...VENDOR_IMPORT_COLUMNS]);
+    const samples = [
+      {
+        reference: "VND-1001",
+        companyName: "Northwind Displays",
+        contactName: "Amina Shah",
+        email: "amina@northwind.example",
+        additionalEmails: "ops@northwind.example",
+        phone: "+1-202-555-0101",
+        addressLine1: "18 Market Street",
+        addressLine2: "",
+        city: "Boston",
+        region: "MA",
+        postalCode: "02110",
+        country: "US",
+        category: "Booth builder",
+      },
+      {
+        reference: "VND-1002",
+        companyName: "Harbor Lighting",
+        contactName: "Jonah Hale",
+        email: "jonah@harbor-lighting.example",
+        additionalEmails: "",
+        phone: "+1-202-555-0144",
+        addressLine1: "4 Pier Avenue",
+        addressLine2: "Suite 2",
+        city: "Boston",
+        region: "MA",
+        postalCode: "02110",
+        country: "US",
+        category: "Lighting",
+      },
+    ];
+    return toCsv(samples, [...VENDOR_IMPORT_COLUMNS]);
   }
 
   async create(user: AuthContext, file?: { buffer?: Buffer; path?: string; originalname: string; size: number }) {
@@ -123,6 +140,7 @@ export class ImportsService {
       let createdCount = 0;
       let skippedCount = 0;
       let errorCount = 0;
+      const createdVendorIds: string[] = [];
       for (const [index, item] of prepared.entries()) {
         const row = item.row;
         const rowNumber = index + 2;
@@ -240,6 +258,7 @@ export class ImportsService {
           },
         });
         createdCount += 1;
+        createdVendorIds.push(vendor.id);
         await tx.importJobRow.create({
           data: {
             organizationId: user.organizationId,
@@ -264,7 +283,7 @@ export class ImportsService {
         resourceId: created.id,
         newValue: { createdCount, skippedCount, errorCount },
       });
-      return finished;
+      return { ...finished, createdVendorIds };
     });
     if (file.path) await rm(file.path, { force: true });
     return { data: job };

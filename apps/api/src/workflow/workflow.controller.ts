@@ -32,6 +32,12 @@ export class WorkflowController {
     return this.workflow.assign(request.user!, body);
   }
 
+  @Post("assignments/bulk")
+  @RequirePermissions(PERMISSIONS.assignmentsWrite)
+  assignMany(@Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.workflow.assignMany(request.user!, body);
+  }
+
   @Post("assignments/:id/resend")
   @RequirePermissions(PERMISSIONS.assignmentsWrite)
   resend(@Req() request: AuthedRequest, @Param("id") id: string) {
