@@ -38,6 +38,12 @@ export class WorkflowController {
     return this.workflow.resend(request.user!, id);
   }
 
+  @Post("assignments/:id/form")
+  @RequirePermissions(PERMISSIONS.assignmentsWrite)
+  replaceForm(@Req() request: AuthedRequest, @Param("id") id: string, @Body() body: unknown) {
+    return this.workflow.replaceForm(request.user!, id, body);
+  }
+
   @Post("assignments/:id/revoke")
   @RequirePermissions(PERMISSIONS.assignmentsWrite)
   revoke(@Req() request: AuthedRequest, @Param("id") id: string) {

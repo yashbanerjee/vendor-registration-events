@@ -91,56 +91,58 @@ export class WorkflowService {
 
   async assign(user: AuthContext, body: unknown) {
     const input = assignSchema.parse(body);
-    const data = await this.tenant.transaction(user.organizationId, async (tx) => {
-      const [vendor, exhibition, version] = await Promise.all([
-        tx.vendor.findFirst({
-          where: { id: input.vendorId, organizationId: user.organizationId, archivedAt: null },
-          include: { users: { select: { id: true } } },
-        }),
-        tx.exhibition.findFirst({ where: { id: input.exhibitionId, organizationId: user.organizationId } }),
-        tx.formVersion.findFirst({
-          where: { id: input.formVersionId, organizationId: user.organizationId },
-          include: { template: true },
-        }),
-      ]);
-      if (!vendor || !exhibition || !version) throw new NotFoundException("Vendor, exhibition, or form version was not found.");
-      if (version.template.archivedAt) throw new ConflictException("This form is archived.");
-      const assignment = await tx.formAssignment.create({
-        data: {
-          organizationId: user.organizationId,
-          vendorId: vendor.id,
-          exhibitionId: exhibition.id,
-          formVersionId: version.id,
-          deadline: input.deadline ? new Date(input.deadline) : null,
-          createdById: user.id,
-          status: "INVITED",
-        },
-      });
-      await tx.vendorExhibition.upsert({
-        where: { vendorId_exhibitionId: { vendorId: vendor.id, exhibitionId: exhibition.id } },
-        update: {},
-        create: { organizationId: user.organizationId, vendorId: vendor.id, exhibitionId: exhibition.id },
-      });
-      await this.issueInvitation(tx, user, {
-        vendor,
-        assignmentId: assignment.id,
-        purpose: "FORM_ASSIGNMENT",
-        subject: `Complete ${version.template.name} for ${exhibition.name}`,
-        intro: `${user.name} assigned ${version.template.name} for ${exhibition.name}.`,
-      });
-      await this.audit.record(tx, {
-        organizationId: user.organizationId,
-        actorId: user.id,
-        actorRole: user.roles.join(","),
-        action: "assignment.created",
-        resourceType: "assignment",
-        resourceId: assignment.id,
-        vendorId: vendor.id,
-        newValue: { formVersionId: version.id, exhibitionId: exhibition.id },
-      });
-      return assignment.id;
-    });
+    const data = await this.tenant.transaction(user.organizationId, (tx) => this.createAssignment(tx, user, input));
     return this.get(user, data);
+  }
+
+  async createAssignment(tx: Tx, user: AuthContext, input: z.infer<typeof assignSchema>) {
+    const [vendor, exhibition, version] = await Promise.all([
+      tx.vendor.findFirst({
+        where: { id: input.vendorId, organizationId: user.organizationId, archivedAt: null },
+        include: { users: { select: { id: true } } },
+      }),
+      tx.exhibition.findFirst({ where: { id: input.exhibitionId, organizationId: user.organizationId } }),
+      tx.formVersion.findFirst({
+        where: { id: input.formVersionId, organizationId: user.organizationId },
+        include: { template: true },
+      }),
+    ]);
+    if (!vendor || !exhibition || !version) throw new NotFoundException("Vendor, exhibition, or form version was not found.");
+    if (version.template.archivedAt) throw new ConflictException("This form is archived.");
+    const assignment = await tx.formAssignment.create({
+      data: {
+        organizationId: user.organizationId,
+        vendorId: vendor.id,
+        exhibitionId: exhibition.id,
+        formVersionId: version.id,
+        deadline: input.deadline ? new Date(input.deadline) : null,
+        createdById: user.id,
+        status: "INVITED",
+      },
+    });
+    await tx.vendorExhibition.upsert({
+      where: { vendorId_exhibitionId: { vendorId: vendor.id, exhibitionId: exhibition.id } },
+      update: {},
+      create: { organizationId: user.organizationId, vendorId: vendor.id, exhibitionId: exhibition.id },
+    });
+    await this.issueInvitation(tx, user, {
+      vendor,
+      assignmentId: assignment.id,
+      purpose: "FORM_ASSIGNMENT",
+      subject: `Complete ${version.template.name} for ${exhibition.name}`,
+      intro: `${user.name} assigned ${version.template.name} for ${exhibition.name}.`,
+    });
+    await this.audit.record(tx, {
+      organizationId: user.organizationId,
+      actorId: user.id,
+      actorRole: user.roles.join(","),
+      action: "assignment.created",
+      resourceType: "assignment",
+      resourceId: assignment.id,
+      vendorId: vendor.id,
+      newValue: { formVersionId: version.id, exhibitionId: exhibition.id },
+    });
+    return assignment.id;
   }
 
   async resend(user: AuthContext, id: string) {
@@ -168,6 +170,69 @@ export class WorkflowService {
       });
     });
     return this.get(user, id);
+  }
+
+  async replaceForm(user: AuthContext, id: string, body: unknown) {
+    const input = z.object({ formVersionId: z.string().uuid() }).parse(body);
+    const assignmentId = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const assignment = await this.load(tx, user, id);
+      if (assignment.status === "APPROVED" || assignment.status === "REVOKED") {
+        throw new ConflictException("This form can no longer be changed.");
+      }
+      const version = await tx.formVersion.findFirst({
+        where: { id: input.formVersionId, organizationId: user.organizationId },
+        include: { template: true },
+      });
+      if (!version || version.template.archivedAt) throw new NotFoundException("That published form was not found.");
+      if (assignment.status === "INVITED" && !assignment.submission) {
+        await tx.formAssignment.update({
+          where: { id },
+          data: { formVersionId: version.id, lockVersion: { increment: 1 } },
+        });
+        await this.issueInvitation(tx, user, {
+          vendor: assignment.vendor,
+          assignmentId: id,
+          purpose: "FORM_ASSIGNMENT",
+          subject: `Complete ${version.template.name} for ${assignment.exhibition.name}`,
+          intro: `${user.name} changed the assigned form to ${version.template.name} for ${assignment.exhibition.name}.`,
+        });
+        await this.audit.record(tx, {
+          organizationId: user.organizationId,
+          actorId: user.id,
+          actorRole: user.roles.join(","),
+          action: "assignment.form_changed",
+          resourceType: "assignment",
+          resourceId: id,
+          vendorId: assignment.vendorId,
+          newValue: { formVersionId: version.id },
+        });
+        return id;
+      }
+      await tx.invitation.updateMany({
+        where: { assignmentId: id, usedAt: null, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      await tx.formAssignment.update({
+        where: { id },
+        data: { status: "REVOKED", lockVersion: { increment: 1 } },
+      });
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "assignment.replaced",
+        resourceType: "assignment",
+        resourceId: id,
+        vendorId: assignment.vendorId,
+        newValue: { formVersionId: version.id },
+      });
+      return this.createAssignment(tx, user, {
+        vendorId: assignment.vendorId,
+        exhibitionId: assignment.exhibitionId,
+        formVersionId: version.id,
+      });
+    });
+    return this.get(user, assignmentId);
   }
 
   async revoke(user: AuthContext, id: string) {

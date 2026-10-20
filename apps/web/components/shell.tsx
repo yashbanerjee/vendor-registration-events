@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { applyTheme, readTheme, type ThemeChoice } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useSession } from "./providers";
 import { Button } from "./ui";
@@ -137,18 +138,16 @@ export function AppShell({ items, home }: { items: NavItem[]; home: string }) {
 }
 
 function ThemeToggle() {
-  const [theme, setTheme] = useState("system");
-  useEffect(() => setTheme(localStorage.getItem("theme") || "system"), []);
-  function apply(next: string) {
-    localStorage.setItem("theme", next);
-    const dark = next === "dark" || (next === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    document.documentElement.classList.toggle("dark", dark);
-    document.documentElement.dataset.theme = next;
-    setTheme(next);
-  }
-  const next = theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
+  const [theme, setTheme] = useState<ThemeChoice>("light");
+  useEffect(() => {
+    const sync = () => setTheme(readTheme());
+    sync();
+    window.addEventListener("theme-change", sync);
+    return () => window.removeEventListener("theme-change", sync);
+  }, []);
+  const next: ThemeChoice = theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
   return (
-    <button className="rounded p-2 hover:bg-secondary" aria-label={`Theme ${theme}. Activate to switch.`} onClick={() => apply(next)}>
+    <button className="rounded p-2 hover:bg-secondary" aria-label={`Theme ${theme}. Activate to switch.`} onClick={() => applyTheme(next)}>
       {theme === "dark" ? <Moon size={18} /> : <Sun size={18} />}
     </button>
   );

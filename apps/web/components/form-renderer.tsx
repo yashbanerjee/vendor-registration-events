@@ -13,6 +13,8 @@ export function FormRenderer({
   errors,
   disabled,
   onUpload,
+  selectedFieldId,
+  onSelectField,
 }: {
   schema: FormSchemaDefinition;
   values: Record<string, unknown>;
@@ -22,6 +24,8 @@ export function FormRenderer({
   errors?: { fieldId: string; message: string }[];
   disabled?: boolean;
   onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
+  selectedFieldId?: string | null;
+  onSelectField?: (fieldId: string) => void;
 }) {
   const byId = new Map(schema.fields.map((field) => [field.id, field]));
   const sections = [...schema.sections].sort((a, b) => a.order - b.order);
@@ -37,7 +41,13 @@ export function FormRenderer({
               .sort((a, b) => a.order - b.order)
               .filter((field) => isFieldVisible(field, values, byId))
               .map((field) => (
-                <FieldControl key={field.id} field={field} value={values[field.id]} note={notes?.find((item) => item.fieldId === field.id)?.note} error={errors?.find((item) => item.fieldId === field.id)?.message} editable={isEditable(field.id, editableFieldIds, disabled)} onChange={onChange} onUpload={onUpload} />
+                <div
+                  key={field.id}
+                  onClick={() => onSelectField?.(field.id)}
+                  className={onSelectField ? `rounded-md p-1 ${selectedFieldId === field.id ? "ring-2 ring-brand" : "ring-1 ring-transparent hover:ring-border"}` : undefined}
+                >
+                  <FieldControl field={field} value={values[field.id]} note={notes?.find((item) => item.fieldId === field.id)?.note} error={errors?.find((item) => item.fieldId === field.id)?.message} editable={isEditable(field.id, editableFieldIds, disabled)} onChange={onChange} onUpload={onUpload} />
+                </div>
               ))}
           </div>
         </section>

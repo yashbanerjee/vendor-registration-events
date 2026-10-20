@@ -82,6 +82,12 @@ export class PlatformController {
     return this.platform.updateOrganization(request.user!, body);
   }
 
+  @Post("organization/test-email")
+  @RequirePermissions(PERMISSIONS.settingsManage)
+  testEmail(@Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.platform.sendTestEmail(request.user!, body);
+  }
+
   @Public()
   @Post("email/provider-events")
   providerEvent(@Headers("x-email-webhook-secret") secret: string | undefined, @Body() body: unknown) {

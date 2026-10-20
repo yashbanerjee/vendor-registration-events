@@ -1,10 +1,8 @@
 "use client";
 
-import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { FIELD_TYPES, type FieldType, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { arrayMove } from "@dnd-kit/sortable";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FormRenderer } from "@/components/form-renderer";
@@ -31,10 +29,9 @@ export default function FormBuilderPage() {
   const [schema, setSchema] = useState<FormSchemaDefinition | null>(null);
   const [name, setName] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
-  const [preview, setPreview] = useState(false);
+  const [values, setValues] = useState<Record<string, unknown>>({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   useEffect(() => {
     if (query.data) {
@@ -88,23 +85,13 @@ export default function FormBuilderPage() {
     setSchema({ ...schema!, fields: schema!.fields.map((item) => (item.id === id ? { ...item, ...patch } : item)) });
   }
 
-  function onDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = schema!.fields.findIndex((item) => item.id === active.id);
-    const newIndex = schema!.fields.findIndex((item) => item.id === over.id);
-    const moved = arrayMove(schema!.fields, oldIndex, newIndex).map((item, index) => ({ ...item, order: index }));
-    setSchema({ ...schema!, fields: moved });
-  }
-
   return (
     <div>
       <PageHeader
         title={name || "Form"}
-        description={`Published versions: ${query.data?.data.versions.map((version) => `v${version.versionNumber}`).join(", ") || "none yet"}`}
+        description={`This canvas is the form vendors will fill in. Click a field to edit it. Published versions: ${query.data?.data.versions.map((version) => `v${version.versionNumber}`).join(", ") || "none yet"}`}
         actions={
           <div className="flex gap-2">
-            <Button onClick={() => setPreview((value) => !value)}>{preview ? "Edit" : "Preview"}</Button>
             <Button onClick={() => save.mutate()} disabled={save.isPending}>Save draft</Button>
             <Button variant="primary" onClick={() => publish.mutate()} disabled={publish.isPending}>Publish</Button>
           </div>
@@ -115,50 +102,50 @@ export default function FormBuilderPage() {
       <Field label="Form name">
         <input className={`${inputClass} max-w-md`} value={name} onChange={(event) => setName(event.target.value)} />
       </Field>
-      {preview ? (
-        <div className="mt-4"><FormRenderer schema={schema} values={{}} /></div>
-      ) : (
-        <div className="mt-4 grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_280px]">
-          <aside className="rounded-lg border border-border bg-surface p-3">
-            <h2 className="mb-2 text-xs font-semibold uppercase text-muted">Fields</h2>
-            <div className="grid gap-1">
-              {palette.map((type) => (
-                <button key={type} className="rounded border border-border px-2 py-1 text-left text-sm hover:bg-secondary" onClick={() => addField(type)}>
-                  {labelFor(type)}
-                </button>
-              ))}
-            </div>
-          </aside>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-            <SortableContext items={schema.fields.map((item) => item.id)} strategy={verticalListSortingStrategy}>
-              <div className="grid gap-2 rounded-lg border border-border bg-secondary p-3">
-                {schema.fields.length === 0 ? <p className="text-sm text-muted">Add a field from the palette. You can also drag fields to reorder them.</p> : null}
-                {schema.fields.map((item) => (
-                  <SortableField key={item.id} id={item.id} label={item.label} type={item.type} required={item.required} selected={item.id === selected} onSelect={() => setSelected(item.id)} />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-          <aside className="rounded-lg border border-border bg-surface p-3">
-            <h2 className="mb-2 text-xs font-semibold uppercase text-muted">Configuration</h2>
-            {!field ? <p className="text-sm text-muted">Select a field.</p> : (
-              <div className="grid gap-3">
-                <Field label="Label"><input className={inputClass} value={field.label} onChange={(event) => updateField(field.id, { label: event.target.value })} /></Field>
-                <Field label="Internal key"><input className={inputClass} value={field.key} onChange={(event) => updateField(field.id, { key: event.target.value })} /></Field>
-                <Field label="Help text"><input className={inputClass} value={field.description ?? ""} onChange={(event) => updateField(field.id, { description: event.target.value })} /></Field>
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={field.required} onChange={(event) => updateField(field.id, { required: event.target.checked })} /> Compulsory</label>
-                <p className="text-xs text-muted">A compulsory field must be filled before the vendor can submit.</p>
-                <p className="text-xs text-muted">Field id {field.id} stays on published versions.</p>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => move(field.id, -1)}>Move up</Button>
-                  <Button size="sm" onClick={() => move(field.id, 1)}>Move down</Button>
-                </div>
-                <Button size="sm" variant="danger" onClick={() => { setSchema({ ...schema, fields: schema.fields.filter((item) => item.id !== field.id) }); setSelected(null); }}>Remove</Button>
-              </div>
-            )}
-          </aside>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_280px]">
+        <aside className="rounded-lg border border-border bg-surface p-3">
+          <h2 className="mb-2 text-xs font-semibold uppercase text-muted">Add a field</h2>
+          <div className="grid gap-1">
+            {palette.map((type) => (
+              <button key={type} className="rounded border border-border px-2 py-1 text-left text-sm hover:bg-secondary" onClick={() => addField(type)}>
+                {labelFor(type)}
+              </button>
+            ))}
+          </div>
+        </aside>
+        <div>
+          {schema.fields.length === 0 ? <p className="mb-3 text-sm text-muted">Add a field. It appears here the same way a vendor will see it.</p> : null}
+          <FormRenderer
+            schema={schema}
+            values={values}
+            selectedFieldId={selected}
+            onSelectField={setSelected}
+            onChange={(fieldId, value) => {
+              setSelected(fieldId);
+              setValues((current) => ({ ...current, [fieldId]: value }));
+            }}
+            onUpload={async (_field, file) => ({ documentId: "preview", filename: file.name })}
+          />
         </div>
-      )}
+        <aside className="rounded-lg border border-border bg-surface p-3">
+          <h2 className="mb-2 text-xs font-semibold uppercase text-muted">Configuration</h2>
+          {!field ? <p className="text-sm text-muted">Select a field in the form.</p> : (
+            <div className="grid gap-3">
+              <Field label="Label"><input className={inputClass} value={field.label} onChange={(event) => updateField(field.id, { label: event.target.value })} /></Field>
+              <Field label="Internal key"><input className={inputClass} value={field.key} onChange={(event) => updateField(field.id, { key: event.target.value })} /></Field>
+              <Field label="Help text"><input className={inputClass} value={field.description ?? ""} onChange={(event) => updateField(field.id, { description: event.target.value })} /></Field>
+              <Field label="Placeholder"><input className={inputClass} value={field.placeholder ?? ""} onChange={(event) => updateField(field.id, { placeholder: event.target.value })} /></Field>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={field.required} onChange={(event) => updateField(field.id, { required: event.target.checked })} /> Compulsory</label>
+              <p className="text-xs text-muted">A compulsory field must be filled before the vendor can submit.</p>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => move(field.id, -1)}>Move up</Button>
+                <Button size="sm" onClick={() => move(field.id, 1)}>Move down</Button>
+              </div>
+              <Button size="sm" variant="danger" onClick={() => { setSchema({ ...schema, fields: schema.fields.filter((item) => item.id !== field.id) }); setSelected(null); }}>Remove</Button>
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
   );
 
@@ -169,24 +156,6 @@ export default function FormBuilderPage() {
     const moved = arrayMove(schema!.fields, index, target).map((item, order) => ({ ...item, order }));
     setSchema({ ...schema!, fields: moved });
   }
-}
-
-function SortableField({ id, label, type, required, selected, onSelect }: { id: string; label: string; type: string; required: boolean; selected: boolean; onSelect: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
-  return (
-    <button
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`rounded-md border bg-surface px-3 py-2 text-left text-sm ${selected ? "border-brand" : "border-border"}`}
-      onClick={onSelect}
-      {...attributes}
-      {...listeners}
-    >
-      <span className="font-medium">{label}</span>
-      <span className="ml-2 text-xs text-muted">{type}</span>
-      {required ? <span className="ml-2 text-xs font-semibold text-danger">Compulsory</span> : null}
-    </button>
-  );
 }
 
 function labelFor(type: FieldType) {

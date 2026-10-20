@@ -8,8 +8,9 @@ import { randomReference } from "../common/crypto";
 import { decodeCursor, encodeCursor } from "../common/http";
 import { AuditService } from "../audit/audit.service";
 import { TenantService } from "../prisma/prisma.service";
+import { WorkflowService } from "../workflow/workflow.service";
 
-const vendorSchema = z.object({
+const vendorFields = z.object({
   reference: z.string().min(2).max(40).regex(/^[A-Za-z0-9_-]+$/).optional(),
   companyName: z.string().min(2).max(200),
   contactName: z.string().min(2).max(200),
@@ -24,6 +25,18 @@ const vendorSchema = z.object({
   country: z.string().max(2).optional(),
   category: z.string().max(120).optional(),
   exhibitionIds: z.array(z.string().uuid()).max(50).optional(),
+  exhibitionId: z.string().uuid().optional(),
+  formVersionId: z.string().uuid().optional(),
+});
+
+const vendorSchema = vendorFields.superRefine((value, ctx) => {
+  if (Boolean(value.exhibitionId) !== Boolean(value.formVersionId)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["formVersionId"],
+      message: "Choose both an exhibition and a published form so the invitation email can be sent.",
+    });
+  }
 });
 
 const exhibitionSchema = z.object({
@@ -50,6 +63,7 @@ export class CatalogService {
   constructor(
     @Inject(TenantService) private readonly tenant: TenantService,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(WorkflowService) private readonly workflow: WorkflowService,
   ) {}
 
   async listVendors(user: AuthContext, query: { cursor?: string; q?: string; status?: string; limit?: string }) {
@@ -60,7 +74,7 @@ export class CatalogService {
         where: {
           organizationId: user.organizationId,
           ...(user.vendorId ? { id: user.vendorId } : {}),
-          ...(query.status ? { status: query.status as "ACTIVE" } : {}),
+          ...(query.status === "ARCHIVED" ? { status: "ARCHIVED" as const } : query.status ? { status: query.status as "ACTIVE", archivedAt: null } : { archivedAt: null }),
           ...(query.q
             ? {
                 OR: [
@@ -75,7 +89,20 @@ export class CatalogService {
             ? { AND: [{ OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }] }
             : {}),
         },
-        include: { exhibitions: true, assignments: { select: { id: true, status: true } } },
+        include: {
+          exhibitions: true,
+          assignments: {
+            where: { status: { not: "REVOKED" } },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: {
+              id: true,
+              status: true,
+              exhibitionId: true,
+              formVersion: { select: { id: true, versionNumber: true, template: { select: { name: true } } } },
+            },
+          },
+        },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: limit + 1,
       }),
@@ -148,13 +175,20 @@ export class CatalogService {
         vendorId: vendor.id,
         newValue: { reference: vendor.reference, email: vendor.email },
       });
+      if (input.formVersionId && input.exhibitionId) {
+        await this.workflow.createAssignment(tx, user, {
+          vendorId: vendor.id,
+          exhibitionId: input.exhibitionId,
+          formVersionId: input.formVersionId,
+        });
+      }
       return vendor;
     });
     return { data: created };
   }
 
   async updateVendor(user: AuthContext, id: string, body: unknown) {
-    const input = vendorSchema.partial().parse(body);
+    const input = vendorFields.partial().parse(body);
     const updated = await this.tenant.transaction(user.organizationId, async (tx) => {
       const existing = await tx.vendor.findFirst({ where: { id, organizationId: user.organizationId } });
       if (!existing || existing.archivedAt) throw new NotFoundException();
@@ -205,22 +239,35 @@ export class CatalogService {
   async archiveVendors(user: AuthContext, body: unknown) {
     const input = z.object({ ids: z.array(z.string().uuid()).min(1).max(200) }).parse(body);
     const result = await this.tenant.transaction(user.organizationId, async (tx) => {
-      const updated = await tx.vendor.updateMany({
+      const vendors = await tx.vendor.findMany({
         where: { organizationId: user.organizationId, id: { in: input.ids }, archivedAt: null },
-        data: { status: "ARCHIVED", archivedAt: new Date() },
       });
-      for (const id of input.ids) {
+      for (const vendor of vendors) {
+        await tx.invitation.updateMany({
+          where: { vendorId: vendor.id, usedAt: null, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        await tx.vendor.update({
+          where: { id: vendor.id },
+          data: {
+            status: "ARCHIVED",
+            archivedAt: new Date(),
+            email: `archived+${vendor.id}@invalid.local`,
+            reference: `${vendor.reference}-x-${vendor.id.slice(0, 8)}`.slice(0, 80),
+          },
+        });
         await this.audit.record(tx, {
           organizationId: user.organizationId,
           actorId: user.id,
           actorRole: user.roles.join(","),
           action: "vendor.archived",
           resourceType: "vendor",
-          resourceId: id,
-          vendorId: id,
+          resourceId: vendor.id,
+          vendorId: vendor.id,
+          newValue: { email: vendor.email },
         });
       }
-      return updated.count;
+      return vendors.length;
     });
     return { data: { archived: result } };
   }

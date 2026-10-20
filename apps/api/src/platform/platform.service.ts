@@ -1,14 +1,17 @@
-import { ConflictException, Inject, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { toCsv } from "@vmp/shared";
+import nodemailer from "nodemailer";
 import { z } from "zod";
 import type { AuthContext } from "../common/auth";
 import { safeEqualText } from "../common/crypto";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
+import { renderEmail } from "../jobs/email-templates";
 import { OutboxProcessor } from "../jobs/jobs.service";
 import { PrismaService, TenantService } from "../prisma/prisma.service";
-import { nextStored, parseStored, publicSettings, settingsBody } from "./org-settings";
+import { effectiveSettings, nextStored, parseStored, publicSettings, settingsBody } from "./org-settings";
 
 @Injectable()
 export class PlatformService {
@@ -313,6 +316,81 @@ export class PlatformService {
       return updated;
     });
     return { data: this.presentOrganization(organization) };
+  }
+
+  async sendTestEmail(user: AuthContext, body: unknown) {
+    const input = z.object({ to: z.string().trim().email().max(320) }).parse(body);
+    const organization = await this.tenant.transaction(user.organizationId, (tx) =>
+      tx.organization.findUnique({ where: { id: user.organizationId } }),
+    );
+    if (!organization) throw new NotFoundException();
+    const mail = effectiveSettings(parseStored(organization.settings));
+    if (!mail.smtpHost) throw new BadRequestException("Save an SMTP host before sending a test email.");
+    const subject = `Test email from ${organization.name}`;
+    const bodyText = "This is a test message from the vendor portal. The saved email settings accepted this message.";
+    const rendered = renderEmail({
+      template: "test",
+      audience: "admin",
+      organizationName: organization.name,
+      title: "Test email",
+      body: bodyText,
+      actionUrl: env().WEB_ORIGIN,
+    });
+    const idempotencyKey = `test:${organization.id}:${randomUUID()}`;
+    const record = await this.tenant.transaction(user.organizationId, (tx) =>
+      tx.emailMessage.create({
+        data: {
+          organizationId: user.organizationId,
+          toAddress: input.to,
+          template: "test",
+          subject,
+          status: "QUEUED",
+          idempotencyKey,
+        },
+      }),
+    );
+    const transport = mail.smtpHost === "json"
+      ? nodemailer.createTransport({ jsonTransport: true })
+      : nodemailer.createTransport({
+          host: mail.smtpHost,
+          port: mail.smtpPort,
+          secure: mail.smtpSecure,
+          auth: mail.smtpUser ? { user: mail.smtpUser, pass: mail.smtpPassword } : undefined,
+        });
+    try {
+      const info = await transport.sendMail({
+        from: mail.emailFrom,
+        to: input.to,
+        subject,
+        text: rendered.text,
+        html: rendered.html,
+      });
+      await this.tenant.transaction(user.organizationId, async (tx) => {
+        await tx.emailMessage.update({
+          where: { id: record.id },
+          data: { status: "SENT", providerMessageId: info.messageId ?? null, attemptCount: { increment: 1 }, lastError: "" },
+        });
+        await this.audit.record(tx, {
+          organizationId: user.organizationId,
+          actorId: user.id,
+          actorRole: user.roles.join(","),
+          action: "organization.test_email_sent",
+          resourceType: "email_message",
+          resourceId: record.id,
+          newValue: { to: input.to },
+        });
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message.slice(0, 300) : "SMTP send failed.";
+      await this.tenant.transaction(user.organizationId, (tx) =>
+        tx.emailMessage.update({
+          where: { id: record.id },
+          data: { status: "FAILED", attemptCount: { increment: 1 }, lastError: message },
+        }),
+      );
+      throw new BadRequestException(`The test email was not accepted. ${message}`);
+    }
+    return { data: { to: input.to, status: "SENT" as const } };
   }
 
   private presentOrganization(organization: { id: string; name: string; slug: string; settings: Prisma.JsonValue }) {

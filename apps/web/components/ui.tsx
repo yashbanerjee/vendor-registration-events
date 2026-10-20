@@ -65,8 +65,8 @@ export function Modal({ open, title, onClose, children }: { open: boolean; title
   return (
     <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-[#091e42]/40" />
-        <Dialog.Content className="fixed left-1/2 top-16 w-[min(560px,calc(100%-2rem))] -translate-x-1/2 rounded-lg border border-border bg-surface p-5 shadow-panel">
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-[#091e42]/50 backdrop-blur-md" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-4rem)] w-[min(560px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-[0_8px_16px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]">
           <div className="mb-4 flex items-start justify-between gap-4">
             <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
             <Dialog.Close className="rounded p-1 hover:bg-secondary" aria-label="Close">
