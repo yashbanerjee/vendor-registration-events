@@ -32,15 +32,15 @@ export function Button({ className, variant, size, asChild, ...props }: React.Bu
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <label className="grid gap-1 text-sm">
-      <span className="font-medium">{label}</span>
+    <label className="grid min-w-0 content-start gap-1 text-sm">
+      <span className="font-medium leading-5">{label}</span>
       {children}
-      {hint ? <span className="text-xs text-muted">{hint}</span> : null}
+      {hint ? <span className="text-xs leading-4 text-muted">{hint}</span> : null}
     </label>
   );
 }
 
-export const inputClass = "h-9 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground placeholder:text-muted";
+export const inputClass = "h-9 w-full min-w-0 rounded-md border border-border bg-surface px-3 py-0 text-sm leading-9 text-foreground placeholder:text-muted";
 
 export function Badge({ tone, children }: { tone: "success" | "warning" | "danger" | "info" | "neutral"; children: React.ReactNode }) {
   const styles = {

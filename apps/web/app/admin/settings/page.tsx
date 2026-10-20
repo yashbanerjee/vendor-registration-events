@@ -166,7 +166,7 @@ export default function SettingsPage() {
             <Field label="Organization name">
               <input className={inputClass} value={form.name} onChange={(event) => set("name", event.target.value)} required />
             </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid items-start gap-3 sm:grid-cols-2">
               <Field label="Session length (hours)" hint="New sign-ins use this lifetime.">
                 <input className={inputClass} type="number" min={1} max={336} value={form.sessionTtlHours} onChange={(event) => set("sessionTtlHours", Number(event.target.value))} required />
               </Field>
@@ -186,7 +186,7 @@ export default function SettingsPage() {
             description="Messages to vendors and administrators use these sender and SMTP details."
             extra={form.smtpPasswordSet ? <Badge tone="success">Password saved</Badge> : <Badge tone="neutral">No password saved</Badge>}
           >
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid items-start gap-3 sm:grid-cols-2">
               <Field label="From name">
                 <input className={inputClass} value={form.emailFromName} onChange={(event) => set("emailFromName", event.target.value)} required />
               </Field>
@@ -240,7 +240,7 @@ export default function SettingsPage() {
             description="Bucket endpoint, region, name, and access key are saved here. The secret is encrypted and is not shown again."
             extra={form.storageSecretSet ? <Badge tone="success">Secret saved</Badge> : <Badge tone="warning">Secret missing</Badge>}
           >
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid items-start gap-3 sm:grid-cols-2">
               <Field label="Endpoint" hint="Example: https://t3.storageapi.dev">
                 <input className={inputClass} value={form.storageEndpoint} onChange={(event) => set("storageEndpoint", event.target.value)} placeholder="https://t3.storageapi.dev" />
               </Field>
@@ -253,9 +253,11 @@ export default function SettingsPage() {
               <Field label="Access key">
                 <input className={inputClass} value={form.storageAccessKey} onChange={(event) => set("storageAccessKey", event.target.value)} autoComplete="off" />
               </Field>
-              <Field label="Secret access key" hint={form.storageSecretSet ? "A secret is saved. Leave blank to keep it." : "Filled from Railway when the service starts with bucket variables."}>
-                <input className={inputClass} type="password" value={storageSecret} onChange={(event) => setStorageSecret(event.target.value)} autoComplete="new-password" />
-              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Secret access key" hint={form.storageSecretSet ? "A secret is saved. Leave blank to keep it." : "Filled from Railway when the service starts with bucket variables."}>
+                  <input className={inputClass} type="password" value={storageSecret} onChange={(event) => setStorageSecret(event.target.value)} autoComplete="new-password" />
+                </Field>
+              </div>
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.storagePathStyle} onChange={(event) => set("storagePathStyle", event.target.checked)} />
