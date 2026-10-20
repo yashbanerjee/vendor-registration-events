@@ -17,6 +17,12 @@ type Settings = {
   smtpSecure: boolean;
   smtpUser: string;
   smtpPasswordSet: boolean;
+  storageEndpoint: string;
+  storageRegion: string;
+  storageBucket: string;
+  storageAccessKey: string;
+  storagePathStyle: boolean;
+  storageSecretSet: boolean;
 };
 
 type Organization = {
@@ -40,6 +46,12 @@ const empty: Settings & { name: string } = {
   smtpSecure: false,
   smtpUser: "",
   smtpPasswordSet: false,
+  storageEndpoint: "",
+  storageRegion: "",
+  storageBucket: "",
+  storageAccessKey: "",
+  storagePathStyle: false,
+  storageSecretSet: false,
 };
 
 export default function SettingsPage() {
@@ -48,6 +60,8 @@ export default function SettingsPage() {
   const [form, setForm] = useState(empty);
   const [smtpPassword, setSmtpPassword] = useState("");
   const [clearSmtpPassword, setClearSmtpPassword] = useState(false);
+  const [storageSecret, setStorageSecret] = useState("");
+  const [clearStorageSecret, setClearStorageSecret] = useState(false);
   const [secret, setSecret] = useState("");
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
@@ -76,6 +90,13 @@ export default function SettingsPage() {
           smtpUser: form.smtpUser,
           smtpPassword,
           clearSmtpPassword,
+          storageEndpoint: form.storageEndpoint,
+          storageRegion: form.storageRegion,
+          storageBucket: form.storageBucket,
+          storageAccessKey: form.storageAccessKey,
+          storageSecret,
+          clearStorageSecret,
+          storagePathStyle: form.storagePathStyle,
         }),
       }),
     onSuccess: async () => {
@@ -83,6 +104,8 @@ export default function SettingsPage() {
       setError("");
       setSmtpPassword("");
       setClearSmtpPassword(false);
+      setStorageSecret("");
+      setClearStorageSecret(false);
       await client.invalidateQueries({ queryKey: ["organization"] });
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Settings could not be saved."),
@@ -106,7 +129,7 @@ export default function SettingsPage() {
     <div className="grid max-w-2xl gap-4">
       <PageHeader
         title="Settings"
-        description="The database connection stays in the server environment. These values apply to this organization and override the server defaults."
+        description="The database connection stays in the server environment. Session, email, and Railway storage values are saved for this organization."
       />
       {message ? <p className="text-sm text-success">{message}</p> : null}
       <form
@@ -163,6 +186,37 @@ export default function SettingsPage() {
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={clearSmtpPassword} onChange={(event) => setClearSmtpPassword(event.target.checked)} />
             Remove the saved SMTP password and use the server password
+          </label>
+        ) : null}
+        <h2 className="text-sm font-semibold">Railway storage</h2>
+        <p className="text-sm text-muted">
+          Bucket endpoint, region, name, and access key are saved here. The secret is encrypted and is not shown again.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Endpoint" hint="Example: https://t3.storageapi.dev">
+            <input className={inputClass} value={form.storageEndpoint} onChange={(event) => set("storageEndpoint", event.target.value)} placeholder="https://t3.storageapi.dev" />
+          </Field>
+          <Field label="Region" hint="Railway uses auto.">
+            <input className={inputClass} value={form.storageRegion} onChange={(event) => set("storageRegion", event.target.value)} placeholder="auto" />
+          </Field>
+          <Field label="Bucket">
+            <input className={inputClass} value={form.storageBucket} onChange={(event) => set("storageBucket", event.target.value)} />
+          </Field>
+          <Field label="Access key">
+            <input className={inputClass} value={form.storageAccessKey} onChange={(event) => set("storageAccessKey", event.target.value)} autoComplete="off" />
+          </Field>
+          <Field label="Secret access key" hint={form.storageSecretSet ? "A secret is saved. Leave blank to keep it." : "Filled from Railway when the service starts with bucket variables."}>
+            <input className={inputClass} type="password" value={storageSecret} onChange={(event) => setStorageSecret(event.target.value)} autoComplete="new-password" />
+          </Field>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={form.storagePathStyle} onChange={(event) => set("storagePathStyle", event.target.checked)} />
+          Use path-style URLs (older buckets). Railway virtual-hosted buckets leave this off.
+        </label>
+        {form.storageSecretSet ? (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={clearStorageSecret} onChange={(event) => setClearStorageSecret(event.target.checked)} />
+            Remove the saved storage secret
           </label>
         ) : null}
         <Button type="submit" variant="primary" disabled={save.isPending}>Save settings</Button>

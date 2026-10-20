@@ -55,7 +55,7 @@ Development accounts (seed refuses to run when `NODE_ENV=production`):
 | admin@harbor.example | ChangeMe!Admin1 | Organization admin |
 | reviewer@harbor.example | ChangeMe!Review1 | Reviewer |
 
-Set `STORAGE_DRIVER=local` in `.env` when MinIO is not running. The default `s3` driver expects an S3-compatible endpoint at `S3_ENDPOINT`.
+Railway storage (endpoint, region, bucket, access key, and secret) is saved in Admin > Settings. On Railway, `ENDPOINT`, `REGION`, `BUCKET`, `ACCESS_KEY_ID`, and `SECRET_ACCESS_KEY` are copied into those settings when the API starts. This machine keeps files on disk until those values are present.
 
 For a separate worker, set `JOBS_MODE=queue` and `PROCESS_ROLE=worker`, then run `npm run dev:worker`. `JOBS_MODE=inline` processes the outbox inside the API.
 

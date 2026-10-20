@@ -15,6 +15,12 @@ const storedSchema = z.object({
   smtpSecure: z.boolean().optional(),
   smtpUser: z.string().optional(),
   smtpPasswordEnc: z.string().optional(),
+  storageEndpoint: z.string().optional(),
+  storageRegion: z.string().optional(),
+  storageBucket: z.string().optional(),
+  storageAccessKey: z.string().optional(),
+  storageSecretEnc: z.string().optional(),
+  storagePathStyle: z.boolean().optional(),
 });
 
 export type StoredSettings = z.infer<typeof storedSchema>;
@@ -33,11 +39,29 @@ export const settingsBody = z.object({
   smtpUser: z.string().trim().max(255).default(""),
   smtpPassword: z.string().max(200).optional().default(""),
   clearSmtpPassword: z.boolean().optional().default(false),
+  storageEndpoint: z.string().trim().max(300).default(""),
+  storageRegion: z.string().trim().max(64).default(""),
+  storageBucket: z.string().trim().max(200).default(""),
+  storageAccessKey: z.string().trim().max(200).default(""),
+  storageSecret: z.string().max(500).optional().default(""),
+  clearStorageSecret: z.boolean().optional().default(false),
+  storagePathStyle: z.boolean().default(false),
 });
 
 export function parseStored(value: Prisma.JsonValue | null | undefined): StoredSettings {
   const parsed = storedSchema.safeParse(value ?? {});
   return parsed.success ? parsed.data : {};
+}
+
+export function railwayStorageEnv() {
+  const endpoint = process.env.ENDPOINT || process.env.AWS_ENDPOINT_URL || process.env.S3_ENDPOINT || "";
+  const bucket = process.env.BUCKET || process.env.AWS_S3_BUCKET_NAME || process.env.S3_BUCKET || "";
+  const accessKey = process.env.ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY || "";
+  const secret = process.env.SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || process.env.S3_SECRET_KEY || "";
+  const region = process.env.REGION || process.env.AWS_DEFAULT_REGION || process.env.AWS_REGION || process.env.S3_REGION || (endpoint ? "auto" : "");
+  const style = (process.env.AWS_S3_URL_STYLE || "").toLowerCase();
+  const pathStyle = style === "path" || process.env.S3_FORCE_PATH_STYLE === "true";
+  return { endpoint, bucket, accessKey, secret, region, pathStyle };
 }
 
 function defaultFrom() {
@@ -62,6 +86,15 @@ export function effectiveSettings(stored: StoredSettings) {
     }
   }
   const maxUploadMb = stored.maxUploadMb ?? Math.max(1, Math.round(config.MAX_UPLOAD_BYTES / (1024 * 1024)));
+  const railway = railwayStorageEnv();
+  let storageSecret = railway.secret || config.S3_SECRET_KEY || "";
+  if (stored.storageSecretEnc) {
+    try {
+      storageSecret = decryptString(stored.storageSecretEnc);
+    } catch {
+      storageSecret = railway.secret || config.S3_SECRET_KEY || "";
+    }
+  }
   return {
     sessionTtlHours: stored.sessionTtlHours ?? config.SESSION_TTL_HOURS,
     invitationTtlHours: stored.invitationTtlHours ?? config.INVITATION_TTL_HOURS,
@@ -77,6 +110,13 @@ export function effectiveSettings(stored: StoredSettings) {
     smtpUser: stored.smtpUser || config.SMTP_USER,
     smtpPassword,
     smtpPasswordSet: Boolean(stored.smtpPasswordEnc),
+    storageEndpoint: stored.storageEndpoint || railway.endpoint || "",
+    storageRegion: stored.storageRegion || railway.region || "",
+    storageBucket: stored.storageBucket || railway.bucket || "",
+    storageAccessKey: stored.storageAccessKey || railway.accessKey || "",
+    storageSecret,
+    storageSecretSet: Boolean(stored.storageSecretEnc),
+    storagePathStyle: stored.storagePathStyle ?? (railway.endpoint ? railway.pathStyle : false),
   };
 }
 
@@ -94,6 +134,12 @@ export function publicSettings(stored: StoredSettings) {
     smtpSecure: settings.smtpSecure,
     smtpUser: stored.smtpUser ?? "",
     smtpPasswordSet: settings.smtpPasswordSet,
+    storageEndpoint: settings.storageEndpoint,
+    storageRegion: settings.storageRegion,
+    storageBucket: settings.storageBucket,
+    storageAccessKey: settings.storageAccessKey,
+    storagePathStyle: settings.storagePathStyle,
+    storageSecretSet: settings.storageSecretSet,
   };
 }
 
@@ -101,6 +147,11 @@ export function nextStored(current: StoredSettings, input: z.infer<typeof settin
   let smtpPasswordEnc = current.smtpPasswordEnc ?? "";
   if (input.clearSmtpPassword) smtpPasswordEnc = "";
   else if (input.smtpPassword) smtpPasswordEnc = encryptString(input.smtpPassword);
+  const railway = railwayStorageEnv();
+  let storageSecretEnc = current.storageSecretEnc ?? "";
+  if (input.clearStorageSecret) storageSecretEnc = "";
+  else if (input.storageSecret) storageSecretEnc = encryptString(input.storageSecret);
+  else if (!storageSecretEnc && railway.secret) storageSecretEnc = encryptString(railway.secret);
   return {
     sessionTtlHours: input.sessionTtlHours,
     invitationTtlHours: input.invitationTtlHours,
@@ -113,5 +164,11 @@ export function nextStored(current: StoredSettings, input: z.infer<typeof settin
     smtpSecure: input.smtpSecure,
     smtpUser: input.smtpUser,
     smtpPasswordEnc,
+    storageEndpoint: input.storageEndpoint || railway.endpoint,
+    storageRegion: input.storageRegion || railway.region || (input.storageEndpoint || railway.endpoint ? "auto" : ""),
+    storageBucket: input.storageBucket || railway.bucket,
+    storageAccessKey: input.storageAccessKey || railway.accessKey,
+    storageSecretEnc,
+    storagePathStyle: input.storagePathStyle,
   };
 }

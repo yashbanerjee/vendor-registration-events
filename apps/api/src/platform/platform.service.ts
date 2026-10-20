@@ -305,7 +305,10 @@ export class PlatformService {
         action: "organization.settings_updated",
         resourceType: "organization",
         resourceId: user.organizationId,
-        newValue: publicSettings(parseStored(updated.settings)),
+        newValue: (({ storageAccessKey, ...safe }) => {
+          void storageAccessKey;
+          return safe;
+        })(publicSettings(parseStored(updated.settings))),
       });
       return updated;
     });

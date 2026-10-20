@@ -307,7 +307,7 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
     });
     if (!record) throw new Error("Document version was not found.");
     if (record.document.status === "AVAILABLE" || record.document.status === "REJECTED") return;
-    const bytes = await this.storage.get(record.storageKey);
+    const bytes = await this.storage.get(organizationId, record.storageKey);
     const config = env();
     const result = await scanBuffer(bytes, record.filename, record.mimeType, {
       host: config.CLAMAV_HOST,

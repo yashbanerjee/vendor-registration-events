@@ -7,8 +7,10 @@
     "apps/*",
     "packages/*"
   ],
+  "packageManager": "npm@11.12.1",
   "scripts": {
-    "build": "npm run build -w @vmp/shared && npm run build -w @vmp/api && npm run build -w @vmp/web",
+    "build": "npm run build -w @vmp/shared && npm run prisma:generate -w @vmp/api && npm run build -w @vmp/api && npm run build -w @vmp/web",
+    "start": "node scripts/start.mjs",
     "typecheck": "npm run typecheck -w @vmp/shared && npm run typecheck -w @vmp/api && npm run typecheck -w @vmp/web",
     "test": "npm run test -w @vmp/shared && npm run test -w @vmp/api && npm run test -w @vmp/web",
     "dev:shared": "npm run dev -w @vmp/shared",

@@ -60,7 +60,7 @@ export class DocumentsService {
           if (!field || !["file", "files", "image"].includes(field.type)) throw new ConflictException("That field does not accept files.");
         }
       }
-      await this.storage.put(storageKey, file.buffer, file.mimetype || "application/octet-stream");
+      await this.storage.put(user.organizationId, storageKey, file.buffer, file.mimetype || "application/octet-stream");
       const filename = file.originalname.replace(/[^\w.\- ]+/g, "_").slice(0, 180) || "upload";
       const document = await tx.document.create({
         data: {
@@ -196,7 +196,7 @@ export class DocumentsService {
       return found;
     });
     const version = document.versions[0];
-    const bytes = await this.storage.get(version.storageKey);
+    const bytes = await this.storage.get(user.organizationId, version.storageKey);
     const image = version.mimeType.startsWith("image/") && version.mimeType !== "image/svg+xml";
     const inline = disposition === "inline" && image;
     const filename = version.filename.replace(/["\r\n]/g, "");
@@ -211,7 +211,7 @@ export class DocumentsService {
       }),
     );
     if (!document?.versions[0]) throw new NotFoundException();
-    const url = await this.storage.presign(document.versions[0].storageKey, 60);
+    const url = await this.storage.presign(user.organizationId, document.versions[0].storageKey, 60);
     await this.tenant.transaction(user.organizationId, (tx) =>
       this.audit.record(tx, {
         organizationId: user.organizationId,

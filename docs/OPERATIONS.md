@@ -35,7 +35,7 @@ Encrypt backup files at rest and restrict who can read them. The dump includes f
 
 ## Documents
 
-`STORAGE_DRIVER=local` writes under `STORAGE_LOCAL_DIR` (default `storage`). `STORAGE_DRIVER=s3` uses the configured endpoint and bucket. Files are quarantined until the scan job marks them clean.
+Until Railway bucket values are saved for the organization, files are written under `STORAGE_LOCAL_DIR` (default `storage`). A complete bucket configuration in Admin > Settings uses that endpoint. Files are quarantined until the scan job marks them clean.
 
 ## Shutdown
 
