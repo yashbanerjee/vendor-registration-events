@@ -6,7 +6,7 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { Logger } from "nestjs-pino";
 import { AppModule } from "./app.module";
-import { env } from "./config/env";
+import { allowedOrigins, env } from "./config/env";
 
 async function bootstrap() {
   const config = env();
@@ -20,7 +20,7 @@ async function bootstrap() {
     response.setHeader("Cache-Control", "no-store");
     next();
   });
-  app.enableCors({ origin: config.WEB_ORIGIN, credentials: true });
+  app.enableCors({ origin: allowedOrigins(), credentials: true });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: false }));
   app.enableShutdownHooks();
   if (config.NODE_ENV !== "production" && config.ENABLE_SWAGGER) {

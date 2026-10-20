@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable, 
 import { Reflector } from "@nestjs/core";
 import type { Request, Response } from "express";
 import { IS_PUBLIC, PERMISSIONS_KEY, type AuthContext } from "./auth";
+import { allowedOrigins } from "../config/env";
 import { hashesEqual, safeEqualText, sha256 } from "./crypto";
 import { AuthService } from "../auth/auth.service";
 
@@ -59,13 +60,10 @@ export class CsrfGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthedRequest>();
     const response = context.switchToHttp().getResponse<Response>();
     if (!request.method || ["GET", "HEAD", "OPTIONS"].includes(request.method)) return true;
-    const origin = request.header("origin");
-    if (origin) {
-      const allowed = process.env.WEB_ORIGIN ?? "http://localhost:3000";
-      if (origin !== allowed && origin !== `http://localhost:${process.env.API_PORT ?? "3001"}`) {
-        response.status(403);
-        throw new ForbiddenException("The request origin is not allowed.");
-      }
+    const origin = request.header("origin")?.trim().replace(/\/$/, "");
+    if (origin && !allowedOrigins().includes(origin)) {
+      response.status(403);
+      throw new ForbiddenException("The request origin is not allowed.");
     }
     const publicMutations = new Set([
       "/api/v1/auth/login",

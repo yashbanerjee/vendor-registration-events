@@ -70,8 +70,24 @@ export function env(): AppEnv {
       throw new Error("Disable Swagger in production or expose it only on a private network by setting ENABLE_SWAGGER=false.");
     }
   }
+  const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
+  let webOrigin = parsed.data.WEB_ORIGIN.trim().replace(/\/$/, "");
+  if (railwayDomain && webOrigin.startsWith("http://localhost")) {
+    webOrigin = `https://${railwayDomain}`;
+  }
+  parsed.data.WEB_ORIGIN = webOrigin;
   cached = parsed.data;
   return cached;
+}
+
+export function allowedOrigins(): string[] {
+  const config = env();
+  const origins = new Set<string>([config.WEB_ORIGIN]);
+  const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
+  if (railwayDomain) origins.add(`https://${railwayDomain}`);
+  origins.add(`http://127.0.0.1:${config.API_PORT}`);
+  origins.add(`http://localhost:${config.API_PORT}`);
+  return [...origins];
 }
 
 export function resetEnvCache() {
