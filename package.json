@@ -1,0 +1,26 @@
+{
+  "name": "vendor-registration-events",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Exhibition vendor management portal",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @vmp/shared && npm run build -w @vmp/api && npm run build -w @vmp/web",
+    "typecheck": "npm run typecheck -w @vmp/shared && npm run typecheck -w @vmp/api && npm run typecheck -w @vmp/web",
+    "test": "npm run test -w @vmp/shared && npm run test -w @vmp/api && npm run test -w @vmp/web",
+    "dev:shared": "npm run dev -w @vmp/shared",
+    "dev:api": "npm run dev -w @vmp/api",
+    "dev:worker": "npm run dev:worker -w @vmp/api",
+    "dev:web": "npm run dev -w @vmp/web",
+    "db:migrate": "npm run prisma:migrate -w @vmp/api",
+    "db:seed": "npm run prisma:seed -w @vmp/api",
+    "db:grant": "npm run prisma:grant -w @vmp/api",
+    "setup": "powershell -ExecutionPolicy Bypass -File ./scripts/setup.ps1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

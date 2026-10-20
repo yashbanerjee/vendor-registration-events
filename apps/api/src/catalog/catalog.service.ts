@@ -1,0 +1,436 @@
+import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
+import { createHash, randomUUID } from "node:crypto";
+import { formSchemaDefinition, type FormSchemaDefinition } from "@vmp/shared";
+import { z } from "zod";
+import type { AuthContext } from "../common/auth";
+import { randomReference } from "../common/crypto";
+import { decodeCursor, encodeCursor } from "../common/http";
+import { AuditService } from "../audit/audit.service";
+import { TenantService } from "../prisma/prisma.service";
+
+const vendorSchema = z.object({
+  reference: z.string().min(2).max(40).regex(/^[A-Za-z0-9_-]+$/).optional(),
+  companyName: z.string().min(2).max(200),
+  contactName: z.string().min(2).max(200),
+  email: z.string().email().max(320),
+  additionalEmails: z.array(z.string().email()).max(10).optional(),
+  phone: z.string().max(40).optional(),
+  addressLine1: z.string().max(200).optional(),
+  addressLine2: z.string().max(200).optional(),
+  city: z.string().max(120).optional(),
+  region: z.string().max(120).optional(),
+  postalCode: z.string().max(20).optional(),
+  country: z.string().max(2).optional(),
+  category: z.string().max(120).optional(),
+  exhibitionIds: z.array(z.string().uuid()).max(50).optional(),
+});
+
+const exhibitionSchema = z.object({
+  name: z.string().min(2).max(200),
+  code: z.string().min(2).max(40).regex(/^[A-Za-z0-9_-]+$/),
+  venue: z.string().max(200).optional(),
+  description: z.string().max(4000).optional(),
+  startsAt: z.string().datetime(),
+  endsAt: z.string().datetime(),
+  status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
+});
+
+const templateSchema = z.object({
+  name: z.string().min(2).max(200),
+  description: z.string().max(4000).optional(),
+  scope: z.enum(["GLOBAL", "EXHIBITION", "VENDOR"]).default("GLOBAL"),
+  exhibitionId: z.string().uuid().nullable().optional(),
+  vendorId: z.string().uuid().nullable().optional(),
+  schema: formSchemaDefinition.optional(),
+});
+
+@Injectable()
+export class CatalogService {
+  constructor(
+    @Inject(TenantService) private readonly tenant: TenantService,
+    @Inject(AuditService) private readonly audit: AuditService,
+  ) {}
+
+  async listVendors(user: AuthContext, query: { cursor?: string; q?: string; status?: string; limit?: string }) {
+    const limit = boundedLimit(query.limit);
+    const cursor = decodeCursor(query.cursor);
+    const rows = await this.tenant.transaction(user.organizationId, (tx) =>
+      tx.vendor.findMany({
+        where: {
+          organizationId: user.organizationId,
+          ...(user.vendorId ? { id: user.vendorId } : {}),
+          ...(query.status ? { status: query.status as "ACTIVE" } : {}),
+          ...(query.q
+            ? {
+                OR: [
+                  { companyName: { contains: query.q, mode: "insensitive" } },
+                  { email: { contains: query.q, mode: "insensitive" } },
+                  { reference: { contains: query.q, mode: "insensitive" } },
+                  { contactName: { contains: query.q, mode: "insensitive" } },
+                ],
+              }
+            : {}),
+          ...(cursor
+            ? { AND: [{ OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }] }
+            : {}),
+        },
+        include: { exhibitions: true, assignments: { select: { id: true, status: true } } },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: limit + 1,
+      }),
+    );
+    return page(rows, limit);
+  }
+
+  async getVendor(user: AuthContext, id: string) {
+    if (user.vendorId && user.vendorId !== id) throw new NotFoundException();
+    const vendor = await this.tenant.transaction(user.organizationId, (tx) =>
+      tx.vendor.findFirst({
+        where: { id, organizationId: user.organizationId },
+        include: {
+          exhibitions: { include: { exhibition: true } },
+          assignments: { include: { exhibition: true, formVersion: { include: { template: true } } }, orderBy: { createdAt: "desc" } },
+          documents: { where: { deletedAt: null }, include: { versions: { orderBy: { versionNumber: "desc" }, take: 1 } }, orderBy: { createdAt: "desc" } },
+        },
+      }),
+    );
+    if (!vendor) throw new NotFoundException();
+    const audits = user.vendorId
+      ? []
+      : await this.tenant.transaction(user.organizationId, (tx) =>
+          tx.auditLog.findMany({ where: { organizationId: user.organizationId, vendorId: id }, orderBy: { createdAt: "desc" }, take: 50 }),
+        );
+    return { data: { ...vendor, audits } };
+  }
+
+  async createVendor(user: AuthContext, body: unknown) {
+    const input = vendorSchema.parse(body);
+    const created = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const vendor = await tx.vendor.create({
+        data: {
+          organizationId: user.organizationId,
+          reference: input.reference ?? randomReference(),
+          companyName: input.companyName,
+          contactName: input.contactName,
+          email: input.email.toLowerCase(),
+          additionalEmails: (input.additionalEmails ?? []).map((email) => email.toLowerCase()),
+          phone: input.phone ?? "",
+          addressLine1: input.addressLine1 ?? "",
+          addressLine2: input.addressLine2 ?? "",
+          city: input.city ?? "",
+          region: input.region ?? "",
+          postalCode: input.postalCode ?? "",
+          country: (input.country ?? "").toUpperCase(),
+          category: input.category ?? "",
+        },
+      });
+      if (input.exhibitionIds?.length) {
+        const exhibitions = await tx.exhibition.findMany({
+          where: { organizationId: user.organizationId, id: { in: input.exhibitionIds } },
+        });
+        if (exhibitions.length !== input.exhibitionIds.length) throw new NotFoundException("An exhibition was not found.");
+        await tx.vendorExhibition.createMany({
+          data: exhibitions.map((exhibition) => ({
+            organizationId: user.organizationId,
+            vendorId: vendor.id,
+            exhibitionId: exhibition.id,
+          })),
+        });
+      }
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "vendor.created",
+        resourceType: "vendor",
+        resourceId: vendor.id,
+        vendorId: vendor.id,
+        newValue: { reference: vendor.reference, email: vendor.email },
+      });
+      return vendor;
+    });
+    return { data: created };
+  }
+
+  async updateVendor(user: AuthContext, id: string, body: unknown) {
+    const input = vendorSchema.partial().parse(body);
+    const updated = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const existing = await tx.vendor.findFirst({ where: { id, organizationId: user.organizationId } });
+      if (!existing || existing.archivedAt) throw new NotFoundException();
+      const vendor = await tx.vendor.update({
+        where: { id },
+        data: {
+          ...(input.companyName ? { companyName: input.companyName } : {}),
+          ...(input.contactName ? { contactName: input.contactName } : {}),
+          ...(input.email ? { email: input.email.toLowerCase() } : {}),
+          ...(input.additionalEmails ? { additionalEmails: input.additionalEmails.map((email) => email.toLowerCase()) } : {}),
+          ...(input.phone !== undefined ? { phone: input.phone } : {}),
+          ...(input.addressLine1 !== undefined ? { addressLine1: input.addressLine1 } : {}),
+          ...(input.addressLine2 !== undefined ? { addressLine2: input.addressLine2 } : {}),
+          ...(input.city !== undefined ? { city: input.city } : {}),
+          ...(input.region !== undefined ? { region: input.region } : {}),
+          ...(input.postalCode !== undefined ? { postalCode: input.postalCode } : {}),
+          ...(input.country !== undefined ? { country: input.country.toUpperCase() } : {}),
+          ...(input.category !== undefined ? { category: input.category } : {}),
+          ...(input.reference ? { reference: input.reference } : {}),
+        },
+      });
+      if (input.exhibitionIds) {
+        await tx.vendorExhibition.deleteMany({ where: { vendorId: id, organizationId: user.organizationId } });
+        if (input.exhibitionIds.length) {
+          await tx.vendorExhibition.createMany({
+            data: input.exhibitionIds.map((exhibitionId) => ({
+              organizationId: user.organizationId,
+              vendorId: id,
+              exhibitionId,
+            })),
+          });
+        }
+      }
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "vendor.updated",
+        resourceType: "vendor",
+        resourceId: id,
+        vendorId: id,
+      });
+      return vendor;
+    });
+    return { data: updated };
+  }
+
+  async archiveVendors(user: AuthContext, body: unknown) {
+    const input = z.object({ ids: z.array(z.string().uuid()).min(1).max(200) }).parse(body);
+    const result = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const updated = await tx.vendor.updateMany({
+        where: { organizationId: user.organizationId, id: { in: input.ids }, archivedAt: null },
+        data: { status: "ARCHIVED", archivedAt: new Date() },
+      });
+      for (const id of input.ids) {
+        await this.audit.record(tx, {
+          organizationId: user.organizationId,
+          actorId: user.id,
+          actorRole: user.roles.join(","),
+          action: "vendor.archived",
+          resourceType: "vendor",
+          resourceId: id,
+          vendorId: id,
+        });
+      }
+      return updated.count;
+    });
+    return { data: { archived: result } };
+  }
+
+  async listExhibitions(user: AuthContext) {
+    const rows = await this.tenant.transaction(user.organizationId, (tx) =>
+      tx.exhibition.findMany({
+        where: { organizationId: user.organizationId },
+        orderBy: { startsAt: "desc" },
+        include: { _count: { select: { vendors: true, assignments: true } } },
+      }),
+    );
+    return { data: rows };
+  }
+
+  async saveExhibition(user: AuthContext, body: unknown, id?: string) {
+    const input = exhibitionSchema.parse(body);
+    if (new Date(input.endsAt) < new Date(input.startsAt)) throw new ConflictException("The exhibition end is before the start.");
+    const saved = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const data = {
+        name: input.name,
+        code: input.code,
+        venue: input.venue ?? "",
+        description: input.description ?? "",
+        startsAt: new Date(input.startsAt),
+        endsAt: new Date(input.endsAt),
+        status: input.status ?? "DRAFT",
+      };
+      let exhibition;
+      if (id) {
+        const existing = await tx.exhibition.findFirst({ where: { id, organizationId: user.organizationId } });
+        if (!existing) throw new NotFoundException();
+        exhibition = await tx.exhibition.update({ where: { id }, data });
+      } else {
+        exhibition = await tx.exhibition.create({ data: { ...data, organizationId: user.organizationId } });
+      }
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: id ? "exhibition.updated" : "exhibition.created",
+        resourceType: "exhibition",
+        resourceId: exhibition.id,
+      });
+      return exhibition;
+    });
+    return { data: saved };
+  }
+
+  async listForms(user: AuthContext) {
+    const rows = await this.tenant.transaction(user.organizationId, (tx) =>
+      tx.formTemplate.findMany({
+        where: { organizationId: user.organizationId, archivedAt: null },
+        include: { versions: { orderBy: { versionNumber: "desc" }, take: 1 } },
+        orderBy: { updatedAt: "desc" },
+      }),
+    );
+    return { data: rows };
+  }
+
+  async getForm(user: AuthContext, id: string) {
+    const form = await this.tenant.transaction(user.organizationId, (tx) =>
+      tx.formTemplate.findFirst({
+        where: { id, organizationId: user.organizationId },
+        include: { versions: { orderBy: { versionNumber: "desc" } } },
+      }),
+    );
+    if (!form) throw new NotFoundException();
+    return { data: form };
+  }
+
+  async createForm(user: AuthContext, body: unknown) {
+    const input = templateSchema.parse(body);
+    const schema = input.schema ?? emptySchema();
+    const created = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const form = await tx.formTemplate.create({
+        data: {
+          organizationId: user.organizationId,
+          name: input.name,
+          description: input.description ?? "",
+          scope: input.scope,
+          exhibitionId: input.exhibitionId ?? null,
+          vendorId: input.vendorId ?? null,
+          draftSchema: schema as unknown as Prisma.InputJsonValue,
+          createdById: user.id,
+        },
+      });
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "form.created",
+        resourceType: "form_template",
+        resourceId: form.id,
+      });
+      return form;
+    });
+    return { data: created };
+  }
+
+  async updateDraft(user: AuthContext, id: string, body: unknown) {
+    const input = z.object({
+      name: z.string().min(2).max(200).optional(),
+      description: z.string().max(4000).optional(),
+      scope: z.enum(["GLOBAL", "EXHIBITION", "VENDOR"]).optional(),
+      exhibitionId: z.string().uuid().nullable().optional(),
+      vendorId: z.string().uuid().nullable().optional(),
+      schema: formSchemaDefinition,
+    }).parse(body);
+    const updated = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const existing = await tx.formTemplate.findFirst({ where: { id, organizationId: user.organizationId, archivedAt: null } });
+      if (!existing) throw new NotFoundException();
+      return tx.formTemplate.update({
+        where: { id },
+        data: {
+          name: input.name ?? existing.name,
+          description: input.description ?? existing.description,
+          scope: input.scope ?? existing.scope,
+          exhibitionId: input.exhibitionId === undefined ? existing.exhibitionId : input.exhibitionId,
+          vendorId: input.vendorId === undefined ? existing.vendorId : input.vendorId,
+          draftSchema: input.schema as unknown as Prisma.InputJsonValue,
+        },
+      });
+    });
+    return { data: updated };
+  }
+
+  async publish(user: AuthContext, id: string) {
+    const version = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const form = await tx.formTemplate.findFirst({ where: { id, organizationId: user.organizationId, archivedAt: null } });
+      if (!form) throw new NotFoundException();
+      const schema = formSchemaDefinition.parse(form.draftSchema);
+      if (!schema.fields.some((field) => field.type !== "heading" && field.type !== "info")) {
+        throw new ConflictException("Add at least one input field before publishing.");
+      }
+      const keys = new Set<string>();
+      for (const field of schema.fields) {
+        if (keys.has(field.key)) throw new ConflictException(`The internal key ${field.key} is used more than once.`);
+        keys.add(field.key);
+      }
+      const latest = await tx.formVersion.findFirst({ where: { templateId: id }, orderBy: { versionNumber: "desc" } });
+      const created = await tx.formVersion.create({
+        data: {
+          organizationId: user.organizationId,
+          templateId: id,
+          versionNumber: (latest?.versionNumber ?? 0) + 1,
+          schema: schema as unknown as Prisma.InputJsonValue,
+          checksum: createHash("sha256").update(JSON.stringify(schema)).digest("hex"),
+          publishedById: user.id,
+        },
+      });
+      await tx.formTemplate.update({ where: { id }, data: { status: "PUBLISHED" } });
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "form.published",
+        resourceType: "form_version",
+        resourceId: created.id,
+        newValue: { templateId: id, versionNumber: created.versionNumber },
+      });
+      return created;
+    });
+    return { data: version };
+  }
+
+  async duplicate(user: AuthContext, id: string) {
+    const copy = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const form = await tx.formTemplate.findFirst({ where: { id, organizationId: user.organizationId } });
+      if (!form) throw new NotFoundException();
+      return tx.formTemplate.create({
+        data: {
+          organizationId: user.organizationId,
+          name: `${form.name} copy`,
+          description: form.description,
+          scope: form.scope,
+          exhibitionId: form.exhibitionId,
+          vendorId: form.vendorId,
+          draftSchema: form.draftSchema as object,
+          createdById: user.id,
+        },
+      });
+    });
+    return { data: copy };
+  }
+
+  async compare(user: AuthContext, leftId: string, rightId: string) {
+    const versions = await this.tenant.transaction(user.organizationId, (tx) =>
+      tx.formVersion.findMany({ where: { organizationId: user.organizationId, id: { in: [leftId, rightId] } } }),
+    );
+    if (versions.length !== 2) throw new NotFoundException();
+    const left = versions.find((version) => version.id === leftId);
+    const right = versions.find((version) => version.id === rightId);
+    return { data: { left, right } };
+  }
+}
+
+function emptySchema(): FormSchemaDefinition {
+  return {
+    sections: [{ id: randomUUID(), title: "General", description: "", order: 0 }],
+    fields: [],
+  };
+}
+
+function boundedLimit(value?: string) {
+  return Math.min(Number(value ?? 25) || 25, 100);
+}
+
+function page<T extends { createdAt: Date; id: string }>(rows: T[], limit: number) {
+  const slice = rows.slice(0, limit);
+  const last = slice.at(-1);
+  return { data: slice, nextCursor: rows.length > limit && last ? encodeCursor(last.createdAt, last.id) : null };
+}

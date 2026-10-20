@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vendor_portal
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d vendor_portal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://app_user:app_password@localhost:5432/vendor_portal
+      MIGRATE_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vendor_portal
+      APP_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      WEB_ORIGIN: http://localhost:3000
+      COOKIE_SECURE: "false"
+      JOBS_MODE: inline
+      STORAGE_DRIVER: local
+      SMTP_HOST: json
+      ENABLE_SWAGGER: "false"
+      SEED_ADMIN_EMAIL: admin@harbor.example
+      SEED_ADMIN_PASSWORD: ChangeMe!Admin1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Create application role
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d vendor_portal -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_user') THEN CREATE ROLE app_user LOGIN PASSWORD 'app_password' NOSUPERUSER NOBYPASSRLS; END IF; END \$\$; GRANT CONNECT ON DATABASE vendor_portal TO app_user;"
+      - run: npm run build -w @vmp/shared
+      - run: npm run prisma:generate -w @vmp/api
+      - run: npm run prisma:migrate -w @vmp/api
+      - run: npx prisma db execute --url "$MIGRATE_DATABASE_URL" --file prisma/sql/grants.sql
+        working-directory: apps/api
+      - run: npm run prisma:seed -w @vmp/api
+      - run: npm test
+      - run: npm run test:e2e -w @vmp/api
+      - run: npm run typecheck
+      - run: npm run build -w @vmp/api
+      - run: npm run build -w @vmp/web

@@ -1,0 +1,1 @@
+export const themeBoot = `(function(){try{var stored=localStorage.getItem("theme")||"system";var dark=stored==="dark"||(stored==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",dark);document.documentElement.dataset.theme=stored;}catch(e){}})();`;
