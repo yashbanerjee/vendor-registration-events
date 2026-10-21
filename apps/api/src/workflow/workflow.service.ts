@@ -16,7 +16,7 @@ import { randomToken, sha256 } from "../common/crypto";
 import { decodeCursor, encodeCursor } from "../common/http";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
-import { OutboxService } from "../jobs/jobs.service";
+import { OutboxProcessor, OutboxService } from "../jobs/jobs.service";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
 
@@ -43,6 +43,7 @@ export class WorkflowService {
     @Inject(TenantService) private readonly tenant: TenantService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(OutboxService) private readonly outbox: OutboxService,
+    @Inject(OutboxProcessor) private readonly processor: OutboxProcessor,
   ) {}
 
   async list(user: AuthContext, query: { cursor?: string; status?: string; q?: string; limit?: string }) {
@@ -102,20 +103,86 @@ export class WorkflowService {
       exhibitionId: z.string().uuid(),
       formVersionId: z.string().uuid(),
     }).parse(body);
-    const assigned = await this.tenant.transaction(user.organizationId, async (tx) => {
-      for (const vendorId of input.vendorIds) {
-        await this.createAssignment(tx, user, {
-          vendorId,
-          exhibitionId: input.exhibitionId,
-          formVersionId: input.formVersionId,
-        });
+    const chunkSize = 25;
+    let assigned = 0;
+    const failed: string[] = [];
+    for (let offset = 0; offset < input.vendorIds.length; offset += chunkSize) {
+      const vendorIds = input.vendorIds.slice(offset, offset + chunkSize);
+      try {
+        assigned += await this.tenant.transaction(user.organizationId, async (tx) => {
+          for (const vendorId of vendorIds) {
+            await this.createAssignment(tx, user, {
+              vendorId,
+              exhibitionId: input.exhibitionId,
+              formVersionId: input.formVersionId,
+            }, { notifyAdmins: false });
+          }
+          return vendorIds.length;
+        }, { timeout: 25_000, maxWait: 10_000 });
+      } catch {
+        for (const vendorId of vendorIds) {
+          try {
+            await this.tenant.transaction(user.organizationId, (tx) => this.createAssignment(tx, user, {
+              vendorId,
+              exhibitionId: input.exhibitionId,
+              formVersionId: input.formVersionId,
+            }, { notifyAdmins: false }), { timeout: 15_000, maxWait: 5_000 });
+            assigned += 1;
+          } catch {
+            failed.push(vendorId);
+          }
+        }
       }
-      return input.vendorIds.length;
-    });
-    return { data: { assigned } };
+    }
+    if (assigned > 0) {
+      const idempotencyKey = `bulk-invite:${input.exhibitionId}:${input.formVersionId}:${sha256([...input.vendorIds].sort().join(","))}`;
+      await this.tenant.transaction(user.organizationId, (tx) => this.notifyAdmins(tx, user.organizationId, {
+        idempotencyKey,
+        template: "invitation",
+        subject: `${assigned} exhibition invitations were queued`,
+        title: "Invitations queued",
+        text: `${assigned} vendors were invited. The messages are sent steadily so a large batch is not rejected by the mail server.${failed.length ? ` ${failed.length} vendors could not be invited.` : ""}`,
+        link: "/admin/vendors",
+      }), { timeout: 15_000, maxWait: 5_000 });
+    }
+    return { data: { assigned, failed: failed.length, failedVendorIds: failed } };
   }
 
-  async createAssignment(tx: Tx, user: AuthContext, input: z.infer<typeof assignSchema>) {
+  async mailSummary(user: AuthContext, body: unknown) {
+    const input = z.object({
+      vendorIds: z.array(z.string().uuid()).max(500),
+      expectInvitation: z.boolean().optional(),
+    }).parse(body);
+    const data = await this.tenant.transaction(user.organizationId, (tx) => this.mailRows(tx, user.organizationId, input.vendorIds, Boolean(input.expectInvitation)));
+    return { data };
+  }
+
+  async resendFailedMail(user: AuthContext, body: unknown) {
+    const input = z.object({
+      vendorIds: z.array(z.string().uuid()).min(1).max(500),
+      exhibitionId: z.string().uuid().optional(),
+      formVersionId: z.string().uuid().optional(),
+    }).parse(body);
+    const rows = await this.tenant.transaction(user.organizationId, (tx) => this.mailRows(tx, user.organizationId, input.vendorIds, Boolean(input.formVersionId)));
+    let resent = 0;
+    for (const row of rows.failedVendors) {
+      if (row.outboxId && row.outboxStatus === "FAILED") {
+        const updated = await this.processor.retry(user.organizationId, row.outboxId);
+        if (updated) resent += 1;
+        continue;
+      }
+      if (row.outboxId || !input.exhibitionId || !input.formVersionId) continue;
+      await this.tenant.transaction(user.organizationId, (tx) => this.createAssignment(tx, user, {
+        vendorId: row.id,
+        exhibitionId: input.exhibitionId!,
+        formVersionId: input.formVersionId!,
+      }, { notifyAdmins: false }), { timeout: 15_000, maxWait: 5_000 });
+      resent += 1;
+    }
+    return { data: { resent } };
+  }
+
+  async createAssignment(tx: Tx, user: AuthContext, input: z.infer<typeof assignSchema>, options?: { notifyAdmins?: boolean }) {
     const [vendor, exhibition, version] = await Promise.all([
       tx.vendor.findFirst({
         where: { id: input.vendorId, organizationId: user.organizationId, archivedAt: null },
@@ -151,6 +218,7 @@ export class WorkflowService {
       purpose: "FORM_ASSIGNMENT",
       subject: `Complete ${version.template.name} for ${exhibition.name}`,
       intro: `${user.name} assigned ${version.template.name} for ${exhibition.name}.`,
+      notifyAdmins: options?.notifyAdmins,
     });
     await this.audit.record(tx, {
       organizationId: user.organizationId,
@@ -646,6 +714,78 @@ export class WorkflowService {
       }),
     );
     return { data: rows.map((row) => this.present(row, false)) };
+  }
+
+  private async mailRows(tx: Tx, organizationId: string, vendorIds: string[], expectInvitation: boolean) {
+    const vendors = await tx.vendor.findMany({
+      where: { id: { in: vendorIds }, organizationId, archivedAt: null },
+      select: { id: true, companyName: true, email: true },
+    });
+    const invitations = await tx.invitation.findMany({
+      where: { organizationId, vendorId: { in: vendors.map((vendor) => vendor.id) }, purpose: { in: ["FORM_ASSIGNMENT", "CORRECTION"] } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, vendorId: true },
+    });
+    const latestInvitation = new Map<string, string>();
+    for (const invitation of invitations) {
+      if (invitation.vendorId && !latestInvitation.has(invitation.vendorId)) latestInvitation.set(invitation.vendorId, invitation.id);
+    }
+    const keys = [
+      ...vendors.map((vendor) => `credentials:${vendor.id}`),
+      ...[...latestInvitation.values()].map((id) => `invitation:${id}`),
+    ];
+    const [messages, events] = keys.length
+      ? await Promise.all([
+          tx.emailMessage.findMany({
+            where: { organizationId, idempotencyKey: { in: keys } },
+            select: { idempotencyKey: true, status: true, lastError: true, template: true, createdAt: true },
+          }),
+          tx.outboxEvent.findMany({
+            where: { organizationId, idempotencyKey: { in: keys } },
+            select: { id: true, idempotencyKey: true, status: true, lastError: true },
+          }),
+        ])
+      : [[], []];
+    const messageByKey = new Map(messages.map((message) => [message.idempotencyKey, message]));
+    const eventByKey = new Map(events.map((event) => [event.idempotencyKey, event]));
+    const failedVendors: { id: string; companyName: string; email: string; error: string; outboxId: string | null; outboxStatus: string | null }[] = [];
+    let sent = 0;
+    let sending = 0;
+    let failed = 0;
+    for (const vendor of vendors) {
+      const invitationKey = latestInvitation.has(vendor.id) ? `invitation:${latestInvitation.get(vendor.id)}` : "";
+      const credentialKey = `credentials:${vendor.id}`;
+      const invitationMessage = invitationKey ? messageByKey.get(invitationKey) : undefined;
+      const credentialMessage = messageByKey.get(credentialKey);
+      const chosenKey = invitationMessage && (!credentialMessage || invitationMessage.createdAt >= credentialMessage.createdAt)
+        ? invitationKey
+        : credentialMessage
+          ? credentialKey
+          : invitationKey || credentialKey;
+      const message = messageByKey.get(chosenKey);
+      const event = eventByKey.get(chosenKey);
+      const missingInvitation = expectInvitation && !invitationKey;
+      const failedMail = message?.status === "FAILED" || message?.status === "BOUNCED" || event?.status === "FAILED" || missingInvitation;
+      const sentMail = !failedMail && (message?.status === "SENT" || message?.status === "DELIVERED");
+      if (sentMail) {
+        sent += 1;
+        continue;
+      }
+      if (failedMail) {
+        failed += 1;
+        failedVendors.push({
+          id: vendor.id,
+          companyName: vendor.companyName,
+          email: vendor.email,
+          error: message?.lastError || event?.lastError || (missingInvitation ? "The invitation was not queued." : "The message was not accepted."),
+          outboxId: event?.status === "FAILED" ? event.id : null,
+          outboxStatus: event?.status ?? null,
+        });
+        continue;
+      }
+      sending += 1;
+    }
+    return { transferred: vendors.length, sent, sending, failed, failedVendors };
   }
 
   private async issueInvitation(

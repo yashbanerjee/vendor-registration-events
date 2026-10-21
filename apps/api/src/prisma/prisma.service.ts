@@ -19,7 +19,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 export class TenantService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  transaction<T>(organizationId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  transaction<T>(organizationId: string, fn: (tx: Tx) => Promise<T>, options?: { timeout?: number; maxWait?: number }): Promise<T> {
     if (!isUuid(organizationId)) {
       throw new Error("Invalid organization context.");
     }
@@ -27,7 +27,7 @@ export class TenantService {
       await tx.$executeRaw`SELECT set_config('app.bypass_rls', 'off', true)`;
       await tx.$executeRaw`SELECT set_config('app.current_org', ${organizationId}, true)`;
       return fn(tx);
-    });
+    }, { timeout: options?.timeout ?? 5_000, maxWait: options?.maxWait ?? 2_000 });
   }
 
   /** Auth bootstrap only. Business queries must use transaction(). */

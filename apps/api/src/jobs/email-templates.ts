@@ -1,4 +1,23 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 export type EmailAudience = "vendor" | "admin";
+
+const logoCid = "s7-logo";
+let logoBytes: Buffer | undefined;
+
+export function emailAttachments() {
+  logoBytes ??= readFileSync(path.join(__dirname, "../../assets/s7-logo.png"));
+  return [
+    {
+      filename: "s7-logo.png",
+      content: logoBytes,
+      cid: logoCid,
+      contentType: "image/png",
+      contentDisposition: "inline" as const,
+    },
+  ];
+}
 
 const themes: Record<string, { label: string; color: string; on: string; action: string }> = {
   invitation: { label: "Invitation", color: "#F52D71", on: "#ffffff", action: "Open invitation" },
@@ -87,8 +106,8 @@ export function renderEmail(input: {
             </tr>
             <tr>
               <td style="padding:20px 24px 8px;">
-                <p style="margin:0;font-size:28px;line-height:1;font-weight:800;letter-spacing:-0.04em;color:#F52D71;">s7</p>
-                <p style="margin:10px 0 0;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#6B5560;">${escapeHtml(input.organizationName)}</p>
+                <img src="cid:${logoCid}" width="64" height="64" alt="s7" style="display:block;width:64px;height:64px;border:0;outline:none;text-decoration:none;" />
+                <p style="margin:12px 0 0;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#6B5560;">${escapeHtml(input.organizationName)}</p>
                 <p style="margin:8px 0 0;display:inline-block;background:${theme.color};color:${theme.on};border-radius:999px;padding:2px 8px;font-size:12px;font-weight:600;">${escapeHtml(theme.label)}</p>
                 <h1 style="margin:12px 0 0;font-size:22px;line-height:1.3;">${escapeHtml(input.title)}</h1>
               </td>

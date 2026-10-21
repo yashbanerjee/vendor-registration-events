@@ -30,6 +30,7 @@ type Vendor = {
 type FormOption = { id: string; name: string; status: string; versions?: { id: string; versionNumber: number }[] };
 type ExhibitionOption = { id: string; name: string };
 type ImportResult = { id: string; filename: string; createdCount: number; skippedCount: number; errorCount: number; createdVendorIds: string[] };
+type MailSummary = { transferred: number; sent: number; sending: number; failed: number; failedVendors: { id: string; companyName: string; email: string; error: string }[] };
 
 const emptyVendor = { companyName: "", contactName: "", email: "", categoryId: "", phone: "", exhibitionId: "", formVersionId: "" };
 const helper = createColumnHelper<Vendor>();
@@ -87,6 +88,7 @@ export default function VendorsPage() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [bulkFormId, setBulkFormId] = useState("");
   const [bulkExhibitionId, setBulkExhibitionId] = useState("");
+  const [formSent, setFormSent] = useState(false);
   const query = useQuery({
     queryKey: ["vendors", q, categoryId],
     queryFn: () => api<{ data: Vendor[] }>(`/vendors?limit=100&q=${encodeURIComponent(q)}${categoryId ? `&categoryId=${encodeURIComponent(categoryId)}` : ""}`),
@@ -156,6 +158,7 @@ export default function VendorsPage() {
     onSuccess: async (result) => {
       setBulkFormId("");
       setBulkExhibitionId("");
+      setFormSent(false);
       setImportResult(result.data);
       setError("");
       await refresh();
@@ -163,14 +166,38 @@ export default function VendorsPage() {
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Import failed."),
   });
   const sendImported = useMutation({
-    mutationFn: () => api("/assignments/bulk", { method: "POST", body: JSON.stringify({ vendorIds: importResult?.createdVendorIds ?? [], exhibitionId: bulkExhibitionId, formVersionId: bulkFormId }) }),
-    onSuccess: async () => {
-      const count = importResult?.createdVendorIds.length ?? 0;
-      setImportResult(null);
-      setNotice(`The form was emailed to ${count} imported vendor${count === 1 ? "" : "s"}.`);
+    mutationFn: () => api<{ data: { assigned: number; failed: number; failedVendorIds: string[] } }>("/assignments/bulk", { method: "POST", body: JSON.stringify({ vendorIds: importResult?.createdVendorIds ?? [], exhibitionId: bulkExhibitionId, formVersionId: bulkFormId }) }),
+    onSuccess: async (result) => {
+      setFormSent(true);
+      setNotice(`${result.data.assigned} invitations were queued.${result.data.failed ? ` ${result.data.failed} could not be queued.` : ""}`);
+      await client.invalidateQueries({ queryKey: ["bulk-mail"] });
       await refresh();
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not send the form."),
+  });
+  const mailSummary = useQuery({
+    queryKey: ["bulk-mail", importResult?.id, formSent],
+    queryFn: () => api<{ data: MailSummary }>("/assignments/mail-summary", {
+      method: "POST",
+      body: JSON.stringify({ vendorIds: importResult?.createdVendorIds ?? [], expectInvitation: formSent }),
+    }),
+    enabled: Boolean(importResult?.createdVendorIds.length),
+    refetchInterval: (query) => (query.state.data?.data.sending ? 2000 : false),
+  });
+  const resendFailed = useMutation({
+    mutationFn: () => api<{ data: { resent: number } }>("/assignments/mail-resend", {
+      method: "POST",
+      body: JSON.stringify({
+        vendorIds: mailSummary.data?.data.failedVendors.map((vendor) => vendor.id) ?? [],
+        exhibitionId: bulkExhibitionId || undefined,
+        formVersionId: bulkFormId || undefined,
+      }),
+    }),
+    onSuccess: async (result) => {
+      setNotice(`Queued ${result.data.resent} failed ${result.data.resent === 1 ? "message" : "messages"} again.`);
+      await client.invalidateQueries({ queryKey: ["bulk-mail"] });
+    },
+    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not send the failed messages again."),
   });
   const vendors = usePagedRows(query.data?.data ?? [], `${q}|${categoryId}`);
   const columns = [
@@ -311,14 +338,34 @@ export default function VendorsPage() {
           </div>
         </form>
       </Modal>
-      <Modal open={Boolean(importResult)} title="Send a form to the upload" onClose={() => setImportResult(null)}>
+      <Modal open={Boolean(importResult)} title="Upload summary" onClose={() => { setImportResult(null); setFormSent(false); }}>
         {importResult ? (
           <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); setError(""); sendImported.mutate(); }}>
             <ErrorNote message={error} />
-            <p className="text-sm">{importResult.filename}: {importResult.createdCount} created, {importResult.skippedCount} skipped, {importResult.errorCount} errors.</p>
-            {importResult.createdVendorIds.length > 0 ? (
+            <p className="text-sm font-medium">{importResult.filename}</p>
+            <dl className="grid grid-cols-3 gap-2 text-sm">
+              <div className="rounded-md bg-secondary px-3 py-2"><dt className="text-muted">Transferred</dt><dd className="text-lg font-semibold">{importResult.createdCount}</dd></div>
+              <div className="rounded-md bg-secondary px-3 py-2"><dt className="text-muted">Skipped</dt><dd className="text-lg font-semibold">{importResult.skippedCount}</dd></div>
+              <div className="rounded-md bg-secondary px-3 py-2"><dt className="text-muted">Not transferred</dt><dd className="text-lg font-semibold">{importResult.errorCount}</dd></div>
+            </dl>
+            {mailSummary.data ? (
+              <div className="grid gap-2 rounded-md border border-border p-3 text-sm">
+                <p className="font-medium">Mail</p>
+                <p>{mailSummary.data.data.sent} sent, {mailSummary.data.data.sending} still sending, {mailSummary.data.data.failed} failed.</p>
+                {mailSummary.data.data.failedVendors.slice(0, 8).map((vendor) => (
+                  <p key={vendor.id} className="text-muted">{vendor.companyName} · {vendor.email}{vendor.error ? ` — ${vendor.error}` : ""}</p>
+                ))}
+                {mailSummary.data.data.failedVendors.length > 8 ? <p className="text-muted">And {mailSummary.data.data.failedVendors.length - 8} more.</p> : null}
+                {mailSummary.data.data.failed > 0 ? (
+                  <Button type="button" variant="primary" disabled={resendFailed.isPending} onClick={() => { setError(""); resendFailed.mutate(); }}>
+                    {resendFailed.isPending ? "Sending again…" : "Send again to failed"}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            {importResult.createdVendorIds.length > 0 && !formSent ? (
               <>
-                <p className="text-sm text-muted">Choose the form to email to everyone created in this file. Each vendor receives a one-time link.</p>
+                <p className="text-sm text-muted">Choose the form to email to everyone transferred in this file. Each vendor receives a one-time link.</p>
                 <Field label="Exhibition">
                   <select className={inputClass} required value={bulkExhibitionId} onChange={(event) => setBulkExhibitionId(event.target.value)}>
                     <option value="">Select</option>
@@ -333,7 +380,8 @@ export default function VendorsPage() {
                 </Field>
                 <Button type="submit" variant="primary" disabled={sendImported.isPending || !bulkFormId || !bulkExhibitionId}>Send form</Button>
               </>
-            ) : <p className="text-sm text-muted">No new vendors were created, so there is nobody to email.</p>}
+            ) : null}
+            {importResult.createdVendorIds.length === 0 ? <p className="text-sm text-muted">No new vendors were transferred, so there is nobody to email.</p> : null}
             {importResult.errorCount > 0 ? <Button type="button" onClick={() => void download(`/imports/${importResult.id}/errors.csv`, "import-errors.csv")}>Download error report</Button> : null}
           </form>
         ) : null}

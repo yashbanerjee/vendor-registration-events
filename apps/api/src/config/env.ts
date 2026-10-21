@@ -37,6 +37,15 @@ const schema = z.object({
   SMTP_USER: z.string().optional().default(""),
   SMTP_PASS: z.string().optional().default(""),
   SMTP_FROM: z.string().default("s7 <noreply@harbor.example>"),
+  SMTP_FALLBACK_HOST: z.string().optional().default(""),
+  SMTP_FALLBACK_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_FALLBACK_SECURE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  SMTP_FALLBACK_USER: z.string().optional().default(""),
+  SMTP_FALLBACK_PASS: z.string().optional().default(""),
+  SMTP_FALLBACK_FROM: z.string().optional().default(""),
   EMAIL_WEBHOOK_SECRET: z.string().default(""),
   CLAMAV_HOST: z.string().optional().default(""),
   CLAMAV_PORT: z.coerce.number().int().positive().default(3310),

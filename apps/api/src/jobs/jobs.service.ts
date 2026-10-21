@@ -8,7 +8,8 @@ import { AuditService } from "../audit/audit.service";
 import { scanBuffer } from "../documents/scan";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
-import { publicActionUrl, renderEmail, type EmailAudience } from "./email-templates";
+import { emailAttachments, publicActionUrl, renderEmail, type EmailAudience } from "./email-templates";
+import { MailDeliveryError, batchFailureKind, deliveryRoutes, type SmtpEndpoint } from "./mail-route";
 import { StorageService } from "../storage/storage.service";
 
 export type OutboxPayload = Record<string, unknown>;
@@ -49,6 +50,7 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
   private worker: Worker | null = null;
   private connection: IORedis | null = null;
   private workerConnection: IORedis | null = null;
+  private readonly transports = new Map<string, nodemailer.Transporter>();
 
   constructor(
     @Inject(TenantService) private readonly tenant: TenantService,
@@ -81,12 +83,15 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
     await this.queue?.close();
     await this.connection?.quit();
     await this.workerConnection?.quit();
+    await Promise.all([...this.transports.values()].map((transport) => transport.close()));
+    this.transports.clear();
   }
 
-  async flush(limit = 25) {
+  async flush(limit = 40) {
     if (this.running) return;
     this.running = true;
     try {
+      await this.reclaimStuck();
       for (let index = 0; index < limit; index += 1) {
         const claimed = await this.claim();
         if (!claimed) break;
@@ -125,7 +130,7 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
     return this.tenant.unscoped(async (tx) => {
       const rows = await tx.$queryRaw<Claimed[]>`
         UPDATE outbox_events
-        SET status = 'PROCESSING'
+        SET status = 'PROCESSING', available_at = NOW()
         WHERE id = (
           SELECT id FROM outbox_events
           WHERE status = 'PENDING' AND available_at <= NOW()
@@ -137,6 +142,14 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
       `;
       return rows[0] ?? null;
     });
+  }
+
+  private async reclaimStuck() {
+    await this.tenant.unscoped((tx) => tx.$executeRaw`
+      UPDATE outbox_events
+      SET status = 'PENDING'
+      WHERE status = 'PROCESSING' AND available_at < NOW() - INTERVAL '2 minutes'
+    `);
   }
 
   private async handleById(id: string) {
@@ -155,7 +168,7 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
   private async dispatchClaim(claimed: Claimed) {
     try {
       const payload = JSON.parse(decryptString(claimed.payloadEnc)) as OutboxPayload;
-      if (claimed.type.startsWith("email.")) await this.sendEmail(claimed.organizationId, payload);
+      if (claimed.type.startsWith("email.")) await this.sendEmail(claimed.organizationId, payload, claimed.attempts + 1);
       else if (claimed.type === "document.scan") await this.scanDocument(claimed.organizationId, payload);
       else throw new Error(`Unknown outbox type ${claimed.type}`);
       await this.tenant.unscoped((tx) =>
@@ -166,7 +179,8 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
       );
     } catch (error) {
       const attempts = claimed.attempts + 1;
-      const exhausted = attempts >= 8;
+      const permanent = error instanceof MailDeliveryError && error.kind === "permanent";
+      const exhausted = permanent || attempts >= 8;
       const delay = Math.min(60_000 * 2 ** attempts, 15 * 60_000);
       const message = error instanceof Error ? error.message.slice(0, 500) : "Background job failed.";
       this.logger.warn(`Outbox ${claimed.type} failed: ${message}`);
@@ -185,7 +199,7 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async sendEmail(organizationId: string, payload: OutboxPayload) {
+  private async sendEmail(organizationId: string, payload: OutboxPayload, attempt: number) {
     const to = String(payload.to ?? "");
     const subject = String(payload.subject ?? "");
     const text = String(payload.text ?? "");
@@ -241,62 +255,114 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
       body: text,
       actionUrl,
     });
-    const transport = mail.smtpHost === "json"
+    const config = env();
+    const primary: SmtpEndpoint = {
+      host: mail.smtpHost,
+      port: mail.smtpPort,
+      secure: mail.smtpSecure,
+      user: mail.smtpUser,
+      password: mail.smtpPassword,
+      from: mail.emailFrom,
+    };
+    const routes = deliveryRoutes(primary, [
+      {
+        host: config.SMTP_FALLBACK_HOST,
+        port: config.SMTP_FALLBACK_PORT,
+        secure: config.SMTP_FALLBACK_SECURE,
+        user: config.SMTP_FALLBACK_USER,
+        password: config.SMTP_FALLBACK_PASS,
+        from: config.SMTP_FALLBACK_FROM || mail.emailFrom,
+      },
+      {
+        host: config.SMTP_HOST,
+        port: config.SMTP_PORT,
+        secure: config.SMTP_SECURE,
+        user: config.SMTP_USER,
+        password: config.SMTP_PASS,
+        from: config.SMTP_FROM,
+      },
+    ]);
+    const failures: unknown[] = [];
+    for (const route of routes) {
+      try {
+        const info = await this.transportFor(route).sendMail({
+          from: route.from,
+          to,
+          subject,
+          text: rendered.text,
+          html: rendered.html,
+          attachments: emailAttachments(),
+          headers: { "X-Idempotency-Key": idempotencyKey },
+        });
+        await this.tenant.transaction(organizationId, async (tx) => {
+          await tx.emailMessage.update({
+            where: { id: existing.id },
+            data: {
+              status: "SENT",
+              providerMessageId: info.messageId ?? null,
+              attemptCount: { increment: 1 },
+              lastError: "",
+            },
+          });
+          await tx.emailDeliveryEvent.create({
+            data: {
+              organizationId,
+              emailMessageId: existing.id,
+              status: "SENT",
+              source: route.name === "fallback" ? "smtp_fallback_accepted" : "smtp_accepted",
+              payload: { accepted: true, route: route.name },
+            },
+          });
+        });
+        return;
+      } catch (error) {
+        failures.push(error);
+        const message = error instanceof Error ? error.message.slice(0, 500) : "SMTP send failed.";
+        await this.tenant.transaction(organizationId, async (tx) => {
+          await tx.emailDeliveryEvent.create({
+            data: {
+              organizationId,
+              emailMessageId: existing.id,
+              status: "FAILED",
+              source: route.name === "fallback" ? "smtp_fallback_error" : "smtp_error",
+              payload: { message, route: route.name },
+            },
+          });
+        });
+      }
+    }
+    const kind = batchFailureKind(failures);
+    const exhausted = kind === "permanent" || attempt >= 8;
+    const lastFailure = failures[failures.length - 1];
+    const message = (lastFailure instanceof Error ? lastFailure.message : "SMTP send failed.").slice(0, 500);
+    await this.tenant.transaction(organizationId, async (tx) => {
+      await tx.emailMessage.update({
+        where: { id: existing.id },
+        data: { status: exhausted ? "FAILED" : "QUEUED", attemptCount: { increment: 1 }, lastError: message },
+      });
+    });
+    throw new MailDeliveryError(message, failures, kind);
+  }
+
+  private transportFor(route: SmtpEndpoint) {
+    const key = `${route.host}:${route.port}:${route.user}`;
+    const cached = this.transports.get(key);
+    if (cached) return cached;
+    const transport = route.host === "json"
       ? nodemailer.createTransport({ jsonTransport: true })
       : nodemailer.createTransport({
-          host: mail.smtpHost,
-          port: mail.smtpPort,
-          secure: mail.smtpSecure,
-          auth: mail.smtpUser ? { user: mail.smtpUser, pass: mail.smtpPassword } : undefined,
+          pool: true,
+          host: route.host,
+          port: route.port,
+          secure: route.secure,
+          auth: route.user ? { user: route.user, pass: route.password } : undefined,
+          maxConnections: 1,
+          maxMessages: 100,
+          rateDelta: 1000,
+          rateLimit: 4,
         });
-    try {
-      const info = await transport.sendMail({
-        from: mail.emailFrom,
-        to,
-        subject,
-        text: rendered.text,
-        html: rendered.html,
-        headers: { "X-Idempotency-Key": idempotencyKey },
-      });
-      await this.tenant.transaction(organizationId, async (tx) => {
-        await tx.emailMessage.update({
-          where: { id: existing.id },
-          data: {
-            status: "SENT",
-            providerMessageId: info.messageId ?? null,
-            attemptCount: { increment: 1 },
-            lastError: "",
-          },
-        });
-        await tx.emailDeliveryEvent.create({
-          data: {
-            organizationId,
-            emailMessageId: existing.id,
-            status: "SENT",
-            source: "smtp_accepted",
-            payload: { accepted: true },
-          },
-        });
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message.slice(0, 500) : "SMTP send failed.";
-      await this.tenant.transaction(organizationId, async (tx) => {
-        await tx.emailMessage.update({
-          where: { id: existing.id },
-          data: { status: "FAILED", attemptCount: { increment: 1 }, lastError: message },
-        });
-        await tx.emailDeliveryEvent.create({
-          data: {
-            organizationId,
-            emailMessageId: existing.id,
-            status: "FAILED",
-            source: "smtp_error",
-            payload: { message },
-          },
-        });
-      });
-      throw error;
-    }
+    this.transports.set(key, transport);
+    return transport;
   }
 
   private async scanDocument(organizationId: string, payload: OutboxPayload) {

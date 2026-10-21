@@ -14,7 +14,10 @@ test("email templates escape content and keep the action link", () => {
   assert.match(rendered.html, /Vehda &lt;script&gt;/);
   assert.match(rendered.html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.match(rendered.html, /http:\/\/localhost:3000\/vendor\/assignments\/1/);
+  assert.match(rendered.html, /src="cid:s7-logo"/);
+  assert.match(rendered.html, /alt="s7"/);
   assert.doesNotMatch(rendered.html, /<script>/);
+  assert.doesNotMatch(rendered.html, /font-weight:800[^>]*>s7</);
 });
 
 test("invitation button keeps the public link when the sender origin is local", () => {

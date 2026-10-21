@@ -287,7 +287,7 @@ export class ImportsService {
         newValue: { createdCount, skippedCount, errorCount },
       });
       return { ...finished, createdVendorIds };
-    });
+    }, { timeout: 120_000, maxWait: 15_000 });
     if (file.path) await rm(file.path, { force: true });
     return { data: job };
   }

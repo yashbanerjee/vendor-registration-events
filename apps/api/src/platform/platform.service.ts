@@ -8,7 +8,7 @@ import type { AuthContext } from "../common/auth";
 import { safeEqualText } from "../common/crypto";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
-import { renderEmail } from "../jobs/email-templates";
+import { emailAttachments, renderEmail } from "../jobs/email-templates";
 import { OutboxProcessor } from "../jobs/jobs.service";
 import { PrismaService, TenantService } from "../prisma/prisma.service";
 import { effectiveSettings, nextStored, parseStored, publicSettings, settingsBody } from "./org-settings";
@@ -369,6 +369,7 @@ export class PlatformService {
         subject,
         text: rendered.text,
         html: rendered.html,
+        attachments: emailAttachments(),
       });
       await this.tenant.transaction(user.organizationId, async (tx) => {
         await tx.emailMessage.update({

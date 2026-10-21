@@ -44,6 +44,18 @@ export class WorkflowController {
     return this.workflow.assignMany(request.user!, body);
   }
 
+  @Post("assignments/mail-summary")
+  @RequirePermissions(PERMISSIONS.assignmentsRead)
+  mailSummary(@Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.workflow.mailSummary(request.user!, body);
+  }
+
+  @Post("assignments/mail-resend")
+  @RequirePermissions(PERMISSIONS.assignmentsWrite)
+  resendFailedMail(@Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.workflow.resendFailedMail(request.user!, body);
+  }
+
   @Post("assignments/:id/resend")
   @RequirePermissions(PERMISSIONS.assignmentsWrite)
   resend(@Req() request: AuthedRequest, @Param("id") id: string) {
