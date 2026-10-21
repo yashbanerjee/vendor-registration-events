@@ -9,19 +9,51 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   png: "image/png",
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
+  jpe: "image/jpeg",
+  jfif: "image/jpeg",
   webp: "image/webp",
   gif: "image/gif",
+  bmp: "image/bmp",
+  tif: "image/tiff",
+  tiff: "image/tiff",
+  avif: "image/avif",
+  heic: "image/heic",
   txt: "text/plain",
   csv: "text/csv",
+  json: "application/json",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  glb: "model/gltf-binary",
+  gltf: "model/gltf+json",
+  obj: "model/obj",
+  stl: "model/stl",
+  ply: "model/ply",
+  fbx: "application/octet-stream",
+  dae: "model/vnd.collada+xml",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  zip: "application/zip",
 };
 
+const BLOCKED_EXTENSIONS = new Set([
+  "exe", "dll", "bat", "cmd", "com", "msi", "scr", "ps1", "sh", "bash", "js", "mjs", "cjs",
+  "html", "htm", "svg", "xhtml", "php", "jar", "vbs", "wsf", "apk", "hta", "cpl", "lnk",
+  "reg", "wasm", "dmg", "iso", "app", "deb", "rpm", "so", "dylib",
+]);
+
+export function mimeForFilename(filename: string, declaredMime = "") {
+  const extension = extensionOf(filename);
+  return MIME_BY_EXTENSION[extension] ?? (declaredMime && declaredMime !== "application/octet-stream" ? declaredMime : "application/octet-stream");
+}
+
 export function sniffAllowed(buffer: Buffer, filename: string, declaredMime: string): ScanResult {
-  const extension = filename.toLowerCase().split(".").pop() ?? "";
+  const extension = extensionOf(filename);
+  if (!extension || BLOCKED_EXTENSIONS.has(extension)) return { clean: false, details: "This file type is not allowed." };
   const expected = MIME_BY_EXTENSION[extension];
-  if (!expected) return { clean: false, details: "This file type is not allowed." };
-  if (declaredMime && declaredMime !== "application/octet-stream" && declaredMime !== expected) {
+  if (expected && declaredMime && declaredMime !== "application/octet-stream" && declaredMime !== expected && !compatibleMime(declaredMime, expected)) {
     return { clean: false, details: "The file extension does not match its content type." };
   }
   if (buffer.includes(Buffer.from(EICAR))) return { clean: false, details: "Malware signature detected." };
@@ -33,16 +65,47 @@ export function sniffAllowed(buffer: Buffer, filename: string, declaredMime: str
   return { clean: true, details: "signature checks passed" };
 }
 
+function extensionOf(filename: string) {
+  const base = filename.toLowerCase().split(/[/\\]/).pop() ?? "";
+  const dot = base.lastIndexOf(".");
+  return dot >= 0 ? base.slice(dot + 1) : "";
+}
+
+function compatibleMime(declared: string, expected: string) {
+  if (expected === "application/octet-stream") return true;
+  if (expected.startsWith("model/") && (declared.startsWith("model/") || declared.startsWith("text/") || declared === "application/json" || declared === "application/xml" || declared === "text/xml")) return true;
+  if ((expected === "text/plain" || expected === "text/csv" || expected === "application/json") && declared.startsWith("text/")) return true;
+  return false;
+}
+
 function magicMatches(buffer: Buffer, extension: string): boolean {
   const starts = (...bytes: number[]) => bytes.every((byte, index) => buffer[index] === byte);
   if (extension === "pdf") return buffer.subarray(0, 4).toString("utf8") === "%PDF";
   if (extension === "png") return starts(0x89, 0x50, 0x4e, 0x47);
-  if (extension === "jpg" || extension === "jpeg") return starts(0xff, 0xd8, 0xff);
+  if (extension === "jpg" || extension === "jpeg" || extension === "jpe" || extension === "jfif") return starts(0xff, 0xd8, 0xff);
   if (extension === "gif") return buffer.subarray(0, 6).toString("utf8") === "GIF87a" || buffer.subarray(0, 6).toString("utf8") === "GIF89a";
   if (extension === "webp") return buffer.subarray(0, 4).toString("utf8") === "RIFF" && buffer.subarray(8, 12).toString("utf8") === "WEBP";
-  if (extension === "docx" || extension === "xlsx") return starts(0x50, 0x4b, 0x03, 0x04);
-  if (extension === "txt" || extension === "csv") return !buffer.includes(0);
-  return false;
+  if (extension === "docx" || extension === "xlsx" || extension === "zip") return starts(0x50, 0x4b, 0x03, 0x04);
+  if (extension === "txt" || extension === "csv" || extension === "json" || extension === "obj" || extension === "dae") return !buffer.includes(0);
+  if (extension === "gltf") return !buffer.includes(0) && buffer.subarray(0, 400).toString("utf8").trim().startsWith("{");
+  if (extension === "glb") return buffer.subarray(0, 4).toString("utf8") === "glTF";
+  if (extension === "stl") return buffer.subarray(0, 5).toString("utf8") === "solid" || stlBinary(buffer);
+  if (extension === "ply") return buffer.subarray(0, 3).toString("utf8") === "ply";
+  if (extension === "fbx") return buffer.subarray(0, 18).toString("utf8").startsWith("Kaydara FBX Binary") || buffer.subarray(0, 20).toString("utf8").includes("FBX");
+  if (extension === "bmp") return buffer.subarray(0, 2).toString("utf8") === "BM";
+  if (extension === "tif" || extension === "tiff") return starts(0x49, 0x49, 0x2a, 0x00) || starts(0x4d, 0x4d, 0x00, 0x2a);
+  if (extension === "mp4" || extension === "mov" || extension === "avif" || extension === "heic") return buffer.subarray(4, 8).toString("utf8") === "ftyp";
+  if (extension === "webm") return starts(0x1a, 0x45, 0xdf, 0xa3);
+  if (extension === "wav") return buffer.subarray(0, 4).toString("utf8") === "RIFF" && buffer.subarray(8, 12).toString("utf8") === "WAVE";
+  if (extension === "mp3") return buffer.subarray(0, 3).toString("utf8") === "ID3" || (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0);
+  if (MIME_BY_EXTENSION[extension]) return false;
+  return true;
+}
+
+function stlBinary(buffer: Buffer) {
+  if (buffer.length < 84) return false;
+  const triangles = buffer.readUInt32LE(80);
+  return buffer.length === 84 + triangles * 50;
 }
 
 export async function scanWithClamAv(buffer: Buffer, host: string, port: number): Promise<ScanResult> {

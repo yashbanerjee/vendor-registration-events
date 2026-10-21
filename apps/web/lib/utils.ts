@@ -36,7 +36,7 @@ const LABELS: Record<string, string> = {
   REVIEWER: "Reviewer",
 };
 
-export function formatLabel(value: string) {
+export function formatLabel(value: string): string {
   if (!value) return value;
   if (value.includes(",")) return value.split(",").map((part) => formatLabel(part.trim())).filter(Boolean).join(", ");
   const known = LABELS[value];
