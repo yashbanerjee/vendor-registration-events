@@ -217,7 +217,7 @@ export default function VendorsPage() {
       ),
     }),
   ];
-  const table = useReactTable({ data: vendors.rows, columns, getCoreRowModel: getCoreRowModel() });
+  const table = useReactTable({ data: vendors.rows, columns, getCoreRowModel: getCoreRowModel(), autoResetPageIndex: false });
   return (
     <div>
       <PageHeader
