@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
+import { BrandMark } from "@/components/brand-mark";
 import { Button, ErrorNote, Field, Notice, inputClass } from "@/components/ui";
 
 export default function ForgotPasswordPage() {
@@ -25,7 +26,7 @@ export default function ForgotPasswordPage() {
     <main className="grid min-h-screen place-items-center px-4">
       <form onSubmit={(event) => void submit(event)} className="grid w-full max-w-md gap-4 rounded-lg border border-border bg-surface p-6">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Account recovery</p>
+          <BrandMark className="mb-3 h-16 w-16 object-contain" />
           <h1 className="text-2xl font-semibold">Forgot password</h1>
           <p className="mt-1 text-sm text-muted">We will email a one-hour reset link if an active account matches this address.</p>
         </div>

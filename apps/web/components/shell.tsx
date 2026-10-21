@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { applyTheme, readTheme, type ThemeChoice } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useSession } from "./providers";
+import { BrandMark } from "./brand-mark";
 import { Button, Modal } from "./ui";
 
 export type NavItem = { href: string; label: string; icon: React.ReactNode };
@@ -47,11 +48,10 @@ export function AppShell({ items, home }: { items: NavItem[]; home: string }) {
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[auto_1fr]">
-      <aside className={cn("border-b border-border bg-surface md:min-h-screen md:border-b-0 md:border-r", collapsed ? "md:w-16" : "md:w-60")}>
+      <aside className={cn("border-b border-t-4 border-t-brand border-border bg-surface md:min-h-screen md:border-b-0 md:border-r", collapsed ? "md:w-20" : "md:w-60")}>
         <div className="flex h-14 items-center justify-between px-3">
-          <Link href={home} className="flex items-center gap-2 font-semibold">
-            <span className="grid h-7 w-7 place-items-center rounded bg-brand text-xs text-[var(--brand-foreground)]">VP</span>
-            {!collapsed ? <span>Vendor Portal</span> : null}
+          <Link href={home} aria-label="s7" className="flex items-center text-brand">
+            <BrandMark className="h-9 w-9 object-contain" />
           </Link>
           <button className="hidden rounded p-1 hover:bg-secondary md:inline-flex" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={toggleSidebar}>
             {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
@@ -205,11 +205,10 @@ function ShellNav({ items, home }: { items: NavItem[]; home: string }) {
     if (localStorage.getItem("sidebar") === "collapsed") setCollapsed(true);
   }, []);
   return (
-    <aside className={cn("border-b border-border bg-surface md:min-h-screen md:border-b-0 md:border-r", collapsed ? "md:w-16" : "md:w-60")}>
+    <aside className={cn("border-b border-t-4 border-t-brand border-border bg-surface md:min-h-screen md:border-b-0 md:border-r", collapsed ? "md:w-20" : "md:w-60")}>
       <div className="flex h-14 items-center justify-between px-3">
-        <Link href={home} className="flex items-center gap-2 font-semibold">
-          <span className="grid h-7 w-7 place-items-center rounded bg-brand text-xs text-[var(--brand-foreground)]">VP</span>
-          {!collapsed ? <span>Vendor Portal</span> : null}
+        <Link href={home} aria-label="s7" className="flex items-center text-brand">
+          <BrandMark className="h-9 w-9 object-contain" />
         </Link>
         <button className="hidden rounded p-1 hover:bg-secondary md:inline-flex" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setCollapsed((current) => { localStorage.setItem("sidebar", current ? "open" : "collapsed"); return !current; })}>
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}

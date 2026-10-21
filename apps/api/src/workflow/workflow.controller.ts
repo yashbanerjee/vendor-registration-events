@@ -15,6 +15,12 @@ export class WorkflowController {
     return this.workflow.list(request.user!, query);
   }
 
+  @Get("submissions")
+  @RequirePermissions(PERMISSIONS.submissionsRead)
+  submissions(@Req() request: AuthedRequest) {
+    return this.workflow.submissions(request.user!);
+  }
+
   @Get("reviews")
   @RequirePermissions(PERMISSIONS.submissionsReview)
   queue(@Req() request: AuthedRequest) {

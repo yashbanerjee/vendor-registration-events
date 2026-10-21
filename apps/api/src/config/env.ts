@@ -36,7 +36,7 @@ const schema = z.object({
     .transform((value) => value === "true"),
   SMTP_USER: z.string().optional().default(""),
   SMTP_PASS: z.string().optional().default(""),
-  SMTP_FROM: z.string().default("Vendor Portal <noreply@harbor.example>"),
+  SMTP_FROM: z.string().default("s7 <noreply@harbor.example>"),
   EMAIL_WEBHOOK_SECRET: z.string().default(""),
   CLAMAV_HOST: z.string().optional().default(""),
   CLAMAV_PORT: z.coerce.number().int().positive().default(3310),

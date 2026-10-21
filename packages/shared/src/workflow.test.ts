@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { assertTransition, WorkflowError } from "./workflow";
-import { assertLockedFieldsUnchanged, formSchemaDefinition, LockedFieldError, validateSubmission } from "./form-schema";
+import { assertLockedFieldsUnchanged, fieldAnswers, formSchemaDefinition, LockedFieldError, validateSubmission } from "./form-schema";
 import { escapeSpreadsheetCell, toCsv } from "./csv";
 
 const sectionId = "11111111-1111-4111-8111-111111111111";
@@ -89,6 +89,15 @@ test("submission validation reports required fields", () => {
   assert.doesNotThrow(() =>
     validateSubmission({ schema, values: { [companyId]: "Harbor", [boothId]: "A1" } }),
   );
+});
+
+test("field answers mark filled and empty inputs", () => {
+  const answers = fieldAnswers(schema, { [companyId]: "Harbor", [boothId]: "  ", [notesId]: "" });
+  assert.deepEqual(answers, [
+    { id: companyId, label: "Company", filled: true },
+    { id: boothId, label: "Booth", filled: false },
+    { id: notesId, label: "Notes", filled: false },
+  ]);
 });
 
 test("spreadsheet cells neutralize formula injection", () => {

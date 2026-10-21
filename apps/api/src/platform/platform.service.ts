@@ -332,7 +332,7 @@ export class PlatformService {
     const mail = effectiveSettings(parseStored(organization.settings));
     if (!mail.smtpHost) throw new BadRequestException("Save an SMTP host before sending a test email.");
     const subject = `Test email from ${organization.name}`;
-    const bodyText = "This is a test message from the vendor portal. The saved email settings accepted this message.";
+    const bodyText = "This is a test message from s7. The saved email settings accepted this message.";
     const rendered = renderEmail({
       template: "test",
       audience: "admin",

@@ -156,6 +156,40 @@ function isEmpty(value: unknown): boolean {
   return false;
 }
 
+export type FieldAnswer = { id: string; label: string; filled: boolean };
+
+function hasAnswer(value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  if (typeof value === "boolean" || typeof value === "number") return true;
+  if (Array.isArray(value)) return value.some((item) => hasAnswer(item));
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if ("documentId" in record) return Boolean(record.documentId);
+    return Object.values(record).some((item) => hasAnswer(item));
+  }
+  return false;
+}
+
+/** Answerable fields on a form, and whether the current answers include a value for each one. */
+export function fieldAnswers(schema: FormSchemaDefinition, values: Record<string, unknown>): FieldAnswer[] {
+  const byId = new Map<string, FormField>();
+  const index = (fields: FormField[]) => {
+    for (const field of fields) {
+      byId.set(field.id, field);
+      if (field.children) index(field.children);
+    }
+  };
+  index(schema.fields);
+  const answers: FieldAnswer[] = [];
+  for (const field of schema.fields) {
+    if (DISPLAY_ONLY_TYPES.includes(field.type)) continue;
+    if (!isFieldVisible(field, values, byId)) continue;
+    answers.push({ id: field.id, label: field.label, filled: hasAnswer(values[field.id]) });
+  }
+  return answers;
+}
+
 function asText(value: unknown): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);

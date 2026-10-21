@@ -4,56 +4,56 @@
 
 :root {
   color-scheme: light;
-  --background: #f7f8fa;
+  --background: #fff5f9;
   --surface: #ffffff;
-  --surface-secondary: #f1f2f4;
-  --foreground: #172b4d;
-  --muted: #44546f;
-  --brand: #1d4ed8;
+  --surface-secondary: #fff0f5;
+  --foreground: #111111;
+  --muted: #6b5560;
+  --brand: #f52d71;
   --brand-foreground: #ffffff;
-  --accent: #007a7a;
+  --accent: #d91f5c;
   --success: #146c36;
   --warning: #8a5300;
   --danger: #ae2e24;
-  --border: #dfe1e6;
-  --ring: #1d4ed8;
+  --border: #f3d4e0;
+  --ring: #d91f5c;
   --badge-success-bg: #dff6e6;
   --badge-success-fg: #0f5c2c;
   --badge-warning-bg: #fff4d6;
   --badge-warning-fg: #6b4300;
   --badge-danger-bg: #ffebe6;
   --badge-danger-fg: #8e1f1a;
-  --badge-info-bg: #e9f2ff;
-  --badge-info-fg: #1e3f9a;
-  --badge-neutral-bg: #f1f2f4;
-  --badge-neutral-fg: #243757;
+  --badge-info-bg: #fff0f5;
+  --badge-info-fg: #d91f5c;
+  --badge-neutral-bg: #fff0f5;
+  --badge-neutral-fg: #6b5560;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #101318;
-  --surface: #181d27;
-  --surface-secondary: #202735;
-  --foreground: #f1f5f9;
-  --muted: #c5cedb;
-  --brand: #9cbcff;
-  --brand-foreground: #101318;
-  --accent: #7ee8e4;
+  --background: #140910;
+  --surface: #1c1016;
+  --surface-secondary: #2a1520;
+  --foreground: #fff5f9;
+  --muted: #e7c3d0;
+  --brand: #ff5a8f;
+  --brand-foreground: #ffffff;
+  --accent: #f52d71;
   --success: #7ddea3;
   --warning: #ffd98a;
   --danger: #ffb4ab;
-  --border: #343d4c;
-  --ring: #9cbcff;
+  --border: #4a2434;
+  --ring: #ff5a8f;
   --badge-success-bg: #123524;
   --badge-success-fg: #b6f3cd;
   --badge-warning-bg: #3d2e0d;
   --badge-warning-fg: #ffe3a3;
   --badge-danger-bg: #3f1d1a;
   --badge-danger-fg: #ffd2cc;
-  --badge-info-bg: #1c2b4a;
-  --badge-info-fg: #d6e4ff;
-  --badge-neutral-bg: #202735;
-  --badge-neutral-fg: #e6edf7;
+  --badge-info-bg: #3a1424;
+  --badge-info-fg: #ffd0e0;
+  --badge-neutral-bg: #2a1520;
+  --badge-neutral-fg: #fff0f5;
 }
 
 * { box-sizing: border-box; }

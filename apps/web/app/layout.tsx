@@ -4,8 +4,8 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
-  title: "Vendor Portal",
-  description: "Exhibition vendor management",
+  title: "s7",
+  description: "Events and exhibitions",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

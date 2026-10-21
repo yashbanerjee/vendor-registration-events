@@ -3,6 +3,7 @@ import {
   assertLockedFieldsUnchanged,
   assertTransition,
   collectDocumentIds,
+  fieldAnswers,
   formSchemaDefinition,
   isReviewable,
   validateSubmission,
@@ -566,6 +567,70 @@ export class WorkflowService {
       });
     });
     return this.get(user, id);
+  }
+
+  async submissions(user: AuthContext) {
+    this.assertCanRead(user);
+    if (user.vendorId) throw new ForbiddenException("Vendors cannot open the submissions list.");
+    const submitted = new Set<string>(["SUBMITTED_PENDING_REVIEW", "RESUBMITTED_PENDING_REVIEW", "APPROVED", "REJECTED", "CORRECTION_REQUESTED"]);
+    const [assignments, vendors] = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const assignmentRows = await tx.formAssignment.findMany({
+        where: { organizationId: user.organizationId, vendor: { archivedAt: null } },
+        select: {
+          id: true,
+          status: true,
+          submittedAt: true,
+          vendor: { select: { id: true, reference: true, companyName: true, contactName: true, email: true } },
+          exhibition: { select: { id: true, name: true } },
+          formVersion: { select: { id: true, versionNumber: true, schema: true, template: { select: { name: true } } } },
+          submission: { select: { revisions: { orderBy: { revisionNumber: "desc" }, take: 1, select: { data: true } } } },
+        },
+        orderBy: [{ vendor: { companyName: "asc" } }, { createdAt: "desc" }],
+        take: 2000,
+      });
+      const vendorRows = await tx.vendor.findMany({
+        where: { organizationId: user.organizationId, archivedAt: null, assignments: { none: {} } },
+        select: { id: true, reference: true, companyName: true, contactName: true, email: true },
+        orderBy: { companyName: "asc" },
+        take: 2000,
+      });
+      return [assignmentRows, vendorRows] as const;
+    });
+    const rows = assignments.map((assignment) => {
+      const latest = assignment.submission?.revisions[0]?.data;
+      const values = latest && typeof latest === "object" && !Array.isArray(latest) ? (latest as Record<string, unknown>) : {};
+      const parsed = formSchemaDefinition.safeParse(assignment.formVersion.schema);
+      const fields = parsed.success ? fieldAnswers(parsed.data, values) : [];
+      return {
+        id: assignment.id,
+        status: assignment.status,
+        submitted: submitted.has(assignment.status),
+        submittedAt: assignment.submittedAt,
+        vendor: assignment.vendor,
+        exhibition: assignment.exhibition,
+        form: {
+          versionId: assignment.formVersion.id,
+          name: assignment.formVersion.template.name,
+          versionNumber: assignment.formVersion.versionNumber,
+        },
+        fields,
+        filledCount: fields.filter((field) => field.filled).length,
+        fieldCount: fields.length,
+      };
+    });
+    const waiting = vendors.map((vendor) => ({
+      id: null as string | null,
+      status: "NOT_ASSIGNED",
+      submitted: false,
+      submittedAt: null as Date | null,
+      vendor,
+      exhibition: null,
+      form: null,
+      fields: [] as { id: string; label: string; filled: boolean }[],
+      filledCount: 0,
+      fieldCount: 0,
+    }));
+    return { data: [...rows, ...waiting] };
   }
 
   async reviewQueue(user: AuthContext) {

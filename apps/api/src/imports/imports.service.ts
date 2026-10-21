@@ -252,7 +252,7 @@ export class ImportsService {
             userId: account.id,
             template: "credentials",
             audience: "vendor",
-            subject: "Your vendor portal login",
+            subject: "Your s7 login",
             title: "Your account is ready",
             text: `Use these details to sign in. Change the temporary password before you open an exhibition form.\n\nPortal: ${portal}\nEmail: ${email}\nTemporary password: ${item.password}`,
             link: "/login",

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
+import { BrandMark } from "@/components/brand-mark";
 import { Button, ErrorNote, Field, inputClass } from "@/components/ui";
 
 export default function ResetPasswordPage() {
@@ -30,7 +31,7 @@ export default function ResetPasswordPage() {
     <main className="grid min-h-screen place-items-center px-4">
       <form onSubmit={(event) => void submit(event)} className="grid w-full max-w-md gap-4 rounded-lg border border-border bg-surface p-6">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Account recovery</p>
+          <BrandMark className="mb-3 h-16 w-16 object-contain" />
           <h1 className="text-2xl font-semibold">Choose a new password</h1>
           <p className="mt-1 text-sm text-muted">Use at least 12 characters, with an uppercase letter, a lowercase letter, and a number.</p>
         </div>

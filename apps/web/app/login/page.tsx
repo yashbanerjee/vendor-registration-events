@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
+import { BrandMark } from "@/components/brand-mark";
 import { Button, ErrorNote, Field, inputClass } from "@/components/ui";
 import { useSession } from "@/components/providers";
 
@@ -45,7 +46,7 @@ export default function LoginPage() {
     <main className="grid min-h-screen place-items-center px-4">
       <form onSubmit={(event) => void submit(event)} className="grid w-full max-w-md gap-4 rounded-lg border border-border bg-surface p-6">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Exhibition operations</p>
+          <BrandMark className="mb-3 h-16 w-16 object-contain" />
           <h1 className="text-2xl font-semibold">Sign in</h1>
         </div>
         <ErrorNote message={error} />

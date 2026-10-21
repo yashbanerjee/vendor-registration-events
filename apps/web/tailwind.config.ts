@@ -20,7 +20,7 @@ const config: Config = {
         ring: "var(--ring)",
       },
       boxShadow: {
-        panel: "0 8px 24px rgba(9, 30, 66, 0.12)",
+        panel: "0 8px 24px rgba(28, 30, 22, 0.12)",
       },
       fontFamily: {
         sans: ["Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
