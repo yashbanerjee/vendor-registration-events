@@ -1,11 +1,12 @@
 "use client";
 
-import { ClipboardCheck, Files, LayoutDashboard, ScrollText, Settings, Store, Tickets, Workflow } from "lucide-react";
+import { ClipboardCheck, Files, LayoutDashboard, ScrollText, Settings, Store, Tags, Tickets, Workflow } from "lucide-react";
 import { ShellFrame } from "@/components/shell";
 
 const items = [
   { href: "/admin", label: "Dashboard", icon: <LayoutDashboard size={16} /> },
   { href: "/admin/vendors", label: "Vendors", icon: <Store size={16} /> },
+  { href: "/admin/categories", label: "Categories", icon: <Tags size={16} /> },
   { href: "/admin/exhibitions", label: "Exhibitions", icon: <Tickets size={16} /> },
   { href: "/admin/forms", label: "Forms", icon: <Workflow size={16} /> },
   { href: "/admin/reviews", label: "Reviews", icon: <ClipboardCheck size={16} /> },

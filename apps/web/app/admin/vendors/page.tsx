@@ -5,7 +5,6 @@ import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { ApiError, api, download } from "@/lib/api";
-import { CategoryFields, type VendorCategoryOption } from "@/components/category-fields";
 import { Pager, usePagedRows } from "@/components/pager";
 import { Button, ErrorNote, Field, Modal, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
@@ -32,7 +31,7 @@ type FormOption = { id: string; name: string; status: string; versions?: { id: s
 type ExhibitionOption = { id: string; name: string };
 type ImportResult = { id: string; filename: string; createdCount: number; skippedCount: number; errorCount: number; createdVendorIds: string[] };
 
-const emptyVendor = { companyName: "", contactName: "", email: "", categoryIds: [] as string[], phone: "", exhibitionId: "", formVersionId: "" };
+const emptyVendor = { companyName: "", contactName: "", email: "", categoryId: "", phone: "", exhibitionId: "", formVersionId: "" };
 const helper = createColumnHelper<Vendor>();
 
 function formLabel(vendor: Vendor) {
@@ -94,7 +93,7 @@ export default function VendorsPage() {
   });
   const categories = useQuery({
     queryKey: ["vendor-categories"],
-    queryFn: () => api<{ data: VendorCategoryOption[] }>("/vendor-categories"),
+    queryFn: () => api<{ data: { id: string; name: string }[] }>("/vendor-categories"),
   });
   const pickerOpen = open || Boolean(changing) || Boolean(importResult);
   const exhibitions = useQuery({
@@ -111,16 +110,11 @@ export default function VendorsPage() {
     item.status === "PUBLISHED" ? (item.versions ?? []).map((version) => ({ id: version.id, label: `${item.name} v${version.versionNumber}` })) : [],
   );
   const refresh = () => client.invalidateQueries({ queryKey: ["vendors"] });
-  const addCategory = useMutation({
-    mutationFn: (name: string) => api<{ data: VendorCategoryOption }>("/vendor-categories", { method: "POST", body: JSON.stringify({ name }) }),
-    onSuccess: async (result) => {
-      setForm((current) => ({ ...current, categoryIds: current.categoryIds.includes(result.data.id) ? current.categoryIds : [...current.categoryIds, result.data.id] }));
-      await client.invalidateQueries({ queryKey: ["vendor-categories"] });
-    },
-    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not add the category."),
-  });
   const create = useMutation({
-    mutationFn: () => api("/vendors", { method: "POST", body: JSON.stringify(form) }),
+    mutationFn: () => {
+      const { categoryId, ...rest } = form;
+      return api("/vendors", { method: "POST", body: JSON.stringify({ ...rest, categoryIds: categoryId ? [categoryId] : [] }) });
+    },
     onSuccess: async () => {
       setOpen(false);
       setForm(emptyVendor);
@@ -265,14 +259,11 @@ export default function VendorsPage() {
           <Field label="Contact"><input className={inputClass} required value={form.contactName} onChange={(event) => setForm({ ...form, contactName: event.target.value })} /></Field>
           <Field label="Email"><input className={inputClass} type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></Field>
           <Field label="Phone"><input className={inputClass} value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></Field>
-          <Field label="Categories">
-            <CategoryFields
-              categories={categories.data?.data ?? []}
-              selected={form.categoryIds}
-              onChange={(categoryIds) => setForm({ ...form, categoryIds })}
-              onCreate={(name) => addCategory.mutateAsync(name)}
-              creating={addCategory.isPending}
-            />
+          <Field label="Category">
+            <select className={inputClass} value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })}>
+              <option value="">Select</option>
+              {(categories.data?.data ?? []).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            </select>
           </Field>
           <Field label="Exhibition">
             <select className={inputClass} required value={form.exhibitionId} onChange={(event) => setForm({ ...form, exhibitionId: event.target.value })}>

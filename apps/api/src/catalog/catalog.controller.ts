@@ -22,6 +22,12 @@ export class CatalogController {
     return this.catalog.createCategory(request.user!, body);
   }
 
+  @Patch("vendor-categories/:id")
+  @RequirePermissions(PERMISSIONS.vendorsWrite)
+  updateCategory(@Req() request: AuthedRequest, @Param("id") id: string, @Body() body: unknown) {
+    return this.catalog.updateCategory(request.user!, id, body);
+  }
+
   @Delete("vendor-categories/:id")
   @RequirePermissions(PERMISSIONS.vendorsWrite)
   deleteCategory(@Req() request: AuthedRequest, @Param("id") id: string) {

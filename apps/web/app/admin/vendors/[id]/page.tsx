@@ -6,7 +6,6 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatDate, formatLabel } from "@/lib/utils";
-import { CategoryFields, type VendorCategoryOption } from "@/components/category-fields";
 import { Pager, usePagedRows } from "@/components/pager";
 import { Button, ErrorNote, Field, Modal, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
@@ -44,9 +43,9 @@ export default function VendorProfilePage() {
   const [nextFormId, setNextFormId] = useState("");
   const [nextExhibitionId, setNextExhibitionId] = useState("");
   const [removing, setRemoving] = useState(false);
-  const [categoryIds, setCategoryIds] = useState<string[] | null>(null);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
   const query = useQuery({ queryKey: ["vendor", params.id], queryFn: () => api<Profile>(`/vendors/${params.id}`) });
-  const categories = useQuery({ queryKey: ["vendor-categories"], queryFn: () => api<{ data: VendorCategoryOption[] }>("/vendor-categories") });
+  const categories = useQuery({ queryKey: ["vendor-categories"], queryFn: () => api<{ data: { id: string; name: string }[] }>("/vendor-categories") });
   const vendor = query.data?.data;
   const current = vendor?.assignments.find((assignment) => assignment.status !== "REVOKED");
   const forms = useQuery({ queryKey: ["forms"], queryFn: () => api<{ data: FormOption[] }>("/forms"), enabled: changing });
@@ -61,26 +60,15 @@ export default function VendorProfilePage() {
     onSuccess: async () => { setChanging(false); setNotice("The form was changed and a new invitation email was sent."); await client.invalidateQueries({ queryKey: ["vendor", params.id] }); },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not change the form."),
   });
-  const saveCategories = useMutation({
-    mutationFn: () => api(`/vendors/${params.id}`, { method: "PATCH", body: JSON.stringify({ categoryIds: categoryIds ?? [] }) }),
+  const saveCategory = useMutation({
+    mutationFn: () => api(`/vendors/${params.id}`, { method: "PATCH", body: JSON.stringify({ categoryIds: categoryId ? [categoryId] : [] }) }),
     onSuccess: async () => {
-      setCategoryIds(null);
-      setNotice("Categories saved.");
+      setCategoryId(null);
+      setNotice("Category saved.");
       await client.invalidateQueries({ queryKey: ["vendor", params.id] });
       await client.invalidateQueries({ queryKey: ["vendors"] });
     },
-    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not save the categories."),
-  });
-  const addCategory = useMutation({
-    mutationFn: (name: string) => api<{ data: VendorCategoryOption }>("/vendor-categories", { method: "POST", body: JSON.stringify({ name }) }),
-    onSuccess: async (result) => {
-      setCategoryIds((current) => {
-        const base = current ?? (vendor?.categories ?? []).map((link) => link.category.id);
-        return base.includes(result.data.id) ? base : [...base, result.data.id];
-      });
-      await client.invalidateQueries({ queryKey: ["vendor-categories"] });
-    },
-    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not add the category."),
+    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not save the category."),
   });
   const assignments = usePagedRows(vendor?.assignments ?? []);
   const documents = usePagedRows(vendor?.documents ?? []);
@@ -96,7 +84,7 @@ export default function VendorProfilePage() {
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not delete the vendor."),
   });
   if (!vendor) return <p className="text-sm text-muted">Loading vendor…</p>;
-  const selectedCategories = categoryIds ?? (vendor.categories ?? []).map((link) => link.category.id);
+  const selectedCategory = categoryId ?? vendor.categories?.[0]?.category.id ?? "";
   return (
     <div>
       <PageHeader
@@ -113,17 +101,14 @@ export default function VendorProfilePage() {
       <Notice message={notice} />
       <ErrorNote message={error} />
       <p className="mb-4 text-sm text-muted">{[vendor.addressLine1, vendor.city, vendor.country, vendor.phone].filter(Boolean).join(" · ")}</p>
-      <section className="mb-4 rounded border border-border bg-surface p-3">
-        <h2 className="mb-2 text-sm font-semibold">Categories</h2>
-        <CategoryFields
-          categories={categories.data?.data ?? []}
-          selected={selectedCategories}
-          onChange={setCategoryIds}
-          onCreate={(name) => addCategory.mutateAsync(name)}
-          creating={addCategory.isPending}
-        />
+      <section className="mb-4 max-w-sm rounded border border-border bg-surface p-3">
+        <h2 className="mb-2 text-sm font-semibold">Category</h2>
+        <select className={inputClass} value={selectedCategory} onChange={(event) => setCategoryId(event.target.value)}>
+          <option value="">None</option>
+          {(categories.data?.data ?? []).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+        </select>
         <div className="mt-3">
-          <Button size="sm" variant="primary" disabled={saveCategories.isPending || categoryIds === null} onClick={() => { setError(""); saveCategories.mutate(); }}>Save categories</Button>
+          <Button size="sm" variant="primary" disabled={saveCategory.isPending || categoryId === null} onClick={() => { setError(""); saveCategory.mutate(); }}>Save category</Button>
         </div>
       </section>
       <div className="grid gap-4 lg:grid-cols-2">

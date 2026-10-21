@@ -308,7 +308,7 @@ export class CatalogService {
       const existing = await tx.vendorCategory.findFirst({
         where: { organizationId: user.organizationId, name: { equals: name, mode: "insensitive" } },
       });
-      if (existing) return existing;
+      if (existing) throw new ConflictException("That category already exists.");
       const created = await tx.vendorCategory.create({ data: { organizationId: user.organizationId, name } });
       await this.audit.record(tx, {
         organizationId: user.organizationId,
@@ -320,6 +320,37 @@ export class CatalogService {
         newValue: { name },
       });
       return created;
+    });
+    return { data: category };
+  }
+
+  async updateCategory(user: AuthContext, id: string, body: unknown) {
+    const input = z.object({ name: z.string().trim().min(2).max(80) }).parse(body);
+    const name = input.name.replace(/\s+/g, " ");
+    const category = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const current = await tx.vendorCategory.findFirst({ where: { id, organizationId: user.organizationId } });
+      if (!current) throw new NotFoundException();
+      const existing = await tx.vendorCategory.findFirst({
+        where: { organizationId: user.organizationId, name: { equals: name, mode: "insensitive" }, NOT: { id } },
+      });
+      if (existing) throw new ConflictException("That category already exists.");
+      const updated = await tx.vendorCategory.update({ where: { id }, data: { name } });
+      const links = await tx.vendorCategoryLink.findMany({
+        where: { organizationId: user.organizationId, categoryId: id },
+        select: { vendorId: true },
+      });
+      await refreshCategoryLabels(tx, user.organizationId, links.map((link) => link.vendorId));
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "category.updated",
+        resourceType: "vendor_category",
+        resourceId: id,
+        previousValue: { name: current.name },
+        newValue: { name },
+      });
+      return updated;
     });
     return { data: category };
   }
