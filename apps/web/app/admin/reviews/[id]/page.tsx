@@ -7,6 +7,7 @@ import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { InlineFilePreview } from "@/components/file-preview";
+import { Pager, usePagedRows } from "@/components/pager";
 import { Button, ErrorNote, Field, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 import { COUNTRIES, isFieldVisible, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 
@@ -71,6 +72,8 @@ export default function ReviewDetailPage() {
     onSuccess: async () => { setNote(""); await client.invalidateQueries({ queryKey: ["assignment", params.id] }); },
   });
 
+  const notes = usePagedRows(review?.notes ?? []);
+  const revisions = usePagedRows(review?.revisions ?? []);
   if (!review) return <p className="text-sm text-muted">Loading submission…</p>;
   const reviewable = review.status === "SUBMITTED_PENDING_REVIEW" || review.status === "RESUBMITTED_PENDING_REVIEW";
   return (
@@ -108,14 +111,16 @@ export default function ReviewDetailPage() {
           <Link className="text-sm underline" href={`/admin/documents/vendors/${review.vendor.id}`}>Open document archive</Link>
           <h3 className="text-sm font-semibold">Internal notes</h3>
           <ul className="grid gap-2 text-sm">
-            {review.notes.map((item) => <li key={item.id} className="rounded bg-secondary px-2 py-1">{item.body}<span className="mt-1 block text-xs text-muted">{formatDate(item.createdAt)}</span></li>)}
+            {notes.rows.map((item) => <li key={item.id} className="rounded bg-secondary px-2 py-1">{item.body}<span className="mt-1 block text-xs text-muted">{formatDate(item.createdAt)}</span></li>)}
           </ul>
+          <Pager page={notes.page} pageCount={notes.pageCount} total={notes.total} rangeStart={notes.rangeStart} rangeEnd={notes.rangeEnd} onPage={notes.setPage} />
           <Field label="Add note"><textarea className={`${inputClass} min-h-16 py-2`} value={note} onChange={(event) => setNote(event.target.value)} /></Field>
           <Button onClick={() => addNote.mutate()} disabled={!note.trim()}>Save note</Button>
           <h3 className="text-sm font-semibold">Revisions</h3>
           <ul className="text-sm text-muted">
-            {review.revisions.map((revision) => <li key={revision.id}>Revision {revision.revisionNumber} · {formatDate(revision.createdAt)}</li>)}
+            {revisions.rows.map((revision) => <li key={revision.id}>Revision {revision.revisionNumber} · {formatDate(revision.createdAt)}</li>)}
           </ul>
+          <Pager page={revisions.page} pageCount={revisions.pageCount} total={revisions.total} rangeStart={revisions.rangeStart} rangeEnd={revisions.rangeEnd} onPage={revisions.setPage} />
         </aside>
       </div>
     </div>

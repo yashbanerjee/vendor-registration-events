@@ -7,6 +7,7 @@ import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatDate, formatLabel } from "@/lib/utils";
 import { CategoryFields, type VendorCategoryOption } from "@/components/category-fields";
+import { Pager, usePagedRows } from "@/components/pager";
 import { Button, ErrorNote, Field, Modal, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type Profile = {
@@ -81,6 +82,14 @@ export default function VendorProfilePage() {
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not add the category."),
   });
+  const assignments = usePagedRows(vendor?.assignments ?? []);
+  const documents = usePagedRows(vendor?.documents ?? []);
+  const history = usePagedRows(
+    [
+      ...(vendor?.audits ?? []).map((audit) => ({ kind: "audit" as const, ...audit })),
+      ...(vendor?.emails ?? []).map((email) => ({ kind: "email" as const, ...email })),
+    ].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()),
+  );
   const remove = useMutation({
     mutationFn: () => api("/vendors/archive", { method: "POST", body: JSON.stringify({ ids: [vendor?.id] }) }),
     onSuccess: () => router.push("/admin/vendors"),
@@ -124,7 +133,7 @@ export default function VendorProfilePage() {
             <table className="data">
               <thead><tr><th>Exhibition</th><th>Form</th><th>Status</th></tr></thead>
               <tbody>
-                {vendor.assignments.map((assignment) => (
+                {assignments.rows.map((assignment) => (
                   <tr key={assignment.id}>
                     <td>{assignment.exhibition.name}</td>
                     <td><Link className="underline" href={`/admin/reviews/${assignment.id}`}>{assignment.formVersion.template.name} v{assignment.formVersion.versionNumber}</Link></td>
@@ -134,6 +143,7 @@ export default function VendorProfilePage() {
               </tbody>
             </table>
           </div>
+          <Pager page={assignments.page} pageCount={assignments.pageCount} total={assignments.total} rangeStart={assignments.rangeStart} rangeEnd={assignments.rangeEnd} onPage={assignments.setPage} />
         </section>
         <section>
           <h2 className="mb-2 text-sm font-semibold">Documents</h2>
@@ -141,7 +151,7 @@ export default function VendorProfilePage() {
             <table className="data">
               <thead><tr><th>File</th><th>Status</th></tr></thead>
               <tbody>
-                {vendor.documents.map((document) => (
+                {documents.rows.map((document) => (
                   <tr key={document.id}>
                     <td><Link className="underline" href={`/admin/documents/vendors/${vendor.id}`}>{document.versions[0]?.filename ?? document.category}</Link></td>
                     <td><StatusBadge status={document.status} /></td>
@@ -150,16 +160,12 @@ export default function VendorProfilePage() {
               </tbody>
             </table>
           </div>
+          <Pager page={documents.page} pageCount={documents.pageCount} total={documents.total} rangeStart={documents.rangeStart} rangeEnd={documents.rangeEnd} onPage={documents.setPage} />
         </section>
       </div>
       <h2 className="mb-2 mt-4 text-sm font-semibold">Audit history</h2>
       <ul className="grid gap-2 text-sm">
-        {[
-          ...vendor.audits.map((audit) => ({ kind: "audit" as const, ...audit })),
-          ...(vendor.emails ?? []).map((email) => ({ kind: "email" as const, ...email })),
-        ]
-          .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
-          .map((entry) => (
+        {history.rows.map((entry) => (
             <li key={`${entry.kind}-${entry.id}`} className="rounded border border-border bg-surface px-3 py-2">
               {entry.kind === "email" ? (
                 <span className="inline-flex flex-wrap items-center gap-2">
@@ -176,8 +182,9 @@ export default function VendorProfilePage() {
               )}
               <span className="float-right text-muted">{formatDate(entry.createdAt)}</span>
             </li>
-          ))}
+        ))}
       </ul>
+      <Pager page={history.page} pageCount={history.pageCount} total={history.total} rangeStart={history.rangeStart} rangeEnd={history.rangeEnd} onPage={history.setPage} />
       <Modal open={changing} title="Change form" onClose={() => setChanging(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); setError(""); changeForm.mutate(); }}>
           <ErrorNote message={error} />

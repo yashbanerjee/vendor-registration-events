@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { ApiError, api, download } from "@/lib/api";
 import { CategoryFields, type VendorCategoryOption } from "@/components/category-fields";
+import { Pager, usePagedRows } from "@/components/pager";
 import { Button, ErrorNote, Field, Modal, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type Assignment = {
@@ -177,6 +178,7 @@ export default function VendorsPage() {
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not send the form."),
   });
+  const vendors = usePagedRows(query.data?.data ?? [], `${q}|${categoryId}`);
   const columns = [
     helper.accessor("companyName", {
       header: "Company",
@@ -215,7 +217,7 @@ export default function VendorsPage() {
       ),
     }),
   ];
-  const table = useReactTable({ data: query.data?.data ?? [], columns, getCoreRowModel: getCoreRowModel() });
+  const table = useReactTable({ data: vendors.rows, columns, getCoreRowModel: getCoreRowModel() });
   return (
     <div>
       <PageHeader
@@ -253,8 +255,9 @@ export default function VendorsPage() {
           </tbody>
         </table>
       </div>
+      <Pager page={vendors.page} pageCount={vendors.pageCount} total={vendors.total} rangeStart={vendors.rangeStart} rangeEnd={vendors.rangeEnd} onPage={vendors.setPage} />
       {query.isLoading ? <p className="mt-3 text-sm text-muted">Loading vendors…</p> : null}
-      {!query.isLoading && (query.data?.data.length ?? 0) === 0 ? <p className="mt-3 text-sm text-muted">No vendors match this filter.</p> : null}
+      {!query.isLoading && vendors.total === 0 ? <p className="mt-3 text-sm text-muted">No vendors match this filter.</p> : null}
       <Modal open={open} title="Add vendor" onClose={() => setOpen(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); setError(""); create.mutate(); }}>
           <ErrorNote message={error} />

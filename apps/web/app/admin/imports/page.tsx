@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatLabel } from "@/lib/utils";
+import { Pager, usePagedRows } from "@/components/pager";
 import { Button, ErrorNote, PageHeader, StatusBadge } from "@/components/ui";
 
 type Job = { id: string; filename: string; status: string; totalRows: number; createdCount: number; skippedCount: number; errorCount: number; rows?: { rowNumber: number; status: string; messages: string[] }[] };
@@ -14,6 +15,8 @@ export default function ImportsPage() {
   const [active, setActive] = useState<string | null>(null);
   const list = useQuery({ queryKey: ["imports"], queryFn: () => api<{ data: Job[] }>("/imports") });
   const detail = useQuery({ queryKey: ["import", active], queryFn: () => api<{ data: Job }>(`/imports/${active}`), enabled: Boolean(active) });
+  const jobs = usePagedRows(list.data?.data ?? []);
+  const resultRows = usePagedRows(detail.data?.data.rows ?? [], active ?? "");
   const upload = useMutation({
     mutationFn: async (file: File) => {
       const body = new FormData();
@@ -35,7 +38,7 @@ export default function ImportsPage() {
         <table className="data">
           <thead><tr><th>File</th><th>Status</th><th>Created</th><th>Skipped</th><th>Errors</th></tr></thead>
           <tbody>
-            {(list.data?.data ?? []).map((job) => (
+            {jobs.rows.map((job) => (
               <tr key={job.id}>
                 <td><button className="underline" onClick={() => setActive(job.id)}>{job.filename}</button></td>
                 <td><StatusBadge status={job.status} /></td>
@@ -47,6 +50,7 @@ export default function ImportsPage() {
           </tbody>
         </table>
       </div>
+      <Pager page={jobs.page} pageCount={jobs.pageCount} total={jobs.total} rangeStart={jobs.rangeStart} rangeEnd={jobs.rangeEnd} onPage={jobs.setPage} />
       {detail.data ? (
         <div className="mt-4">
           <div className="mb-2 flex items-center justify-between">
@@ -57,12 +61,13 @@ export default function ImportsPage() {
             <table className="data">
               <thead><tr><th>Row</th><th>Status</th><th>Messages</th></tr></thead>
               <tbody>
-                {(detail.data.data.rows ?? []).map((row) => (
+                {resultRows.rows.map((row) => (
                   <tr key={row.rowNumber}><td>{row.rowNumber}</td><td>{formatLabel(row.status)}</td><td>{row.messages.join(" ")}</td></tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <Pager page={resultRows.page} pageCount={resultRows.pageCount} total={resultRows.total} rangeStart={resultRows.rangeStart} rangeEnd={resultRows.rangeEnd} onPage={resultRows.setPage} />
         </div>
       ) : null}
     </div>

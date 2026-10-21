@@ -3,12 +3,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatDate, formatLabel } from "@/lib/utils";
+import { Pager, usePagedRows } from "@/components/pager";
 import { PageHeader } from "@/components/ui";
 
 type Audit = { id: string; action: string; actorRole: string; resourceType: string; createdAt: string; fieldId: string | null };
 
 export default function AuditPage() {
   const query = useQuery({ queryKey: ["audit"], queryFn: () => api<{ data: Audit[] }>("/audit-logs") });
+  const audits = usePagedRows(query.data?.data ?? []);
   return (
     <div>
       <PageHeader title="Audit trail" description="Append-only history of privileged actions, submissions, corrections, and document access." />
@@ -16,7 +18,7 @@ export default function AuditPage() {
         <table className="data">
           <thead><tr><th>When</th><th>Action</th><th>Role</th><th>Resource</th><th>Field</th></tr></thead>
           <tbody>
-            {(query.data?.data ?? []).map((row) => (
+            {audits.rows.map((row) => (
               <tr key={row.id}>
                 <td>{formatDate(row.createdAt)}</td>
                 <td>{formatLabel(row.action)}</td>
@@ -28,6 +30,7 @@ export default function AuditPage() {
           </tbody>
         </table>
       </div>
+      <Pager page={audits.page} pageCount={audits.pageCount} total={audits.total} rangeStart={audits.rangeStart} rangeEnd={audits.rangeEnd} onPage={audits.setPage} />
     </div>
   );
 }

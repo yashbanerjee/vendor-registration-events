@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatLabel } from "@/lib/utils";
 import { FileLink } from "@/components/file-preview";
+import { Pager, usePagedRows } from "@/components/pager";
 import { PageHeader, StatusBadge } from "@/components/ui";
 
 type Archive = {
@@ -28,25 +29,33 @@ export default function VendorArchivePage() {
     <div>
       <PageHeader title={archive.vendor.companyName} description={`Document archive · ${archive.vendor.reference}`} />
       {[...groups.entries()].map(([exhibition, documents]) => (
-        <section key={exhibition} className="mb-4">
-          <h2 className="mb-2 text-sm font-semibold">{exhibition}</h2>
-          <div className="table-wrap">
-            <table className="data">
-              <thead><tr><th>File</th><th>Form</th><th>Versions</th><th>Status</th></tr></thead>
-              <tbody>
-                {documents.map((document) => (
-                  <tr key={document.id}>
-                    <td>{document.versions[0]?.filename ? <FileLink documentId={document.id} filename={document.versions[0].filename} /> : document.category}</td>
-                    <td>{document.assignment?.formVersion.template.name ?? formatLabel(document.category)}</td>
-                    <td>{document.versions.length}</td>
-                    <td><StatusBadge status={document.status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <DocumentGroup key={exhibition} exhibition={exhibition} documents={documents} />
       ))}
     </div>
+  );
+}
+
+function DocumentGroup({ exhibition, documents }: { exhibition: string; documents: Archive["data"]["documents"] }) {
+  const page = usePagedRows(documents);
+  return (
+    <section className="mb-4">
+      <h2 className="mb-2 text-sm font-semibold">{exhibition}</h2>
+      <div className="table-wrap">
+        <table className="data">
+          <thead><tr><th>File</th><th>Form</th><th>Versions</th><th>Status</th></tr></thead>
+          <tbody>
+            {page.rows.map((document) => (
+              <tr key={document.id}>
+                <td>{document.versions[0]?.filename ? <FileLink documentId={document.id} filename={document.versions[0].filename} /> : document.category}</td>
+                <td>{document.assignment?.formVersion.template.name ?? formatLabel(document.category)}</td>
+                <td>{document.versions.length}</td>
+                <td><StatusBadge status={document.status} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Pager page={page.page} pageCount={page.pageCount} total={page.total} rangeStart={page.rangeStart} rangeEnd={page.rangeEnd} onPage={page.setPage} />
+    </section>
   );
 }

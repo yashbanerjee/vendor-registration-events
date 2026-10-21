@@ -8,6 +8,7 @@ import { COUNTRIES, isFieldVisible, type FormField, type FormSchemaDefinition } 
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { FileLink } from "@/components/file-preview";
+import { Pager, usePagedRows } from "@/components/pager";
 import { Button, EmptyState, Notice, PageHeader, StatusBadge } from "@/components/ui";
 
 type Assignment = {
@@ -40,13 +41,14 @@ function VendorDashboard() {
   const submitted = useSearchParams().get("submitted") === "1";
   const query = useQuery({ queryKey: ["my-assignments"], queryFn: () => api<{ data: Assignment[] }>("/assignments") });
   const rows = query.data?.data ?? [];
+  const forms = usePagedRows(rows);
   const profile = rows[0]?.vendor;
   return (
     <div className="grid gap-4">
       <PageHeader title="Dashboard" description="Your company profile and the answers on each exhibition form." />
       <Notice message={submitted ? "Your form was submitted. The answers are below." : ""} />
       {query.isLoading ? <p className="text-sm text-muted">Loading dashboard…</p> : null}
-      {rows.length === 0 && !query.isLoading ? <EmptyState title="No forms yet" body="When an organizer assigns a form, it will appear here." /> : null}
+      {forms.total === 0 && !query.isLoading ? <EmptyState title="No forms yet" body="When an organizer assigns a form, it will appear here." /> : null}
       {profile ? (
         <section className="rounded-lg border border-border bg-surface p-5">
           <h2 className="text-base font-semibold">{profile.companyName}</h2>
@@ -59,9 +61,10 @@ function VendorDashboard() {
           </dl>
         </section>
       ) : null}
-      {rows.map((row) => (
+      {forms.rows.map((row) => (
         <FormSummary key={row.id} row={row} />
       ))}
+      <Pager page={forms.page} pageCount={forms.pageCount} total={forms.total} rangeStart={forms.rangeStart} rangeEnd={forms.rangeEnd} onPage={forms.setPage} />
     </div>
   );
 }

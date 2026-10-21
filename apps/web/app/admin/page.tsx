@@ -5,6 +5,7 @@ import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recha
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { formatDate, formatLabel } from "@/lib/utils";
+import { Pager, usePagedRows } from "@/components/pager";
 import { ErrorNote, PageHeader, StatusBadge } from "@/components/ui";
 
 type Dashboard = {
@@ -33,6 +34,9 @@ const cards = [
 export default function DashboardPage() {
   const query = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dashboard>("/dashboard") });
   const data = query.data?.data;
+  const activity = usePagedRows(data?.activity ?? []);
+  const submissions = usePagedRows(data?.recentSubmissions ?? []);
+  const deadlines = usePagedRows(data?.deadlines ?? []);
   return (
     <div>
       <PageHeader title="Operations" description="Live counts from your organization. Email status stays Sent until a provider delivery event arrives." />
@@ -63,7 +67,7 @@ export default function DashboardPage() {
         <section className="rounded-lg border border-border bg-surface p-3">
           <h2 className="mb-2 text-sm font-semibold">Recent activity</h2>
           <ul className="grid gap-2 text-sm">
-            {(data?.activity ?? []).map((item) => (
+            {activity.rows.map((item) => (
               <li key={item.id} className="flex items-start justify-between gap-3 border-b border-border pb-2">
                 <span>
                   <span className="font-medium">{item.actorName}</span>
@@ -73,6 +77,7 @@ export default function DashboardPage() {
               </li>
             ))}
           </ul>
+          <Pager page={activity.page} pageCount={activity.pageCount} total={activity.total} rangeStart={activity.rangeStart} rangeEnd={activity.rangeEnd} onPage={activity.setPage} />
         </section>
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -82,7 +87,7 @@ export default function DashboardPage() {
             <table className="data">
               <thead><tr><th>Vendor</th><th>Form</th><th>Status</th></tr></thead>
               <tbody>
-                {(data?.recentSubmissions ?? []).map((row) => {
+                {submissions.rows.map((row) => {
                   const waiting = row.status === "SUBMITTED_PENDING_REVIEW" || row.status === "RESUBMITTED_PENDING_REVIEW";
                   return (
                     <tr key={row.id} className={waiting ? "bg-[var(--badge-warning-bg)]" : undefined}>
@@ -95,6 +100,7 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
+          <Pager page={submissions.page} pageCount={submissions.pageCount} total={submissions.total} rangeStart={submissions.rangeStart} rangeEnd={submissions.rangeEnd} onPage={submissions.setPage} />
         </section>
         <section>
           <h2 className="mb-2 text-sm font-semibold">Upcoming deadlines</h2>
@@ -102,12 +108,13 @@ export default function DashboardPage() {
             <table className="data">
               <thead><tr><th>Vendor</th><th>Exhibition</th><th>Due</th></tr></thead>
               <tbody>
-                {(data?.deadlines ?? []).map((row) => (
+                {deadlines.rows.map((row) => (
                   <tr key={row.id}><td>{row.vendor}</td><td>{row.exhibition}</td><td>{formatDate(row.deadline)}</td></tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <Pager page={deadlines.page} pageCount={deadlines.pageCount} total={deadlines.total} rangeStart={deadlines.rangeStart} rangeEnd={deadlines.rangeEnd} onPage={deadlines.setPage} />
         </section>
       </div>
     </div>

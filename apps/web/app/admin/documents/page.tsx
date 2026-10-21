@@ -6,13 +6,15 @@ import { useState } from "react";
 import { api } from "@/lib/api";
 import { formatLabel } from "@/lib/utils";
 import { FileLink } from "@/components/file-preview";
+import { Pager, usePagedRows } from "@/components/pager";
 import { PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type DocumentRow = { id: string; status: string; category: string; vendor: { id: string; companyName: string }; versions: { filename: string; sizeBytes: number }[] };
 
 export default function DocumentsPage() {
   const [q, setQ] = useState("");
-  const query = useQuery({ queryKey: ["documents", q], queryFn: () => api<{ data: DocumentRow[] }>(`/documents?q=${encodeURIComponent(q)}`) });
+  const query = useQuery({ queryKey: ["documents", q], queryFn: () => api<{ data: DocumentRow[] }>(`/documents?limit=100&q=${encodeURIComponent(q)}`) });
+  const documents = usePagedRows(query.data?.data ?? [], q);
   return (
     <div>
       <PageHeader title="Document archive" description="Files stay private. Downloads are authorized on each request." />
@@ -21,7 +23,7 @@ export default function DocumentsPage() {
         <table className="data">
           <thead><tr><th>File</th><th>Vendor</th><th>Category</th><th>Status</th></tr></thead>
           <tbody>
-            {(query.data?.data ?? []).map((row) => (
+            {documents.rows.map((row) => (
               <tr key={row.id}>
                 <td><FileLink documentId={row.id} filename={row.versions[0]?.filename ?? "File"} /></td>
                 <td><Link className="underline" href={`/admin/documents/vendors/${row.vendor.id}`}>{row.vendor.companyName}</Link></td>
@@ -32,6 +34,7 @@ export default function DocumentsPage() {
           </tbody>
         </table>
       </div>
+      <Pager page={documents.page} pageCount={documents.pageCount} total={documents.total} rangeStart={documents.rangeStart} rangeEnd={documents.rangeEnd} onPage={documents.setPage} />
     </div>
   );
 }

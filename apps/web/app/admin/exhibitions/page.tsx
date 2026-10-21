@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
+import { Pager, usePagedRows } from "@/components/pager";
 import { Button, ErrorNote, Field, Modal, PageHeader, inputClass } from "@/components/ui";
 
 type Exhibition = { id: string; name: string; code: string; venue: string; startsAt: string; endsAt: string; status: string; _count: { vendors: number; assignments: number } };
@@ -13,6 +14,7 @@ export default function ExhibitionsPage() {
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", code: "", venue: "", startsAt: "", endsAt: "" });
   const query = useQuery({ queryKey: ["exhibitions"], queryFn: () => api<{ data: Exhibition[] }>("/exhibitions") });
+  const exhibitions = usePagedRows(query.data?.data ?? []);
   const create = useMutation({
     mutationFn: () => api("/exhibitions", { method: "POST", body: JSON.stringify({ ...form, startsAt: new Date(form.startsAt).toISOString(), endsAt: new Date(form.endsAt).toISOString(), status: "PUBLISHED" }) }),
     onSuccess: async () => { setOpen(false); await client.invalidateQueries({ queryKey: ["exhibitions"] }); },
@@ -25,12 +27,13 @@ export default function ExhibitionsPage() {
         <table className="data">
           <thead><tr><th>Name</th><th>Code</th><th>Venue</th><th>Vendors</th><th>Assignments</th></tr></thead>
           <tbody>
-            {(query.data?.data ?? []).map((row) => (
+            {exhibitions.rows.map((row) => (
               <tr key={row.id}><td>{row.name}</td><td>{row.code}</td><td>{row.venue}</td><td>{row._count.vendors}</td><td>{row._count.assignments}</td></tr>
             ))}
           </tbody>
         </table>
       </div>
+      <Pager page={exhibitions.page} pageCount={exhibitions.pageCount} total={exhibitions.total} rangeStart={exhibitions.rangeStart} rangeEnd={exhibitions.rangeEnd} onPage={exhibitions.setPage} />
       <Modal open={open} title="Add exhibition" onClose={() => setOpen(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); create.mutate(); }}>
           <ErrorNote message={error} />
