@@ -125,6 +125,7 @@ model Organization {
   audits       AuditLog[]
   imports      ImportJob[]
   reviewNotes  ReviewNote[]
+  vendorCategories VendorCategory[]
 
   @@map("organizations")
 }
@@ -257,6 +258,7 @@ model Vendor {
   assignments  FormAssignment[]
   documents    Document[]
   templates    FormTemplate[]
+  categories   VendorCategoryLink[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, reference])
@@ -264,6 +266,36 @@ model Vendor {
   @@index([organizationId, companyName])
   @@index([organizationId, status])
   @@map("vendors")
+}
+
+model VendorCategory {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  vendors      VendorCategoryLink[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, name])
+  @@index([organizationId, name])
+  @@map("vendor_categories")
+}
+
+model VendorCategoryLink {
+  organizationId String   @map("organization_id") @db.Uuid
+  vendorId       String   @map("vendor_id") @db.Uuid
+  categoryId     String   @map("category_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  vendor   Vendor         @relation(fields: [organizationId, vendorId], references: [organizationId, id], onDelete: Cascade)
+  category VendorCategory @relation(fields: [organizationId, categoryId], references: [organizationId, id], onDelete: Cascade)
+
+  @@id([vendorId, categoryId])
+  @@index([organizationId])
+  @@index([categoryId])
+  @@map("vendor_category_links")
 }
 
 model Exhibition {

@@ -9,6 +9,7 @@ import { decodeCursor, encodeCursor } from "../common/http";
 import { AuditService } from "../audit/audit.service";
 import { TenantService } from "../prisma/prisma.service";
 import { WorkflowService } from "../workflow/workflow.service";
+import { assignVendorCategories, assignVendorCategoryNames, refreshCategoryLabels, UnknownCategoryError } from "./categories";
 
 const vendorFields = z.object({
   reference: z.string().min(2).max(40).regex(/^[A-Za-z0-9_-]+$/).optional(),
@@ -24,6 +25,7 @@ const vendorFields = z.object({
   postalCode: z.string().max(20).optional(),
   country: z.string().max(2).optional(),
   category: z.string().max(120).optional(),
+  categoryIds: z.array(z.string().uuid()).max(20).optional(),
   exhibitionIds: z.array(z.string().uuid()).max(50).optional(),
   exhibitionId: z.string().uuid().optional(),
   formVersionId: z.string().uuid().optional(),
@@ -66,15 +68,17 @@ export class CatalogService {
     @Inject(WorkflowService) private readonly workflow: WorkflowService,
   ) {}
 
-  async listVendors(user: AuthContext, query: { cursor?: string; q?: string; status?: string; limit?: string }) {
+  async listVendors(user: AuthContext, query: { cursor?: string; q?: string; status?: string; limit?: string; categoryId?: string }) {
     const limit = boundedLimit(query.limit);
     const cursor = decodeCursor(query.cursor);
+    const categoryId = z.string().uuid().safeParse(query.categoryId).success ? query.categoryId : undefined;
     const rows = await this.tenant.transaction(user.organizationId, (tx) =>
       tx.vendor.findMany({
         where: {
           organizationId: user.organizationId,
           ...(user.vendorId ? { id: user.vendorId } : {}),
           ...(query.status === "ARCHIVED" ? { status: "ARCHIVED" as const } : query.status ? { status: query.status as "ACTIVE", archivedAt: null } : { archivedAt: null }),
+          ...(categoryId ? { categories: { some: { categoryId } } } : {}),
           ...(query.q
             ? {
                 OR: [
@@ -82,6 +86,7 @@ export class CatalogService {
                   { email: { contains: query.q, mode: "insensitive" } },
                   { reference: { contains: query.q, mode: "insensitive" } },
                   { contactName: { contains: query.q, mode: "insensitive" } },
+                  { category: { contains: query.q, mode: "insensitive" } },
                 ],
               }
             : {}),
@@ -91,6 +96,7 @@ export class CatalogService {
         },
         include: {
           exhibitions: true,
+          categories: { include: { category: { select: { id: true, name: true } } } },
           assignments: {
             where: { status: { not: "REVOKED" } },
             orderBy: { createdAt: "desc" },
@@ -117,6 +123,7 @@ export class CatalogService {
         where: { id, organizationId: user.organizationId },
         include: {
           exhibitions: { include: { exhibition: true } },
+          categories: { include: { category: { select: { id: true, name: true } } } },
           assignments: { include: { exhibition: true, formVersion: { include: { template: true } } }, orderBy: { createdAt: "desc" } },
           documents: { where: { deletedAt: null }, include: { versions: { orderBy: { versionNumber: "desc" }, take: 1 } }, orderBy: { createdAt: "desc" } },
         },
@@ -157,9 +164,10 @@ export class CatalogService {
           region: input.region ?? "",
           postalCode: input.postalCode ?? "",
           country: (input.country ?? "").toUpperCase(),
-          category: input.category ?? "",
+          category: "",
         },
       });
+      await this.applyCategories(tx, user.organizationId, vendor.id, input);
       if (input.exhibitionIds?.length) {
         const exhibitions = await tx.exhibition.findMany({
           where: { organizationId: user.organizationId, id: { in: input.exhibitionIds } },
@@ -214,10 +222,12 @@ export class CatalogService {
           ...(input.region !== undefined ? { region: input.region } : {}),
           ...(input.postalCode !== undefined ? { postalCode: input.postalCode } : {}),
           ...(input.country !== undefined ? { country: input.country.toUpperCase() } : {}),
-          ...(input.category !== undefined ? { category: input.category } : {}),
           ...(input.reference ? { reference: input.reference } : {}),
         },
       });
+      if (input.categoryIds !== undefined || input.category !== undefined) {
+        await this.applyCategories(tx, user.organizationId, vendor.id, input);
+      }
       if (input.exhibitionIds) {
         await tx.vendorExhibition.deleteMany({ where: { vendorId: id, organizationId: user.organizationId } });
         if (input.exhibitionIds.length) {
@@ -278,6 +288,78 @@ export class CatalogService {
       return vendors.length;
     });
     return { data: { archived: result } };
+  }
+
+  async listCategories(user: AuthContext) {
+    const rows = await this.tenant.transaction(user.organizationId, (tx) =>
+      tx.vendorCategory.findMany({
+        where: { organizationId: user.organizationId },
+        orderBy: { name: "asc" },
+        include: { _count: { select: { vendors: true } } },
+      }),
+    );
+    return { data: rows };
+  }
+
+  async createCategory(user: AuthContext, body: unknown) {
+    const input = z.object({ name: z.string().trim().min(2).max(80) }).parse(body);
+    const name = input.name.replace(/\s+/g, " ");
+    const category = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const existing = await tx.vendorCategory.findFirst({
+        where: { organizationId: user.organizationId, name: { equals: name, mode: "insensitive" } },
+      });
+      if (existing) return existing;
+      const created = await tx.vendorCategory.create({ data: { organizationId: user.organizationId, name } });
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "category.created",
+        resourceType: "vendor_category",
+        resourceId: created.id,
+        newValue: { name },
+      });
+      return created;
+    });
+    return { data: category };
+  }
+
+  async deleteCategory(user: AuthContext, id: string) {
+    await this.tenant.transaction(user.organizationId, async (tx) => {
+      const category = await tx.vendorCategory.findFirst({ where: { id, organizationId: user.organizationId } });
+      if (!category) throw new NotFoundException();
+      const links = await tx.vendorCategoryLink.findMany({ where: { organizationId: user.organizationId, categoryId: id }, select: { vendorId: true } });
+      await tx.vendorCategory.delete({ where: { id } });
+      await refreshCategoryLabels(tx, user.organizationId, links.map((link) => link.vendorId));
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "category.deleted",
+        resourceType: "vendor_category",
+        resourceId: id,
+        newValue: { name: category.name },
+      });
+    });
+    return { data: { deleted: true } };
+  }
+
+  private async applyCategories(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    vendorId: string,
+    input: { categoryIds?: string[]; category?: string },
+  ) {
+    try {
+      if (input.categoryIds) {
+        await assignVendorCategories(tx, organizationId, vendorId, input.categoryIds);
+        return;
+      }
+      await assignVendorCategoryNames(tx, organizationId, vendorId, (input.category ?? "").split(","));
+    } catch (error) {
+      if (error instanceof UnknownCategoryError) throw new NotFoundException(error.message);
+      throw error;
+    }
   }
 
   async listExhibitions(user: AuthContext) {

@@ -5,6 +5,7 @@ import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { ApiError, api, download } from "@/lib/api";
+import { CategoryFields, type VendorCategoryOption } from "@/components/category-fields";
 import { Button, ErrorNote, Field, Modal, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type Assignment = {
@@ -21,6 +22,7 @@ type Vendor = {
   contactName: string;
   email: string;
   category: string;
+  categories?: { category: { id: string; name: string } }[];
   status: string;
   assignments: Assignment[];
 };
@@ -29,7 +31,7 @@ type FormOption = { id: string; name: string; status: string; versions?: { id: s
 type ExhibitionOption = { id: string; name: string };
 type ImportResult = { id: string; filename: string; createdCount: number; skippedCount: number; errorCount: number; createdVendorIds: string[] };
 
-const emptyVendor = { companyName: "", contactName: "", email: "", category: "", phone: "", exhibitionId: "", formVersionId: "" };
+const emptyVendor = { companyName: "", contactName: "", email: "", categoryIds: [] as string[], phone: "", exhibitionId: "", formVersionId: "" };
 const helper = createColumnHelper<Vendor>();
 
 function formLabel(vendor: Vendor) {
@@ -73,6 +75,7 @@ export default function VendorsPage() {
   const client = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [q, setQ] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -85,8 +88,12 @@ export default function VendorsPage() {
   const [bulkFormId, setBulkFormId] = useState("");
   const [bulkExhibitionId, setBulkExhibitionId] = useState("");
   const query = useQuery({
-    queryKey: ["vendors", q],
-    queryFn: () => api<{ data: Vendor[] }>(`/vendors?q=${encodeURIComponent(q)}`),
+    queryKey: ["vendors", q, categoryId],
+    queryFn: () => api<{ data: Vendor[] }>(`/vendors?limit=100&q=${encodeURIComponent(q)}${categoryId ? `&categoryId=${encodeURIComponent(categoryId)}` : ""}`),
+  });
+  const categories = useQuery({
+    queryKey: ["vendor-categories"],
+    queryFn: () => api<{ data: VendorCategoryOption[] }>("/vendor-categories"),
   });
   const pickerOpen = open || Boolean(changing) || Boolean(importResult);
   const exhibitions = useQuery({
@@ -103,6 +110,14 @@ export default function VendorsPage() {
     item.status === "PUBLISHED" ? (item.versions ?? []).map((version) => ({ id: version.id, label: `${item.name} v${version.versionNumber}` })) : [],
   );
   const refresh = () => client.invalidateQueries({ queryKey: ["vendors"] });
+  const addCategory = useMutation({
+    mutationFn: (name: string) => api<{ data: VendorCategoryOption }>("/vendor-categories", { method: "POST", body: JSON.stringify({ name }) }),
+    onSuccess: async (result) => {
+      setForm((current) => ({ ...current, categoryIds: current.categoryIds.includes(result.data.id) ? current.categoryIds : [...current.categoryIds, result.data.id] }));
+      await client.invalidateQueries({ queryKey: ["vendor-categories"] });
+    },
+    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not add the category."),
+  });
   const create = useMutation({
     mutationFn: () => api("/vendors", { method: "POST", body: JSON.stringify(form) }),
     onSuccess: async () => {
@@ -167,7 +182,7 @@ export default function VendorsPage() {
       header: "Company",
       cell: (info) => {
         const vendor = info.row.original;
-        const detail = [vendor.reference, vendor.contactName, vendor.category].filter(Boolean).join(" · ");
+        const detail = [vendor.reference, vendor.contactName].filter(Boolean).join(" · ");
         return (
           <div className="min-w-36">
             <Link className="font-medium underline" href={`/admin/vendors/${vendor.id}`}>{vendor.companyName}</Link>
@@ -177,6 +192,15 @@ export default function VendorsPage() {
       },
     }),
     helper.accessor("email", { header: "Email", cell: (info) => <span className="block max-w-[220px] truncate" title={info.getValue()}>{info.getValue()}</span> }),
+    helper.display({
+      id: "category",
+      header: "Category",
+      cell: (info) => {
+        const names = (info.row.original.categories ?? []).map((link) => link.category.name).sort((left, right) => left.localeCompare(right));
+        const label = names.length ? names.join(", ") : info.row.original.category;
+        return <span className="block max-w-[200px] truncate" title={label}>{label || "None"}</span>;
+      },
+    }),
     helper.display({ id: "form", header: "Form", cell: (info) => formLabel(info.row.original) }),
     helper.accessor("status", { header: "Status", cell: (info) => <StatusBadge status={info.getValue()} /> }),
     helper.display({
@@ -208,7 +232,13 @@ export default function VendorsPage() {
       />
       <Notice message={notice} />
       <ErrorNote message={error} />
-      <input className={`${inputClass} mb-3 mt-3 max-w-sm`} placeholder="Search company, email, or reference" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Filter vendors" />
+      <div className="mb-3 mt-3 flex flex-wrap gap-2">
+        <input className={`${inputClass} max-w-sm`} placeholder="Search company, email, or reference" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Filter vendors" />
+        <select className={`${inputClass} max-w-xs`} aria-label="Category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+          <option value="">All categories</option>
+          {(categories.data?.data ?? []).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+        </select>
+      </div>
       <div className="table-wrap">
         <table className="data">
           <thead>
@@ -232,7 +262,15 @@ export default function VendorsPage() {
           <Field label="Contact"><input className={inputClass} required value={form.contactName} onChange={(event) => setForm({ ...form, contactName: event.target.value })} /></Field>
           <Field label="Email"><input className={inputClass} type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></Field>
           <Field label="Phone"><input className={inputClass} value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></Field>
-          <Field label="Category"><input className={inputClass} value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} /></Field>
+          <Field label="Categories">
+            <CategoryFields
+              categories={categories.data?.data ?? []}
+              selected={form.categoryIds}
+              onChange={(categoryIds) => setForm({ ...form, categoryIds })}
+              onCreate={(name) => addCategory.mutateAsync(name)}
+              creating={addCategory.isPending}
+            />
+          </Field>
           <Field label="Exhibition">
             <select className={inputClass} required value={form.exhibitionId} onChange={(event) => setForm({ ...form, exhibitionId: event.target.value })}>
               <option value="">Select</option>

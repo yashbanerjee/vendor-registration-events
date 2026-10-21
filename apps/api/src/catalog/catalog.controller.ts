@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Put, Query, Req } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Put, Query, Req } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { PERMISSIONS } from "@vmp/shared";
 import { RequirePermissions } from "../common/auth";
@@ -10,9 +10,27 @@ import { CatalogService } from "./catalog.service";
 export class CatalogController {
   constructor(@Inject(CatalogService) private readonly catalog: CatalogService) {}
 
+  @Get("vendor-categories")
+  @RequirePermissions(PERMISSIONS.vendorsRead)
+  categories(@Req() request: AuthedRequest) {
+    return this.catalog.listCategories(request.user!);
+  }
+
+  @Post("vendor-categories")
+  @RequirePermissions(PERMISSIONS.vendorsWrite)
+  createCategory(@Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.catalog.createCategory(request.user!, body);
+  }
+
+  @Delete("vendor-categories/:id")
+  @RequirePermissions(PERMISSIONS.vendorsWrite)
+  deleteCategory(@Req() request: AuthedRequest, @Param("id") id: string) {
+    return this.catalog.deleteCategory(request.user!, id);
+  }
+
   @Get("vendors")
   @RequirePermissions(PERMISSIONS.vendorsRead)
-  vendors(@Req() request: AuthedRequest, @Query() query: { cursor?: string; q?: string; status?: string; limit?: string }) {
+  vendors(@Req() request: AuthedRequest, @Query() query: { cursor?: string; q?: string; status?: string; limit?: string; categoryId?: string }) {
     return this.catalog.listVendors(request.user!, query);
   }
 

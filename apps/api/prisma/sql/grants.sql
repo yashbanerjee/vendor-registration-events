@@ -29,6 +29,8 @@ BEGIN
   FOREACH table_name IN ARRAY ARRAY[
     'users',
     'vendors',
+    'vendor_categories',
+    'vendor_category_links',
     'vendor_exhibitions',
     'exhibitions',
     'form_templates',

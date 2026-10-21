@@ -16,6 +16,7 @@ import { AuditService } from "../audit/audit.service";
 import { OutboxService } from "../jobs/jobs.service";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService } from "../prisma/prisma.service";
+import { assignVendorCategoryNames } from "../catalog/categories";
 
 const rowSchema = z.object({
   reference: z.string().min(2).max(40).regex(/^[A-Za-z0-9_-]+$/),
@@ -225,9 +226,10 @@ export class ImportsService {
             region: parsed.data.region,
             postalCode: parsed.data.postalCode,
             country: parsed.data.country.toUpperCase(),
-            category: parsed.data.category,
+            category: "",
           },
         });
+        await assignVendorCategoryNames(tx, user.organizationId, vendor.id, parsed.data.category.split(","));
         if (!item.password || !item.passwordHash) throw new ConflictException("The account password could not be prepared.");
         const account = await tx.user.create({
           data: {
