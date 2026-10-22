@@ -20,6 +20,13 @@ import { OutboxProcessor, OutboxService } from "../jobs/jobs.service";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
 
+function invitationPaceText() {
+  const paceMs = env().SMTP_MIN_INTERVAL_MS;
+  if (paceMs <= 0) return "The messages are sent steadily so a large batch is not rejected by the mail server.";
+  const seconds = Math.max(1, Math.round(paceMs / 1000));
+  return `Each message leaves the queue ${seconds} seconds after the previous one, so a large batch stays under the mail server limit.`;
+}
+
 const assignSchema = z.object({
   vendorId: z.string().uuid(),
   exhibitionId: z.string().uuid(),
@@ -65,19 +72,21 @@ export class WorkflowService {
         OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }],
       });
     }
-    const rows = await this.tenant.transaction(user.organizationId, (tx) =>
-      tx.formAssignment.findMany({
+    const rows = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const found = await tx.formAssignment.findMany({
         where: {
           organizationId: user.organizationId,
-          ...(user.vendorId ? { vendorId: user.vendorId } : {}),
-          ...(query.status ? { status: query.status as AssignmentStatus } : {}),
+          ...(user.vendorId ? { vendorId: user.vendorId, vendor: { archivedAt: null } } : {}),
+          ...(query.status ? { status: query.status as AssignmentStatus } : user.vendorId ? { status: { not: "REVOKED" } } : {}),
           ...(filters.length ? { AND: filters } : {}),
         },
         include: assignmentInclude,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: limit + 1,
-      }),
-    );
+      });
+      for (const assignment of found) await this.adoptLatestPublished(tx, assignment);
+      return found;
+    });
     const page = rows.slice(0, limit);
     const last = page.at(-1);
     return {
@@ -87,7 +96,11 @@ export class WorkflowService {
   }
 
   async get(user: AuthContext, id: string) {
-    const row = await this.tenant.transaction(user.organizationId, (tx) => this.load(tx, user, id));
+    const row = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const assignment = await this.load(tx, user, id);
+      await this.adoptLatestPublished(tx, assignment);
+      return assignment;
+    });
     return { data: this.present(row, Boolean(user.vendorId)) };
   }
 
@@ -141,7 +154,7 @@ export class WorkflowService {
         template: "invitation",
         subject: `${assigned} exhibition invitations were queued`,
         title: "Invitations queued",
-        text: `${assigned} vendors were invited. The messages are sent steadily so a large batch is not rejected by the mail server.${failed.length ? ` ${failed.length} vendors could not be invited.` : ""}`,
+        text: `${assigned} vendors were invited. ${invitationPaceText()}${failed.length ? ` ${failed.length} vendors could not be invited.` : ""}`,
         link: "/admin/vendors",
       }), { timeout: 15_000, maxWait: 5_000 });
     }
@@ -264,61 +277,82 @@ export class WorkflowService {
     const input = z.object({ formVersionId: z.string().uuid() }).parse(body);
     const assignmentId = await this.tenant.transaction(user.organizationId, async (tx) => {
       const assignment = await this.load(tx, user, id);
-      if (assignment.status === "APPROVED" || assignment.status === "REVOKED") {
-        throw new ConflictException("This form can no longer be changed.");
-      }
+      if (assignment.status === "REVOKED") throw new NotFoundException();
       const version = await tx.formVersion.findFirst({
         where: { id: input.formVersionId, organizationId: user.organizationId },
         include: { template: true },
       });
       if (!version || version.template.archivedAt) throw new NotFoundException("That published form was not found.");
-      if (assignment.status === "INVITED" && !assignment.submission) {
-        await tx.formAssignment.update({
-          where: { id },
-          data: { formVersionId: version.id, lockVersion: { increment: 1 } },
-        });
+      if (assignment.formVersionId === version.id) return assignment.id;
+      const taken = await tx.formAssignment.findFirst({
+        where: {
+          organizationId: user.organizationId,
+          vendorId: assignment.vendorId,
+          exhibitionId: assignment.exhibitionId,
+          formVersionId: version.id,
+          NOT: { id: assignment.id },
+        },
+      });
+      if (taken) {
+        await this.retireAssignment(tx, user, assignment.id, assignment.vendorId, version.id);
+        if (["REVOKED", "REJECTED", "WITHDRAWN", "EXPIRED"].includes(taken.status)) {
+          await tx.formAssignment.update({
+            where: { id: taken.id },
+            data: {
+              status: "INVITED",
+              submittedAt: null,
+              approvedAt: null,
+              approvedById: null,
+              approvedRevisionId: null,
+              lockVersion: { increment: 1 },
+            },
+          });
+        }
         await this.issueInvitation(tx, user, {
           vendor: assignment.vendor,
-          assignmentId: id,
+          assignmentId: taken.id,
           purpose: "FORM_ASSIGNMENT",
           subject: `Complete ${version.template.name} for ${assignment.exhibition.name}`,
           intro: `${user.name} changed the assigned form to ${version.template.name} for ${assignment.exhibition.name}.`,
         });
-        await this.audit.record(tx, {
-          organizationId: user.organizationId,
-          actorId: user.id,
-          actorRole: user.roles.join(","),
-          action: "assignment.form_changed",
-          resourceType: "assignment",
-          resourceId: id,
-          vendorId: assignment.vendorId,
-          newValue: { formVersionId: version.id },
-        });
-        return id;
+        return taken.id;
       }
-      await tx.invitation.updateMany({
-        where: { assignmentId: id, usedAt: null, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
+      if (assignment.submission) {
+        await tx.correctionRequest.updateMany({
+          where: { submissionId: assignment.submission.id, status: "OPEN" },
+          data: { status: "RESOLVED", resolvedAt: new Date() },
+        });
+      }
       await tx.formAssignment.update({
-        where: { id },
-        data: { status: "REVOKED", lockVersion: { increment: 1 } },
+        where: { id: assignment.id },
+        data: {
+          formVersionId: version.id,
+          status: "INVITED",
+          submittedAt: null,
+          approvedAt: null,
+          approvedById: null,
+          approvedRevisionId: null,
+          lockVersion: { increment: 1 },
+        },
+      });
+      await this.issueInvitation(tx, user, {
+        vendor: assignment.vendor,
+        assignmentId: assignment.id,
+        purpose: "FORM_ASSIGNMENT",
+        subject: `Complete ${version.template.name} for ${assignment.exhibition.name}`,
+        intro: `${user.name} changed the assigned form to ${version.template.name} for ${assignment.exhibition.name}. The previous answers are no longer the form to complete.`,
       });
       await this.audit.record(tx, {
         organizationId: user.organizationId,
         actorId: user.id,
         actorRole: user.roles.join(","),
-        action: "assignment.replaced",
+        action: "assignment.form_changed",
         resourceType: "assignment",
-        resourceId: id,
+        resourceId: assignment.id,
         vendorId: assignment.vendorId,
-        newValue: { formVersionId: version.id },
+        newValue: { formVersionId: version.id, previousStatus: assignment.status },
       });
-      return this.createAssignment(tx, user, {
-        vendorId: assignment.vendorId,
-        exhibitionId: assignment.exhibitionId,
-        formVersionId: version.id,
-      });
+      return assignment.id;
     });
     return this.get(user, assignmentId);
   }
@@ -349,6 +383,7 @@ export class WorkflowService {
     const input = valuesSchema.parse(body);
     await this.tenant.transaction(user.organizationId, async (tx) => {
       const assignment = await this.load(tx, user, id);
+      await this.adoptLatestPublished(tx, assignment);
       this.assertVendorActor(user, assignment.vendorId);
       if (assignment.status !== "INVITED" && assignment.status !== "IN_PROGRESS") {
         throw new ConflictException("This form is not open for editing.");
@@ -378,6 +413,7 @@ export class WorkflowService {
     const input = valuesSchema.parse(body);
     await this.tenant.transaction(user.organizationId, async (tx) => {
       const assignment = await this.load(tx, user, id);
+      await this.adoptLatestPublished(tx, assignment);
       this.assertVendorActor(user, assignment.vendorId);
       const correcting = assignment.status === "CORRECTION_REQUESTED";
       const next = correcting ? "RESUBMITTED_PENDING_REVIEW" : "SUBMITTED_PENDING_REVIEW";
@@ -989,6 +1025,60 @@ export class WorkflowService {
     });
     await tx.submission.update({ where: { id: submissionId }, data: { currentRevisionId: revision.id } });
     return revision;
+  }
+
+  private async retireAssignment(tx: Tx, user: AuthContext, id: string, vendorId: string, formVersionId: string) {
+    await tx.invitation.updateMany({
+      where: { assignmentId: id, usedAt: null, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    await tx.formAssignment.update({
+      where: { id },
+      data: { status: "REVOKED", lockVersion: { increment: 1 } },
+    });
+    await this.audit.record(tx, {
+      organizationId: user.organizationId,
+      actorId: user.id,
+      actorRole: user.roles.join(","),
+      action: "assignment.replaced",
+      resourceType: "assignment",
+      resourceId: id,
+      vendorId,
+      newValue: { formVersionId },
+    });
+  }
+
+  /** Unsubmitted forms follow the latest published copy, so a newly compulsory field is enforced. */
+  private async adoptLatestPublished(tx: Tx, assignment: {
+    id: string;
+    status: string;
+    organizationId: string;
+    vendorId: string;
+    exhibitionId: string;
+    formVersionId: string;
+    formVersion: { id: string; templateId: string };
+  }) {
+    if (assignment.status !== "INVITED" && assignment.status !== "IN_PROGRESS") return;
+    const latest = await tx.formVersion.findFirst({
+      where: { organizationId: assignment.organizationId, templateId: assignment.formVersion.templateId },
+      orderBy: { versionNumber: "desc" },
+      include: { template: true },
+    });
+    if (!latest || latest.id === assignment.formVersionId) return;
+    const clash = await tx.formAssignment.findFirst({
+      where: {
+        organizationId: assignment.organizationId,
+        vendorId: assignment.vendorId,
+        exhibitionId: assignment.exhibitionId,
+        formVersionId: latest.id,
+        NOT: { id: assignment.id },
+      },
+      select: { id: true },
+    });
+    if (clash) return;
+    await tx.formAssignment.update({ where: { id: assignment.id }, data: { formVersionId: latest.id } });
+    assignment.formVersionId = latest.id;
+    assignment.formVersion = latest;
   }
 
   private async load(tx: Tx, user: AuthContext, id: string) {

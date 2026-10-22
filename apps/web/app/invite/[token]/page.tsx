@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
@@ -10,6 +11,7 @@ import { useSession } from "@/components/providers";
 export default function InvitePage() {
   const params = useParams<{ token: string }>();
   const router = useRouter();
+  const client = useQueryClient();
   const { refresh } = useSession();
   const [preview, setPreview] = useState<{ email: string; companyName: string; needsPassword: boolean; purpose: string; assignmentId: string | null } | null>(null);
   const [name, setName] = useState("");
@@ -31,6 +33,7 @@ export default function InvitePage() {
         ? await api<{ data: { assignmentId: string | null } }>("/auth/invitations/accept", { method: "POST", body: JSON.stringify({ token: params.token, password, name }) })
         : await api<{ data: { assignmentId: string | null } }>("/auth/invitations/open", { method: "POST", body: JSON.stringify({ token: params.token }) });
       await refresh();
+      await client.invalidateQueries();
       const assignmentId = result.data.assignmentId ?? preview?.assignmentId;
       router.push(assignmentId ? `/vendor/assignments/${assignmentId}` : "/vendor");
     } catch (caught) {

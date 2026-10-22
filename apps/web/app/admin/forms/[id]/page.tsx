@@ -4,11 +4,12 @@ import { FIELD_TYPES, type FieldType, type FormField, type FormSchemaDefinition 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { arrayMove } from "@dnd-kit/sortable";
 import { useParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { useEffect, useState, type ChangeEvent } from "react";
 import { FormRenderer } from "@/components/form-renderer";
 import { RemoteFileLink } from "@/components/file-preview";
 import { ApiError, api } from "@/lib/api";
-import { Button, ErrorNote, Field, Notice, PageHeader, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, Notice, PageHeader, UploadStatus, UploadTick, inputClass } from "@/components/ui";
 
 type Template = {
   data: {
@@ -199,17 +200,19 @@ function TemplateFile({ templateId, field, onChange }: { templateId: string; fie
       <p className="text-xs font-semibold uppercase text-muted">File for vendors</p>
       <p className="text-xs text-muted">Vendors download this file, then upload their completed copy.</p>
       {field.template?.assetId && field.template.filename ? (
-        <div className="min-w-0 break-all [&_button]:whitespace-normal [&_button]:text-left">
+        <div className="flex min-w-0 items-start gap-2 break-all [&_button]:whitespace-normal [&_button]:text-left">
+          <span className="mt-0.5"><UploadTick /></span>
           <RemoteFileLink path={`/form-assets/${field.template.assetId}/content`} filename={field.template.filename} />
         </div>
       ) : (
         <p className="text-sm text-muted">No file uploaded yet.</p>
       )}
-      <label className="inline-flex h-9 w-fit max-w-full cursor-pointer items-center rounded-md border border-border px-3 text-sm hover:bg-secondary">
+      <label className={`inline-flex h-9 w-fit max-w-full items-center gap-2 rounded-md border border-border px-3 text-sm hover:bg-secondary ${pending ? "cursor-wait opacity-70" : "cursor-pointer"}`}>
         <input className="sr-only" type="file" disabled={pending} onChange={(event) => void pick(event)} />
+        {pending ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null}
         {pending ? "Uploading…" : "Choose file"}
       </label>
-      {pending ? <p className="text-xs text-muted">Uploading…</p> : null}
+      <UploadStatus pending={pending} />
       {error ? <p className="text-xs text-danger">{error}</p> : null}
     </div>
   );

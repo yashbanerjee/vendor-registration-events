@@ -1,11 +1,11 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download, FileUp } from "lucide-react";
+import { Download, FileUp, Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { ApiError, api, download } from "@/lib/api";
 import { RemoteFileLink } from "@/components/file-preview";
-import { Button, ErrorNote, Field, StatusBadge, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, StatusBadge, UploadStatus, UploadTick, inputClass } from "@/components/ui";
 
 type PacketFile = { id: string; name: string; filename: string; status: string; adminNote: string };
 export type Packet = {
@@ -28,7 +28,7 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
   const [docName, setDocName] = useState("");
   const [docFile, setDocFile] = useState<File | null>(null);
   const run = useMutation({
-    mutationFn: async (task: () => Promise<unknown>) => task(),
+    mutationFn: async (job: { kind: string; task: () => Promise<unknown> }) => job.task(),
     onSuccess: async (result) => {
       setError("");
       setDocName("");
@@ -39,13 +39,14 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not save that file."),
   });
+  const busy = run.isPending ? run.variables?.kind ?? "" : "";
   const step = locked ? 4 : form.files.length ? 3 : form.filledName ? 2 : 0;
 
   function uploadFilled(file: File | null) {
     if (!file) return;
     const body = new FormData();
     body.set("file", file);
-    run.mutate(() => api(`/my/pdf-forms/${form.id}/filled`, { method: "POST", body }));
+    run.mutate({ kind: "filled", task: () => api(`/my/pdf-forms/${form.id}/filled`, { method: "POST", body }) });
   }
 
   function uploadDocument(event: React.FormEvent) {
@@ -54,7 +55,7 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
     const body = new FormData();
     body.set("name", docName);
     body.set("file", docFile);
-    run.mutate(() => api(`/my/pdf-forms/${form.id}/documents`, { method: "POST", body }));
+    run.mutate({ kind: "document", task: () => api(`/my/pdf-forms/${form.id}/documents`, { method: "POST", body }) });
   }
 
   return (
@@ -78,23 +79,24 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
         </Button>
       </div>
       {form.filledName && form.returnId ? (
-        <p className="mt-3 text-sm text-muted">Filled copy: <RemoteFileLink path={`/pdf-returns/${form.returnId}/file`} filename={form.filledName} /></p>
+        <p className="mt-3 flex items-center gap-2 text-sm text-muted"><UploadTick /><span>Filled copy: <RemoteFileLink path={`/pdf-returns/${form.returnId}/file`} filename={form.filledName} /></span></p>
       ) : null}
       {form.adminNote ? <p className="mt-3 rounded-md bg-[var(--badge-warning-bg)] px-3 py-2 text-sm">Replace this form. {form.adminNote}</p> : null}
       <ErrorNote message={error} />
       {!locked ? (
         <div className="mt-4 grid gap-4">
           <Field label="Upload the filled PDF">
-            <input className="block w-full rounded-md border border-dashed border-border bg-secondary px-3 py-3 text-sm" type="file" accept="application/pdf,.pdf" onChange={(event) => uploadFilled(event.target.files?.[0] ?? null)} />
+            <input className="block w-full rounded-md border border-dashed border-border bg-secondary px-3 py-3 text-sm" type="file" accept="application/pdf,.pdf" disabled={run.isPending} onChange={(event) => uploadFilled(event.target.files?.[0] ?? null)} />
+            <UploadStatus pending={busy === "filled"} />
           </Field>
           <form className="grid gap-2 rounded-md bg-secondary p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end" onSubmit={uploadDocument}>
             <Field label="Document name"><input className={inputClass} value={docName} onChange={(event) => setDocName(event.target.value)} placeholder="Trade license" /></Field>
             <Field label="File">
-              <input ref={docRef} className="block w-full text-sm" type="file" onChange={(event) => setDocFile(event.target.files?.[0] ?? null)} />
+              <input ref={docRef} className="block w-full text-sm" type="file" disabled={run.isPending} onChange={(event) => setDocFile(event.target.files?.[0] ?? null)} />
             </Field>
             <Button type="submit" size="sm" disabled={run.isPending || !docName.trim() || !docFile}>
-              <FileUp size={14} aria-hidden />
-              Add
+              {busy === "document" ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <FileUp size={14} aria-hidden />}
+              {busy === "document" ? "Uploading…" : "Add"}
             </Button>
           </form>
         </div>
@@ -104,19 +106,24 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
           {form.files.map((file) => (
             <li key={file.id} className="rounded-md bg-secondary px-3 py-2 text-sm">
               <div className="flex flex-wrap items-center gap-2">
+                <UploadTick />
                 <span className="font-medium">{file.name}</span>
                 <StatusBadge status={file.status === "AWAITING" ? "READY" : file.status} />
                 <RemoteFileLink path={`/pdf-files/${file.id}/file`} filename={file.filename} />
               </div>
               {file.adminNote ? <p className="mt-1">Replace this document. {file.adminNote}</p> : null}
               {file.status === "REUPLOAD" || file.status === "READY" ? (
-                <input className="mt-2 block w-full text-sm" type="file" aria-label={`Replace ${file.name}`} onChange={(event) => {
-                  const next = event.target.files?.[0];
-                  if (!next) return;
-                  const body = new FormData();
-                  body.set("file", next);
-                  run.mutate(() => api(`/pdf-files/${file.id}/replace`, { method: "POST", body }));
-                }} />
+                <div className="mt-2 grid gap-1">
+                  <input className="block w-full text-sm" type="file" disabled={run.isPending} aria-label={`Replace ${file.name}`} onChange={(event) => {
+                    const next = event.target.files?.[0];
+                    event.target.value = "";
+                    if (!next || run.isPending) return;
+                    const body = new FormData();
+                    body.set("file", next);
+                    run.mutate({ kind: `replace:${file.id}`, task: () => api(`/pdf-files/${file.id}/replace`, { method: "POST", body }) });
+                  }} />
+                  <UploadStatus pending={busy === `replace:${file.id}`} />
+                </div>
               ) : null}
             </li>
           ))}
@@ -124,7 +131,7 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
       ) : null}
       {!locked ? (
         <div className="mt-4">
-          <Button variant="primary" disabled={run.isPending || !form.filledName} onClick={() => run.mutate(() => api(`/my/pdf-forms/${form.id}/submit`, { method: "POST" }))}>Send</Button>
+          <Button variant="primary" disabled={run.isPending || !form.filledName} onClick={() => run.mutate({ kind: "submit", task: () => api(`/my/pdf-forms/${form.id}/submit`, { method: "POST" }) })}>{busy === "submit" ? "Sending…" : "Send"}</Button>
         </div>
       ) : <p className="mt-3 text-sm text-muted">Sent. You can upload again only if the organizer asks for a new copy.</p>}
     </div>

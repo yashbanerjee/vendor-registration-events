@@ -181,7 +181,7 @@ export default function VendorProfilePage() {
               </select>
             </Field>
           ) : null}
-          <Field label="Form" hint="A new invitation email is sent with a link to this form.">
+          <Field label="Form" hint="This replaces the current form, even after the company has sent it. They get an email and fill in the new one.">
             <select className={inputClass} required value={nextFormId} onChange={(event) => setNextFormId(event.target.value)}>
               <option value="">Select</option>
               {publishedForms.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}

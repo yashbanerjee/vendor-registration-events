@@ -318,6 +318,20 @@ export class CatalogService {
           where: { vendorId: vendor.id, usedAt: null, revokedAt: null },
           data: { revokedAt: new Date() },
         });
+        const accounts = await tx.user.findMany({ where: { organizationId: user.organizationId, vendorId: vendor.id } });
+        for (const account of accounts) {
+          await tx.session.updateMany({ where: { userId: account.id, revokedAt: null }, data: { revokedAt: new Date() } });
+          await tx.user.update({
+            where: { id: account.id },
+            data: {
+              email: `archived+${account.id}@invalid.local`,
+              status: "DISABLED",
+              vendorId: null,
+              passwordHash: null,
+              mustChangePassword: false,
+            },
+          });
+        }
         await tx.vendor.update({
           where: { id: vendor.id },
           data: {
@@ -468,7 +482,7 @@ export class CatalogService {
           select: { vendor: { select: vendorPreview } },
         }),
         tx.formAssignment.findMany({
-          where: { organizationId: user.organizationId, exhibitionId: id, vendor: { archivedAt: null } },
+          where: { organizationId: user.organizationId, exhibitionId: id, vendor: { archivedAt: null }, status: { not: "REVOKED" } },
           orderBy: { updatedAt: "desc" },
           select: {
             id: true,
@@ -657,6 +671,29 @@ export class CatalogService {
         },
       });
       await tx.formTemplate.update({ where: { id }, data: { status: "PUBLISHED" } });
+      const open = await tx.formAssignment.findMany({
+        where: {
+          organizationId: user.organizationId,
+          status: { in: ["INVITED", "IN_PROGRESS"] },
+          formVersion: { templateId: id },
+          NOT: { formVersionId: created.id },
+        },
+        select: { id: true, vendorId: true, exhibitionId: true },
+      });
+      for (const assignment of open) {
+        const clash = await tx.formAssignment.findFirst({
+          where: {
+            organizationId: user.organizationId,
+            vendorId: assignment.vendorId,
+            exhibitionId: assignment.exhibitionId,
+            formVersionId: created.id,
+            NOT: { id: assignment.id },
+          },
+          select: { id: true },
+        });
+        if (clash) continue;
+        await tx.formAssignment.update({ where: { id: assignment.id }, data: { formVersionId: created.id } });
+      }
       await this.audit.record(tx, {
         organizationId: user.organizationId,
         actorId: user.id,

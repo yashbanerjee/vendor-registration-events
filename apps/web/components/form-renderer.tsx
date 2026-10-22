@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { COUNTRIES, isFieldVisible, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { FileLink, InlineFilePreview, RemoteFileLink } from "./file-preview";
 import { isEditable } from "@/lib/locking";
-import { inputClass } from "./ui";
+import { UploadStatus, UploadTick, inputClass } from "./ui";
 
 export function FormRenderer({
   schema,
@@ -284,21 +284,26 @@ function FileField({
 
   return (
     <div className="grid min-w-0 gap-2 break-words">
-      {files.map((file) =>
-        localPreview[file.documentId] ? (
-          <img key={file.documentId || file.filename} src={localPreview[file.documentId]} alt={file.filename} className="max-h-48 w-full rounded-md border border-border bg-white object-contain" />
-        ) : file.documentId && isStoredDocument(file.documentId) ? (
-          isImageName(file.filename) ? (
-            <InlineFilePreview key={file.documentId} documentId={file.documentId} filename={file.filename} />
-          ) : (
-            <FileLink key={file.documentId} documentId={file.documentId} filename={file.filename} />
-          )
-        ) : (
-          <span key={file.filename} className="text-xs text-muted">{file.filename}</span>
-        ),
-      )}
+      {files.map((file) => (
+        <div key={file.documentId || file.filename} className="flex min-w-0 items-start gap-2">
+          <span className="mt-1"><UploadTick /></span>
+          <div className="min-w-0 flex-1">
+            {localPreview[file.documentId] ? (
+              <img src={localPreview[file.documentId]} alt={file.filename} className="max-h-48 w-full rounded-md border border-border bg-white object-contain" />
+            ) : file.documentId && isStoredDocument(file.documentId) ? (
+              isImageName(file.filename) ? (
+                <InlineFilePreview documentId={file.documentId} filename={file.filename} />
+              ) : (
+                <FileLink documentId={file.documentId} filename={file.filename} />
+              )
+            ) : (
+              <span className="text-xs text-muted">{file.filename}</span>
+            )}
+          </div>
+        </div>
+      ))}
       {error ? <p className="text-sm text-danger">{error}</p> : null}
-      {pending ? <p className="text-sm text-muted">Uploading…</p> : null}
+      <UploadStatus pending={pending} />
       {editable ? (
         <div className="min-w-0 overflow-hidden">
           <input id={id} className="block w-full max-w-full text-sm" type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />

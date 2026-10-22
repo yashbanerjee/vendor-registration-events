@@ -183,7 +183,7 @@ export default function SettingsPage() {
           </Card>
           <Card
             title="Email"
-            description="Messages to vendors and administrators use these sender and SMTP details."
+            description="Messages to vendors and administrators use these sender and SMTP details. A large batch waits in the queue and goes out one every 5 seconds so a mailbox limit of about 15 per minute is not exceeded."
             extra={form.smtpPasswordSet ? <Badge tone="success">Password saved</Badge> : <Badge tone="neutral">No password saved</Badge>}
           >
             <div className="grid items-start gap-3 sm:grid-cols-2">

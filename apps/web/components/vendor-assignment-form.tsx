@@ -13,7 +13,8 @@ export type VendorAssignment = {
   status: string;
   lockVersion: number;
   deadline: string | null;
-  form: { name: string; schema: FormSchemaDefinition };
+  submittedAt?: string | null;
+  form: { name: string; versionNumber?: number; schema: FormSchemaDefinition };
   exhibition: { name: string };
   vendor: {
     reference: string;
@@ -28,7 +29,7 @@ export type VendorAssignment = {
   correction: { fields: { fieldId: string; note: string }[] } | null;
 };
 
-export function VendorAssignmentForm({ assignment }: { assignment: VendorAssignment }) {
+export function VendorAssignmentForm({ assignment, compact = false }: { assignment: VendorAssignment; compact?: boolean }) {
   const client = useQueryClient();
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [error, setError] = useState("");
@@ -71,17 +72,29 @@ export function VendorAssignmentForm({ assignment }: { assignment: VendorAssignm
       client.setQueryData(["assignment", assignment.id], result);
     },
     onError: (caught) => {
-      if (caught instanceof FormValidationError) {
-        setFieldErrors(caught.issues);
+      const showFieldErrors = (issues: { fieldId: string; message: string }[]) => {
+        setFieldErrors(issues);
         setError("Fill every compulsory field before submitting.");
+        const first = issues[0]?.fieldId;
+        requestAnimationFrame(() => {
+          if (!first) return;
+          document.getElementById(`${assignment.id}-${first}`)?.scrollIntoView({ block: "center" });
+        });
+      };
+      if (caught instanceof FormValidationError) {
+        showFieldErrors(caught.issues);
         return;
       }
       if (caught instanceof ApiError && Array.isArray(caught.details)) {
         const issues = caught.details.filter((item): item is { fieldId: string; message: string } => {
           return Boolean(item) && typeof item === "object" && "fieldId" in item && "message" in item;
         });
-        setFieldErrors(issues);
-        setError(issues.length ? "Fill every compulsory field before submitting." : caught.message);
+        if (!issues.length) {
+          setFieldErrors([]);
+          setError(caught.message);
+          return;
+        }
+        showFieldErrors(issues);
         return;
       }
       setError(caught instanceof ApiError ? caught.message : "The form could not be saved.");
@@ -91,16 +104,18 @@ export function VendorAssignmentForm({ assignment }: { assignment: VendorAssignm
   const editable = assignment.status === "INVITED" || assignment.status === "IN_PROGRESS" || assignment.status === "CORRECTION_REQUESTED";
   return (
     <section id={`assignment-${assignment.id}`} className="scroll-mt-20 grid gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold">{assignment.form.name}</h2>
-          <p className="mt-1 text-sm text-muted">
-            {assignment.exhibition.name}
-            {assignment.deadline ? ` · Due ${formatDate(assignment.deadline)}` : ""}
-          </p>
+      {compact ? null : (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">{assignment.form.name}</h2>
+            <p className="mt-1 text-sm text-muted">
+              {assignment.exhibition.name}
+              {assignment.deadline ? ` · Due ${formatDate(assignment.deadline)}` : ""}
+            </p>
+          </div>
+          <StatusBadge status={assignment.status} />
         </div>
-        <StatusBadge status={assignment.status} />
-      </div>
+      )}
       <ErrorNote message={error} />
       <Notice message={message} />
       {assignment.status === "SUBMITTED_PENDING_REVIEW" || assignment.status === "RESUBMITTED_PENDING_REVIEW" ? (

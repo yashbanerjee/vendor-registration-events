@@ -9,6 +9,7 @@ import { scanBuffer } from "../documents/scan";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
 import { emailAttachments, publicActionUrl, renderEmail, type EmailAudience } from "./email-templates";
+import { beginMailSend, mailSendIntervalMs } from "./mail-pace";
 import { MailDeliveryError, batchFailureKind, deliveryRoutes, type SmtpEndpoint } from "./mail-route";
 import { StorageService } from "../storage/storage.service";
 
@@ -51,6 +52,10 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
   private connection: IORedis | null = null;
   private workerConnection: IORedis | null = null;
   private readonly transports = new Map<string, nodemailer.Transporter>();
+  private readonly mailIntervals = new Map<string, { interval: number; expires: number }>();
+  /** Earliest time another real SMTP message may start. */
+  private paceNextAt = 0;
+  private paceLoaded = false;
 
   constructor(
     @Inject(TenantService) private readonly tenant: TenantService,
@@ -92,24 +97,35 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
     this.running = true;
     try {
       await this.reclaimStuck();
+      await this.ensurePace();
       for (let index = 0; index < limit; index += 1) {
-        const claimed = await this.claim();
+        const claimed = await this.claim(false);
         if (!claimed) break;
-        if (env().JOBS_MODE === "queue" && this.queue) {
-          await this.queue.add("dispatch", { id: claimed.id }, {
-            jobId: claimed.id,
-            attempts: 8,
-            backoff: { type: "exponential", delay: 1000 },
-            removeOnComplete: 1000,
-            removeOnFail: 1000,
-          });
-        } else {
-          await this.dispatchClaim(claimed);
-        }
+        await this.enqueueOrDispatch(claimed);
       }
+      await this.dispatchDueMail(limit);
     } finally {
       this.running = false;
     }
+  }
+
+  /**
+   * Holds a test message until the shared mailbox slot is free, then reserves
+   * that slot so a queued batch does not send in the same moment.
+   */
+  async reserveMailSlot(host: string) {
+    const interval = mailSendIntervalMs(host, this.configuredInterval());
+    if (interval <= 0) return;
+    await this.ensurePace();
+    const now = Date.now();
+    const startAt = Math.max(now, this.paceNextAt);
+    this.paceNextAt = startAt + interval;
+    const waitMs = startAt - now;
+    if (waitMs <= 0) return;
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, waitMs);
+      timer.unref?.();
+    });
   }
 
   async retry(organizationId: string, id: string) {
@@ -126,22 +142,132 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
     return updated;
   }
 
-  private async claim(): Promise<Claimed | null> {
+  private async claim(emailOnly: boolean): Promise<Claimed | null> {
     return this.tenant.unscoped(async (tx) => {
-      const rows = await tx.$queryRaw<Claimed[]>`
-        UPDATE outbox_events
-        SET status = 'PROCESSING', available_at = NOW()
-        WHERE id = (
-          SELECT id FROM outbox_events
-          WHERE status = 'PENDING' AND available_at <= NOW()
-          ORDER BY created_at
-          FOR UPDATE SKIP LOCKED
-          LIMIT 1
-        )
-        RETURNING id, organization_id AS "organizationId", type, payload_enc AS "payloadEnc", attempts, idempotency_key AS "idempotencyKey"
-      `;
+      const rows = emailOnly
+        ? await tx.$queryRaw<Claimed[]>`
+            UPDATE outbox_events
+            SET status = 'PROCESSING', available_at = NOW()
+            WHERE id = (
+              SELECT id FROM outbox_events
+              WHERE status = 'PENDING' AND available_at <= NOW() AND type LIKE 'email.%'
+              ORDER BY created_at
+              FOR UPDATE SKIP LOCKED
+              LIMIT 1
+            )
+            RETURNING id, organization_id AS "organizationId", type, payload_enc AS "payloadEnc", attempts, idempotency_key AS "idempotencyKey"
+          `
+        : await tx.$queryRaw<Claimed[]>`
+            UPDATE outbox_events
+            SET status = 'PROCESSING', available_at = NOW()
+            WHERE id = (
+              SELECT id FROM outbox_events
+              WHERE status = 'PENDING' AND available_at <= NOW() AND type NOT LIKE 'email.%'
+              ORDER BY created_at
+              FOR UPDATE SKIP LOCKED
+              LIMIT 1
+            )
+            RETURNING id, organization_id AS "organizationId", type, payload_enc AS "payloadEnc", attempts, idempotency_key AS "idempotencyKey"
+          `;
       return rows[0] ?? null;
     });
+  }
+
+  private configuredInterval() {
+    const config = env();
+    if (config.NODE_ENV === "test") return 0;
+    return config.SMTP_MIN_INTERVAL_MS;
+  }
+
+  private async ensurePace() {
+    if (this.paceLoaded) return;
+    this.paceLoaded = true;
+    const rows = await this.tenant.unscoped((tx) => tx.$queryRaw<{ publishedAt: Date | null }[]>`
+      SELECT published_at AS "publishedAt"
+      FROM outbox_events
+      WHERE status = 'PUBLISHED' AND type LIKE 'email.%' AND published_at IS NOT NULL
+      ORDER BY published_at DESC
+      LIMIT 1
+    `);
+    const publishedAt = rows[0]?.publishedAt;
+    if (!publishedAt) return;
+    const nextAt = new Date(publishedAt).getTime() + env().SMTP_MIN_INTERVAL_MS;
+    if (nextAt > this.paceNextAt) this.paceNextAt = nextAt;
+  }
+
+  private async dispatchDueMail(limit: number) {
+    let sent = 0;
+    while (sent < limit) {
+      const claimed = await this.claim(true);
+      if (!claimed) return;
+      const interval = await this.intervalFor(claimed.organizationId);
+      const decision = beginMailSend({ nextAt: this.paceNextAt }, Date.now(), interval);
+      this.paceNextAt = decision.pace.nextAt;
+      if (decision.action === "wait") {
+        await this.deferMail(claimed.id, decision.availableAt);
+        const parked = await this.parkDueMail(decision.availableAt);
+        this.logMailQueue(parked + 1);
+        return;
+      }
+      await this.enqueueOrDispatch(claimed);
+      sent += 1;
+      if (interval > 0) {
+        const parked = await this.parkDueMail(decision.pace.nextAt);
+        this.logMailQueue(parked);
+        return;
+      }
+    }
+  }
+
+  private logMailQueue(waiting: number) {
+    if (waiting <= 0) return;
+    const seconds = Math.max(1, Math.round(env().SMTP_MIN_INTERVAL_MS / 1000));
+    this.logger.log(`Queued ${waiting} email(s). One message is sent every ${seconds} seconds so the mailbox limit is not exceeded.`);
+  }
+
+  private async intervalFor(organizationId: string) {
+    const cached = this.mailIntervals.get(organizationId);
+    if (cached && cached.expires > Date.now()) return cached.interval;
+    const organization = await this.tenant.transaction(organizationId, (tx) =>
+      tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } }),
+    );
+    const mail = effectiveSettings(parseStored(organization?.settings));
+    const interval = mailSendIntervalMs(mail.smtpHost, this.configuredInterval());
+    this.mailIntervals.set(organizationId, { interval, expires: Date.now() + 60_000 });
+    return interval;
+  }
+
+  private async deferMail(id: string, availableAt: number) {
+    await this.tenant.unscoped((tx) =>
+      tx.outboxEvent.update({
+        where: { id },
+        data: { status: "PENDING", availableAt: new Date(availableAt) },
+      }),
+    );
+  }
+
+  private async parkDueMail(availableAt: number) {
+    const when = new Date(availableAt);
+    const count = await this.tenant.unscoped((tx) => tx.$executeRaw`
+      UPDATE outbox_events
+      SET available_at = ${when}
+      WHERE status = 'PENDING' AND type LIKE 'email.%' AND available_at <= NOW()
+    `);
+    return Number(count);
+  }
+
+  private async enqueueOrDispatch(claimed: Claimed) {
+    if (env().JOBS_MODE === "queue" && this.queue) {
+      await this.queue.add("dispatch", { id: claimed.id }, {
+        jobId: claimed.id,
+        attempts: 8,
+        backoff: { type: "exponential", delay: 1000 },
+        removeOnComplete: 1000,
+        removeOnFail: 1000,
+      });
+      return;
+    }
+    await this.dispatchClaim(claimed);
   }
 
   private async reclaimStuck() {
@@ -358,8 +484,6 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
           auth: route.user ? { user: route.user, pass: route.password } : undefined,
           maxConnections: 1,
           maxMessages: 100,
-          rateDelta: 1000,
-          rateLimit: 4,
         });
     this.transports.set(key, transport);
     return transport;

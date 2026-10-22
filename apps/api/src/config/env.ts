@@ -37,6 +37,7 @@ const schema = z.object({
   SMTP_USER: z.string().optional().default(""),
   SMTP_PASS: z.string().optional().default(""),
   SMTP_FROM: z.string().default("s7 <noreply@harbor.example>"),
+  SMTP_MIN_INTERVAL_MS: z.coerce.number().int().min(0).max(60_000).default(5_000),
   SMTP_FALLBACK_HOST: z.string().optional().default(""),
   SMTP_FALLBACK_PORT: z.coerce.number().int().positive().default(587),
   SMTP_FALLBACK_SECURE: z

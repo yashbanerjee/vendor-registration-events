@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatLabel } from "@/lib/utils";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, PageHeader, StatusBadge } from "@/components/ui";
+import { Button, ErrorNote, PageHeader, StatusBadge, UploadStatus, UploadTick } from "@/components/ui";
 
 type Job = { id: string; filename: string; status: string; totalRows: number; createdCount: number; skippedCount: number; errorCount: number; rows?: { rowNumber: number; status: string; messages: string[] }[] };
 
@@ -32,8 +32,12 @@ export default function ImportsPage() {
       <ErrorNote message={error} />
       <label className="mt-3 block text-sm">
         Upload file
-        <input className="mt-1 block text-sm" type="file" accept=".csv,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) upload.mutate(file); }} />
+        <input className="mt-1 block text-sm" type="file" accept=".csv,.xlsx" disabled={upload.isPending} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) upload.mutate(file); }} />
       </label>
+      <div className="mt-2 flex items-center gap-2">
+        <UploadStatus pending={upload.isPending} />
+        {upload.isSuccess && !upload.isPending ? <span className="inline-flex items-center gap-1.5 text-sm text-[var(--success)]"><UploadTick /> Uploaded</span> : null}
+      </div>
       <div className="table-wrap mt-4">
         <table className="data">
           <thead><tr><th>File</th><th>Status</th><th>Created</th><th>Skipped</th><th>Errors</th></tr></thead>

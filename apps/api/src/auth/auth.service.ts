@@ -56,6 +56,7 @@ export class AuthService {
       });
       if (!session || session.revokedAt || session.expiresAt.getTime() < Date.now()) return null;
       if (session.user.status !== "ACTIVE") return null;
+      if (await vendorAccessRetired(tx, session.user.vendorId)) return null;
       const roles = session.user.roles.map((entry) => entry.role.name);
       const permissions = [
         ...new Set(session.user.roles.flatMap((entry) => entry.role.permissions.map((item) => item.permission.key))),
@@ -87,7 +88,8 @@ export class AuthService {
     );
     const passwordHash = user?.passwordHash ?? (await this.placeholderHash());
     const valid = await argonVerify(passwordHash, input.password).catch(() => false);
-    if (!user || !user.passwordHash || !valid || user.status !== "ACTIVE") {
+    const retired = await this.tenant.unscoped((tx) => vendorAccessRetired(tx, user?.vendorId));
+    if (!user || !user.passwordHash || !valid || user.status !== "ACTIVE" || retired) {
       throw new UnauthorizedException("The email or password is incorrect.");
     }
     if (user.mfaEnabled && user.mfa?.confirmedAt) {
@@ -195,13 +197,14 @@ export class AuthService {
       }
       if (!invitation.vendorId) throw new NotFoundException("This invitation is invalid or has expired.");
       const vendor = await tx.vendor.findUnique({ where: { id: invitation.vendorId } });
-      if (!vendor) throw new NotFoundException("This invitation is invalid or has expired.");
+      if (!vendor || vendor.archivedAt) throw new NotFoundException("This invitation is invalid or has expired.");
       const email = invitation.email.toLowerCase();
       let user = await tx.user.findUnique({ where: { email } });
       const passwordHash = await argonHash(input.password, argonOptions);
       const vendorRole = await tx.role.findUnique({ where: { name: "VENDOR" } });
       if (!vendorRole) throw new ConflictException("Vendor access is not configured.");
-      if (user?.passwordHash) {
+      const replaceRetired = await vendorAccessRetired(tx, user?.vendorId);
+      if (user?.passwordHash && !replaceRetired) {
         throw new ConflictException("This account already has a password. Open the invitation to sign in.");
       }
       if (!user) {
@@ -220,6 +223,9 @@ export class AuthService {
         if (user.organizationId !== invitation.organizationId) {
           throw new ConflictException("This email is already used in another organization.");
         }
+        if (replaceRetired) {
+          await tx.session.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: new Date() } });
+        }
         user = await tx.user.update({
           where: { id: user.id },
           data: {
@@ -227,6 +233,7 @@ export class AuthService {
             passwordHash,
             status: "ACTIVE",
             vendorId: vendor.id,
+            mustChangePassword: false,
           },
         });
         await tx.userRole.upsert({
@@ -264,11 +271,13 @@ export class AuthService {
       const invitation = await this.findOpenInvitation(tx, input.token);
       const user = await tx.user.findUnique({ where: { email: invitation.email.toLowerCase() } });
       const vendor = invitation.vendorId ? await tx.vendor.findUnique({ where: { id: invitation.vendorId } }) : null;
+      if (invitation.vendorId && (!vendor || vendor.archivedAt)) throw new NotFoundException("This invitation is invalid or has expired.");
+      const replaceRetired = await vendorAccessRetired(tx, user?.vendorId);
       return {
         data: {
           purpose: invitation.purpose,
           email: invitation.email,
-          needsPassword: !user?.passwordHash,
+          needsPassword: !user?.passwordHash || replaceRetired,
           companyName: vendor?.companyName ?? "",
           assignmentId: invitation.assignmentId,
         },
@@ -281,7 +290,9 @@ export class AuthService {
     const opened = await this.tenant.unscoped(async (tx) => {
       const invitation = await this.findOpenInvitation(tx, input.token);
       const account = await tx.user.findUnique({ where: { email: invitation.email.toLowerCase() } });
-      if (!account?.passwordHash) throw new ConflictException({ message: "Create a password to continue.", code: "PASSWORD_REQUIRED" });
+      if (!account?.passwordHash || await vendorAccessRetired(tx, account.vendorId)) {
+        throw new ConflictException({ message: "Create a password to continue.", code: "PASSWORD_REQUIRED" });
+      }
       if (account.organizationId !== invitation.organizationId) throw new ConflictException("This invitation cannot be used.");
       await tx.invitation.update({ where: { id: invitation.id }, data: { usedAt: new Date(), userId: account.id } });
       if (invitation.assignmentId) {
@@ -456,4 +467,10 @@ export class AuthService {
     this.dummyHash ??= argonHash("not-a-real-password", argonOptions);
     return this.dummyHash;
   }
+}
+
+async function vendorAccessRetired(tx: Tx, vendorId: string | null | undefined) {
+  if (!vendorId) return false;
+  const vendor = await tx.vendor.findUnique({ where: { id: vendorId }, select: { archivedAt: true } });
+  return !vendor || vendor.archivedAt !== null;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Loader2 } from "lucide-react";
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import Link from "next/link";
 import { useRef, useState } from "react";
@@ -247,7 +248,11 @@ export default function VendorsPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => void download("/imports/template", "vendor-demo.csv").catch(() => setError("Could not download the demo CSV."))}>Demo CSV</Button>
-            <Button disabled={upload.isPending} onClick={() => fileRef.current?.click()}>{upload.isPending ? "Uploading…" : "Bulk upload"}</Button>
+            <Button disabled={upload.isPending} onClick={() => fileRef.current?.click()}>
+              {upload.isPending ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null}
+              {upload.isPending ? "Uploading…" : "Bulk upload"}
+            </Button>
+            {upload.isSuccess && !upload.isPending ? <span className="inline-flex items-center gap-1 self-center text-sm text-[var(--success)]"><Check size={16} aria-hidden /> Uploaded</span> : null}
             <Button variant="primary" onClick={() => { setError(""); setOpen(true); }}>Add company</Button>
             <input ref={fileRef} className="hidden" type="file" accept=".csv,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) upload.mutate(file); }} />
           </div>
@@ -319,7 +324,7 @@ export default function VendorsPage() {
               </select>
             </Field>
           ) : null}
-          <Field label="Form" hint="A new invitation email is sent with a link to this form.">
+          <Field label="Form" hint="This replaces the current form, even after the company has sent it. They get an email and fill in the new one.">
             <select className={inputClass} required value={nextFormId} onChange={(event) => setNextFormId(event.target.value)}>
               <option value="">Select</option>
               {publishedForms.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}

@@ -19,7 +19,7 @@ export default function JobsPage() {
   });
   return (
     <div>
-      <PageHeader title="Background jobs" description="Sent means the mail server accepted the message. Delivered or bounced appears only after a provider event." />
+      <PageHeader title="Background jobs" description="Pending mail stays in the queue and is sent one every 5 seconds. Sent means the mail server accepted the message. Delivered or bounced appears only after a provider event." />
       <h2 className="mb-2 text-sm font-semibold">Outbox</h2>
       <div className="table-wrap">
         <table className="data">

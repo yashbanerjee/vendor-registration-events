@@ -3,7 +3,7 @@
 import { Slot } from "@radix-ui/react-slot";
 import * as Dialog from "@radix-ui/react-dialog";
 import { cva, type VariantProps } from "class-variance-authority";
-import { X } from "lucide-react";
+import { Check, Loader2, X } from "lucide-react";
 import { usePublishFlag } from "@/components/flags";
 import { cn, formatLabel } from "@/lib/utils";
 
@@ -52,6 +52,20 @@ export function Badge({ tone, children }: { tone: "success" | "warning" | "dange
     neutral: "bg-[var(--badge-neutral-bg)] text-[var(--badge-neutral-fg)]",
   };
   return <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide", styles[tone])}>{children}</span>;
+}
+
+export function UploadStatus({ pending }: { pending: boolean }) {
+  if (!pending) return null;
+  return (
+    <span className="inline-flex items-center gap-1.5 text-sm text-muted" role="status">
+      <Loader2 size={16} className="animate-spin" aria-hidden />
+      Uploading…
+    </span>
+  );
+}
+
+export function UploadTick({ label = "Uploaded" }: { label?: string }) {
+  return <Check size={16} className="shrink-0 text-[var(--success)]" aria-label={label} />;
 }
 
 export function StatusBadge({ status }: { status: string }) {

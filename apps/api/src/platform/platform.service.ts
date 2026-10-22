@@ -363,6 +363,7 @@ export class PlatformService {
           auth: mail.smtpUser ? { user: mail.smtpUser, pass: mail.smtpPassword } : undefined,
         });
     try {
+      await this.processor.reserveMailSlot(mail.smtpHost);
       const info = await transport.sendMail({
         from: mail.emailFrom,
         to: input.to,
