@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarRange, ChevronRight, MapPin, Users } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
@@ -29,28 +28,34 @@ export default function ExhibitionsPage() {
       <ErrorNote message={query.isError ? "Could not load exhibitions." : ""} />
       {query.isLoading ? <p className="text-sm text-muted">Loading exhibitions…</p> : null}
       {!query.isLoading && exhibitions.total === 0 ? <EmptyState title="No exhibitions yet" body="Add an event, then assign vendors so you can track their form progress." /> : null}
-      <div className="grid gap-4 md:grid-cols-2">
-        {exhibitions.rows.map((row) => (
-          <Link key={row.id} href={`/admin/exhibitions/${row.id}`} className="group rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-panel">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">{row.code}</p>
-                <h2 className="mt-1 truncate text-lg font-semibold tracking-tight">{row.name}</h2>
-              </div>
-              <StatusBadge status={row.status} />
-            </div>
-            <div className="mt-5 grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
-              <Meta icon={<MapPin size={14} aria-hidden />} label="Venue" value={row.venue || "—"} />
-              <Meta icon={<Users size={14} aria-hidden />} label="Vendors" value={String(row._count.vendors)} />
-              <Meta icon={<CalendarRange size={14} aria-hidden />} label="Starts" value={formatDate(row.startsAt)} />
-            </div>
-            <p className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand">
-              Open event
-              <ChevronRight size={16} className="transition group-hover:translate-x-0.5" aria-hidden />
-            </p>
-          </Link>
-        ))}
-      </div>
+      {exhibitions.total > 0 ? (
+        <div className="table-wrap">
+          <table className="data">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Exhibition</th>
+                <th>Status</th>
+                <th>Venue</th>
+                <th>Vendors</th>
+                <th>Starts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {exhibitions.rows.map((row) => (
+                <tr key={row.id}>
+                  <td className="whitespace-nowrap text-muted">{row.code}</td>
+                  <td><Link className="font-medium underline" href={`/admin/exhibitions/${row.id}`}>{row.name}</Link></td>
+                  <td><StatusBadge status={row.status} /></td>
+                  <td>{row.venue || "—"}</td>
+                  <td>{row._count.vendors}</td>
+                  <td className="whitespace-nowrap">{formatDate(row.startsAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
       <Pager page={exhibitions.page} pageCount={exhibitions.pageCount} total={exhibitions.total} rangeStart={exhibitions.rangeStart} rangeEnd={exhibitions.rangeEnd} onPage={exhibitions.setPage} />
       <Modal open={open} title="Add exhibition" onClose={() => setOpen(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); create.mutate(); }}>
@@ -63,15 +68,6 @@ export default function ExhibitionsPage() {
           <Button type="submit" variant="primary">Save exhibition</Button>
         </form>
       </Modal>
-    </div>
-  );
-}
-
-function Meta({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <p className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-muted">{icon}{label}</p>
-      <p className="mt-1 truncate text-sm font-medium">{value}</p>
     </div>
   );
 }
