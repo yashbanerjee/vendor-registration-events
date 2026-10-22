@@ -1,9 +1,10 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, FileUp } from "lucide-react";
 import { useRef, useState } from "react";
 import { ApiError, api, download } from "@/lib/api";
+import { RemoteFileLink } from "@/components/file-preview";
 import { Button, ErrorNote, Field, StatusBadge, inputClass } from "@/components/ui";
 
 type PacketFile = { id: string; name: string; filename: string; status: string; adminNote: string };
@@ -12,6 +13,7 @@ export type Packet = {
   name: string;
   filename: string;
   exhibition: { id: string; name: string; venue: string };
+  returnId: string | null;
   status: string;
   filledName: string;
   adminNote: string;
@@ -19,6 +21,7 @@ export type Packet = {
 };
 
 export function PacketCard({ form, onChange }: { form: Packet; onChange: () => Promise<void> }) {
+  const client = useQueryClient();
   const locked = form.status === "SUBMITTED";
   const docRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
@@ -26,11 +29,12 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
   const [docFile, setDocFile] = useState<File | null>(null);
   const run = useMutation({
     mutationFn: async (task: () => Promise<unknown>) => task(),
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       setError("");
       setDocName("");
       setDocFile(null);
       if (docRef.current) docRef.current.value = "";
+      if (result && typeof result === "object" && "data" in result) client.setQueryData(["my-pdf-forms"], result);
       await onChange();
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not save that file."),
@@ -59,7 +63,7 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold">{form.name}</h3>
-            <StatusBadge status={form.status} />
+            <StatusBadge status={form.status === "AWAITING" && form.filledName ? "READY" : form.status} />
           </div>
           {form.exhibition.name ? <p className="mt-1 text-sm text-muted">{form.exhibition.name}</p> : null}
           <ol className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
@@ -68,12 +72,14 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
             ))}
           </ol>
         </div>
-        <Button size="sm" onClick={() => void download(`/pdf-forms/${form.id}/file`, form.filename)}>
+        <Button size="sm" onClick={() => void download(`/pdf-forms/${form.id}/file?disposition=attachment`, form.filename).catch((caught) => setError(caught instanceof Error ? caught.message : "The download failed."))}>
           <Download size={14} aria-hidden />
           Download form
         </Button>
       </div>
-      {form.filledName ? <p className="mt-3 text-sm text-muted">Filled copy: {form.filledName}</p> : null}
+      {form.filledName && form.returnId ? (
+        <p className="mt-3 text-sm text-muted">Filled copy: <RemoteFileLink path={`/pdf-returns/${form.returnId}/file`} filename={form.filledName} /></p>
+      ) : null}
       {form.adminNote ? <p className="mt-3 rounded-md bg-[var(--badge-warning-bg)] px-3 py-2 text-sm">Replace this form. {form.adminNote}</p> : null}
       <ErrorNote message={error} />
       {!locked ? (
@@ -99,11 +105,11 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
             <li key={file.id} className="rounded-md bg-secondary px-3 py-2 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{file.name}</span>
-                <StatusBadge status={file.status} />
-                <button type="button" className="font-semibold text-brand" onClick={() => void download(`/pdf-files/${file.id}/file`, file.filename)}>{file.filename}</button>
+                <StatusBadge status={file.status === "AWAITING" ? "READY" : file.status} />
+                <RemoteFileLink path={`/pdf-files/${file.id}/file`} filename={file.filename} />
               </div>
               {file.adminNote ? <p className="mt-1">Replace this document. {file.adminNote}</p> : null}
-              {file.status === "REUPLOAD" ? (
+              {file.status === "REUPLOAD" || file.status === "READY" ? (
                 <input className="mt-2 block w-full text-sm" type="file" aria-label={`Replace ${file.name}`} onChange={(event) => {
                   const next = event.target.files?.[0];
                   if (!next) return;

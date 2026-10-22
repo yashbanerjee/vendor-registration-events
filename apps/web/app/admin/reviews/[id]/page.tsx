@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
-import { InlineFilePreview } from "@/components/file-preview";
+import { InlineFilePreview, RemoteFileLink } from "@/components/file-preview";
 import { Pager, usePagedRows } from "@/components/pager";
 import { Button, ErrorNote, Field, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 import { COUNTRIES, isFieldVisible, type FormField, type FormSchemaDefinition } from "@vmp/shared";
@@ -45,7 +45,7 @@ export default function ReviewDetailPage() {
     mutationFn: () => {
       if (markedIds.length === 0) throw new Error("Mark at least one field.");
       if (readyFields.length !== markedIds.length) throw new Error("Write a comment on every marked field.");
-      return api(`/assignments/${params.id}/corrections`, {
+      return api<Review>(`/assignments/${params.id}/corrections`, {
         method: "POST",
         body: JSON.stringify({
           lockVersion: review?.lockVersion,
@@ -53,18 +53,24 @@ export default function ReviewDetailPage() {
         }),
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       setError("");
       setMarked({});
       setComments({});
       setMessage(`One email was sent to ${review?.vendor.email} with ${readyFields.length} field${readyFields.length === 1 ? "" : "s"} and the comments.`);
-      await client.invalidateQueries({ queryKey: ["assignment", params.id] });
+      client.setQueryData(["assignment", params.id], result);
+      await client.invalidateQueries({ queryKey: ["reviews"] });
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : caught instanceof Error ? caught.message : "Correction request failed."),
   });
   const approve = useMutation({
-    mutationFn: () => api(`/assignments/${params.id}/approve`, { method: "POST", body: JSON.stringify({ lockVersion: review?.lockVersion }) }),
-    onSuccess: async () => { setError(""); await client.invalidateQueries({ queryKey: ["assignment", params.id] }); },
+    mutationFn: () => api<Review>(`/assignments/${params.id}/approve`, { method: "POST", body: JSON.stringify({ lockVersion: review?.lockVersion }) }),
+    onSuccess: async (result) => {
+      setError("");
+      setMessage("Accepted. The status is now approved.");
+      client.setQueryData(["assignment", params.id], result);
+      await client.invalidateQueries({ queryKey: ["reviews"] });
+    },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Approval failed."),
   });
   const addNote = useMutation({
@@ -192,6 +198,29 @@ function AnswerList({
 function Answer({ field, value }: { field: FormField; value: unknown }) {
   const text = displayAnswer(field, value);
   if (!text) return <p className="text-sm text-muted">Not answered</p>;
+  if (field.type === "reupload") {
+    const files = fileEntries(value);
+    return (
+      <div className="grid gap-3 text-sm">
+        {field.template?.assetId && field.template.filename ? (
+          <div>
+            <p className="text-xs text-muted">File provided to the vendor</p>
+            <RemoteFileLink path={`/form-assets/${field.template.assetId}/content`} filename={field.template.filename} />
+          </div>
+        ) : null}
+        {files.length === 0 ? <p className="text-sm text-muted">Not answered</p> : (
+          <ul className="grid gap-1">
+            {files.map((file) => (
+              <li key={file.documentId || file.filename}>
+                <p className="text-xs text-muted">Completed file</p>
+                {file.documentId ? <InlineFilePreview documentId={file.documentId} filename={file.filename} /> : file.filename}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
   if (field.type === "file" || field.type === "image" || field.type === "files") {
     const files = fileEntries(value);
     if (files.length === 0) return <p className="text-sm text-muted">Not answered</p>;

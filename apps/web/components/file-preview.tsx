@@ -32,28 +32,115 @@ function FilePreview({ open, documentId, filename, onClose }: { open: boolean; d
   );
 }
 
+function contentUrl(documentId: string, disposition: "inline" | "attachment") {
+  return `/api/v1/documents/${documentId}/content?disposition=${disposition}`;
+}
+
+export function RemoteFileLink({ path, filename }: { path: string; filename: string }) {
+  const [open, setOpen] = useState(false);
+  const src = `/api/v1${path}${path.includes("?") ? "&" : "?"}disposition=inline`;
+  return (
+    <>
+      <button type="button" className="font-semibold text-brand underline" onClick={() => setOpen(true)}>
+        {filename}
+      </button>
+      <Modal open={open} title={filename} wide onClose={() => setOpen(false)}>
+        {open ? <PreviewPane src={src} filename={filename} downloadHref={`/api/v1${path}?disposition=attachment`} /> : null}
+      </Modal>
+    </>
+  );
+}
+
 function DocumentView({ documentId, filename, tall }: { documentId: string; filename: string; tall?: boolean }) {
+  return <PreviewPane src={contentUrl(documentId, "inline")} filename={filename} tall={tall} downloadHref={contentUrl(documentId, "attachment")} />;
+}
+
+function PreviewPane({ src, filename, tall, downloadHref }: { src: string; filename: string; tall?: boolean; downloadHref: string }) {
   const kind = previewKind(filename);
-  const src = `/api/v1/documents/${documentId}/content/${encodeURIComponent(filename)}?disposition=inline`;
   return (
     <div className="grid gap-2">
       {kind === "pdf" ? <PdfPages src={src} tall={tall} /> : null}
       {kind === "image" ? <ImageView src={src} alt={filename} /> : null}
-      {kind === "video" ? <video src={src} controls className={`w-full rounded-md border border-border bg-black ${tall ? "max-h-[32rem]" : "max-h-[70dvh]"}`} /> : null}
-      {kind === "audio" ? <audio src={src} controls className="w-full" /> : null}
+      {kind === "video" ? <MediaView src={src} kind="video" tall={tall} /> : null}
+      {kind === "audio" ? <MediaView src={src} kind="audio" /> : null}
       {kind === "model" ? <ModelView src={src} filename={filename} tall={tall} /> : null}
       {kind === "text" || kind === "other" ? <FileBody src={src} filename={filename} tall={tall} /> : null}
-      <a className="text-sm underline" href={`/api/v1/documents/${documentId}/content/${encodeURIComponent(filename)}?disposition=attachment`}>
+      <a className="text-sm underline" href={downloadHref}>
         Download
       </a>
     </div>
   );
 }
 
+async function loadFile(src: string) {
+  const response = await fetch(src, { credentials: "include", cache: "no-store" });
+  if (!response.ok) {
+    const text = await response.text();
+    let message = "The file could not be loaded.";
+    try {
+      const payload = JSON.parse(text) as { error?: { message?: string } };
+      if (payload.error?.message) message = payload.error.message;
+    } catch {
+      if (text.trim()) message = "The file could not be loaded.";
+    }
+    throw new Error(message);
+  }
+  const type = response.headers.get("content-type")?.split(";")[0]?.trim() || "";
+  const bytes = await response.arrayBuffer();
+  return { bytes, type };
+}
+
 function ImageView({ src, alt }: { src: string; alt: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) return <p className="text-sm text-muted">This image could not be drawn in the browser. Download it to open it on this device.</p>;
-  return <img src={src} alt={alt} className="max-h-[32rem] w-full rounded-md border border-border bg-white object-contain" onError={() => setFailed(true)} />;
+  const [url, setUrl] = useState("");
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl = "";
+    loadFile(src)
+      .then(({ bytes, type }) => {
+        if (cancelled) return;
+        const mime = sniffedImageType(bytes, type);
+        if (!mime) throw new Error("This image format cannot be shown in the browser.");
+        objectUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
+        setUrl(objectUrl);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setMessage(error instanceof Error ? error.message : "This image could not be shown.");
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [src]);
+  if (message) return <p className="text-sm text-muted">{message} Download it to open it on this device.</p>;
+  if (!url) return <p className="text-sm text-muted">Loading image…</p>;
+  return <img src={url} alt={alt} className="max-h-[32rem] w-full rounded-md border border-border bg-white object-contain" />;
+}
+
+function MediaView({ src, kind, tall }: { src: string; kind: "video" | "audio"; tall?: boolean }) {
+  const [url, setUrl] = useState("");
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl = "";
+    loadFile(src)
+      .then(({ bytes, type }) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(new Blob([bytes], { type: type || (kind === "video" ? "video/mp4" : "audio/mpeg") }));
+        setUrl(objectUrl);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setMessage(error instanceof Error ? error.message : "This file could not be played.");
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [kind, src]);
+  if (message) return <p className="text-sm text-muted">{message}</p>;
+  if (!url) return <p className="text-sm text-muted">Loading file…</p>;
+  if (kind === "audio") return <audio src={url} controls className="w-full" />;
+  return <video src={url} controls className={`w-full rounded-md border border-border bg-black ${tall ? "max-h-[32rem]" : "max-h-[70dvh]"}`} />;
 }
 
 function FileBody({ src, filename, tall }: { src: string; filename: string; tall?: boolean }) {
@@ -63,9 +150,8 @@ function FileBody({ src, filename, tall }: { src: string; filename: string; tall
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const response = await fetch(src, { credentials: "include" });
-      if (!response.ok) throw new Error("The file could not be loaded.");
-      const bytes = new Uint8Array(await response.arrayBuffer());
+      const loaded = await loadFile(src);
+      const bytes = new Uint8Array(loaded.bytes);
       const sample = bytes.subarray(0, 8000);
       const binary = sample.includes(0);
       if (!cancelled && !binary && bytes.length <= 500_000) {
@@ -223,9 +309,8 @@ function PdfPages({ src, tall }: { src: string; tall?: boolean }) {
     (async () => {
       const pdfjs = await import("pdfjs-dist");
       pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-      const response = await fetch(src, { credentials: "include" });
-      if (!response.ok) throw new Error("The document could not be loaded.");
-      const data = new Uint8Array(await response.arrayBuffer());
+      const loaded = await loadFile(src);
+      const data = new Uint8Array(loaded.bytes);
       const pdf = await pdfjs.getDocument({ data }).promise;
       destroy = () => {
         void pdf.destroy();
@@ -267,6 +352,19 @@ function PdfPages({ src, tall }: { src: string; tall?: boolean }) {
       <div ref={holder} className="grid gap-3" />
     </div>
   );
+}
+
+function sniffedImageType(bytes: ArrayBuffer, headerType: string) {
+  const view = new Uint8Array(bytes);
+  const declared = headerType.toLowerCase();
+  if (declared === "image/heic" || declared === "image/heif" || declared === "image/avif") return "";
+  if (view.length >= 3 && view[0] === 0xff && view[1] === 0xd8 && view[2] === 0xff) return "image/jpeg";
+  if (view.length >= 8 && view[0] === 0x89 && view[1] === 0x50 && view[2] === 0x4e && view[3] === 0x47) return "image/png";
+  if (view.length >= 6 && view[0] === 0x47 && view[1] === 0x49 && view[2] === 0x46) return "image/gif";
+  if (view.length >= 12 && view[0] === 0x52 && view[1] === 0x49 && view[2] === 0x46 && view[3] === 0x46 && view[8] === 0x57 && view[9] === 0x45 && view[10] === 0x42 && view[11] === 0x50) return "image/webp";
+  if (view.length >= 2 && view[0] === 0x42 && view[1] === 0x4d) return "image/bmp";
+  if (declared.startsWith("image/") && declared !== "image/svg+xml") return declared;
+  return "";
 }
 
 function previewKind(filename: string): "pdf" | "image" | "video" | "audio" | "model" | "text" | "other" {

@@ -10,7 +10,7 @@ import { OutboxProcessor, OutboxService } from "../jobs/jobs.service";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
-import { mimeForFilename, scanBuffer } from "./scan";
+import { isPreviewableMime, mimeForFilename, scanBuffer } from "./scan";
 
 @Injectable()
 export class DocumentsService {
@@ -42,6 +42,7 @@ export class DocumentsService {
     const filename = file.originalname.replace(/[^\w.\- ]+/g, "_").slice(0, 180) || "upload";
     const mimeType = mimeForFilename(filename, file.mimetype || "");
     const scan = await scanBuffer(file.buffer, filename, mimeType, { host: env().CLAMAV_HOST, port: env().CLAMAV_PORT });
+    if (!scan.clean) throw new ConflictException(scan.details || "This file was rejected.");
     const saved = await this.tenant.transaction(user.organizationId, async (tx) => {
       const vendor = await tx.vendor.findFirst({ where: { id: vendorId, organizationId: user.organizationId } });
       if (!vendor) throw new NotFoundException();
@@ -61,7 +62,7 @@ export class DocumentsService {
         if (fields.fieldId) {
           const schema = formSchemaDefinition.parse(assignment.formVersion.schema);
           const field = schema.fields.find((item) => item.id === fields.fieldId);
-          if (!field || !["file", "files", "image"].includes(field.type)) throw new ConflictException("That field does not accept files.");
+          if (!field || !["file", "files", "image", "reupload"].includes(field.type)) throw new ConflictException("That field does not accept files.");
         }
       }
       await this.storage.put(user.organizationId, storageKey, file.buffer, mimeType);
@@ -74,7 +75,7 @@ export class DocumentsService {
           assignmentId: fields.assignmentId ?? null,
           fieldId: fields.fieldId ?? null,
           category: (fields.category ?? "form-upload").slice(0, 80),
-          status: scan.clean ? "AVAILABLE" : "REJECTED",
+          status: "AVAILABLE",
           versions: {
             create: {
               id: versionId,
@@ -86,7 +87,7 @@ export class DocumentsService {
               sizeBytes: file.size,
               checksum: createHash("sha256").update(file.buffer).digest("hex"),
               uploadedById: user.id,
-              scanStatus: scan.clean ? "clean" : "rejected",
+              scanStatus: "clean",
               scanDetails: scan.details,
             },
           },
@@ -202,9 +203,10 @@ export class DocumentsService {
     const version = document.versions[0];
     const bytes = await this.storage.get(user.organizationId, version.storageKey);
     const mimeType = version.mimeType === "application/octet-stream" ? mimeForFilename(version.filename, version.mimeType) : version.mimeType;
-    const inline = disposition === "inline" && previewableMime(mimeType);
+    const safeMime = mimeType === "image/svg+xml" ? "application/octet-stream" : mimeType;
+    const inline = disposition !== "attachment" && isPreviewableMime(safeMime);
     const filename = version.filename.replace(/["\r\n]/g, "");
-    return { bytes, mimeType, filename, inline };
+    return { bytes, mimeType: inline ? safeMime : "application/octet-stream", filename, inline };
   }
 
   async presign(user: AuthContext, id: string) {
@@ -247,12 +249,6 @@ export class DocumentsService {
     });
     return { data: { archived: true } };
   }
-}
-
-function previewableMime(mimeType: string) {
-  if (mimeType === "application/pdf" || mimeType === "application/json") return true;
-  if (mimeType.startsWith("text/") || mimeType.startsWith("video/") || mimeType.startsWith("audio/") || mimeType.startsWith("model/")) return true;
-  return mimeType.startsWith("image/") && mimeType !== "image/svg+xml";
 }
 
 export const uploadFields = z.object({

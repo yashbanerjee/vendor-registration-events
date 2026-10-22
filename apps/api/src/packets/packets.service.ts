@@ -152,7 +152,7 @@ export class PacketsService {
                 formId: form.id,
                 formName: form.name,
                 returnId: row?.id ?? null,
-                status: row?.status ?? "AWAITING",
+                status: viewStatus(row?.status ?? "AWAITING", row?.uploadedAt, row?.requestedAt, Boolean(row?.filename)),
                 filename: row?.filename || "",
                 submittedAt: row?.submittedAt ?? null,
                 adminNote: row?.adminNote ?? "",
@@ -160,7 +160,7 @@ export class PacketsService {
                   id: file.id,
                   name: file.name,
                   filename: file.filename,
-                  status: file.status,
+                  status: viewStatus(file.status, file.uploadedAt, file.requestedAt, Boolean(file.filename)),
                   adminNote: file.adminNote,
                 })),
               };
@@ -192,7 +192,7 @@ export class PacketsService {
           filename: form.filename,
           exhibition: form.exhibition,
           returnId: row?.id ?? null,
-          status: row?.status ?? "AWAITING",
+          status: viewStatus(row?.status ?? "AWAITING", row?.uploadedAt, row?.requestedAt, Boolean(row?.filename)),
           filledName: row?.filename || "",
           submittedAt: row?.submittedAt ?? null,
           adminNote: row?.adminNote ?? "",
@@ -200,7 +200,7 @@ export class PacketsService {
             id: file.id,
             name: file.name,
             filename: file.filename,
-            status: file.status,
+            status: viewStatus(file.status, file.uploadedAt, file.requestedAt, Boolean(file.filename)),
             adminNote: file.adminNote,
           })),
         };
@@ -492,6 +492,11 @@ export class PacketsService {
   private async flush() {
     if (env().JOBS_MODE === "inline") await this.processor.flush(20);
   }
+}
+
+function viewStatus(status: string, uploadedAt: Date | null | undefined, requestedAt: Date | null | undefined, hasFile: boolean) {
+  if (status === "REUPLOAD" && hasFile && replacedAfter(uploadedAt ?? null, requestedAt ?? null)) return "READY";
+  return status;
 }
 
 function replacedAfter(uploadedAt: Date | null, requestedAt: Date | null) {

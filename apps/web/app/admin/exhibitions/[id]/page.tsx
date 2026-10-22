@@ -8,7 +8,6 @@ import { useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { Badge, EmptyState, ErrorNote, StatusBadge, inputClass } from "@/components/ui";
-import { PdfForms } from "./pdf-forms";
 
 type FieldFill = { id: string; label: string; filled: boolean; required: boolean };
 type FormProgress = {
@@ -48,7 +47,6 @@ type ExhibitionDetail = {
 };
 
 type Filter = "all" | "complete" | "partial" | "open" | "none";
-type View = "questions" | "pdf";
 
 function activeForms(vendor: VendorProgress) {
   const active = vendor.forms.filter((form) => form.status !== "REVOKED");
@@ -74,7 +72,6 @@ export default function ExhibitionDetailPage() {
   const params = useParams<{ id: string }>().id;
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
-  const [view, setView] = useState<View>("questions");
   const query = useQuery({
     queryKey: ["exhibition", params],
     queryFn: () => api<ExhibitionDetail>(`/exhibitions/${params}`),
@@ -126,7 +123,7 @@ export default function ExhibitionDetailPage() {
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{exhibition.code}</p>
                 <h1 className="mt-1 text-2xl font-semibold tracking-tight">{exhibition.name}</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{exhibition.description || "See who has answered the questions, or open PDF files to collect the paper forms."}</p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{exhibition.description || "See which companies have answered the questions, and which fields are still open."}</p>
               </div>
               <StatusBadge status={exhibition.status} />
             </div>
@@ -136,14 +133,7 @@ export default function ExhibitionDetailPage() {
             </div>
           </section>
 
-          <div className="mb-6 flex gap-6 border-b border-border" role="tablist" aria-label="Exhibition flows">
-            <TabButton current={view} value="questions" onSelect={setView}>Questions</TabButton>
-            <TabButton current={view} value="pdf" onSelect={setView}>PDF files</TabButton>
-          </div>
-
-          {view === "questions" ? (
-            <>
-              <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Stat label="Fields done" value={`${totals.percent}%`} hint={totals.requiredOpen ? `${totals.filled} of ${totals.total} · ${totals.requiredOpen} required left` : `${totals.filled} of ${totals.total} fields`} />
                 <Stat label="Complete" value={String(totals.complete)} hint="Every questionnaire field filled" />
                 <Stat label="In progress" value={String(totals.partial)} hint="Some fields still open" />
@@ -157,17 +147,13 @@ export default function ExhibitionDetailPage() {
                 <FilterButton current={filter} value="open" onSelect={setFilter}>Not started</FilterButton>
                 <FilterButton current={filter} value="none" onSelect={setFilter}>No questionnaire</FilterButton>
               </div>
-              {vendors.length === 0 ? <EmptyState title="No companies yet" body="Add a company, then send them this form. PDF-only companies are added under PDF files." /> : null}
+              {vendors.length === 0 ? <EmptyState title="No companies yet" body="Add a company, then send them this form." /> : null}
               {vendors.length > 0 && visible.length === 0 ? <p className="text-sm text-muted">No vendors match this search.</p> : null}
               <div className="grid gap-3">
                 {visible.map((vendor) => (
                   <VendorCard key={vendor.id} vendor={vendor} />
                 ))}
               </div>
-            </>
-          ) : (
-            <PdfForms exhibitionId={exhibition.id} />
-          )}
         </>
       ) : null}
     </div>
@@ -181,15 +167,6 @@ function Stat({ label, value, hint }: { label: string; value: string; hint: stri
       <p className="mt-2 text-3xl font-semibold tracking-tight">{value}</p>
       <p className="mt-1 text-xs leading-5 text-muted">{hint}</p>
     </div>
-  );
-}
-
-function TabButton({ current, value, onSelect, children }: { current: View; value: View; onSelect: (value: View) => void; children: React.ReactNode }) {
-  const selected = current === value;
-  return (
-    <button type="button" role="tab" aria-selected={selected} className={`-mb-px border-b-2 pb-3 text-sm font-semibold ${selected ? "border-brand text-foreground" : "border-transparent text-muted hover:text-foreground"}`} onClick={() => onSelect(value)}>
-      {children}
-    </button>
   );
 }
 
@@ -234,7 +211,7 @@ function VendorCard({ vendor }: { vendor: VendorProgress }) {
         </div>
       </div>
       <div className="grid gap-5 p-5">
-        {forms.length === 0 ? <p className="text-sm text-muted">No questionnaire is assigned. PDF forms are on the other tab.</p> : null}
+        {forms.length === 0 ? <p className="text-sm text-muted">No questionnaire is assigned.</p> : null}
         {forms.map((form) => (
           <FormBlock key={form.id} form={form} />
         ))}

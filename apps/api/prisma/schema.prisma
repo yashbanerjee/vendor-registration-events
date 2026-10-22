@@ -118,6 +118,7 @@ model Organization {
   vendors      Vendor[]
   exhibitions  Exhibition[]
   templates    FormTemplate[]
+  formAssets   FormAsset[]
   versions     FormVersion[]
   assignments  FormAssignment[]
   invitations  Invitation[]
@@ -443,10 +444,31 @@ model FormTemplate {
   exhibition   Exhibition?  @relation(fields: [exhibitionId], references: [id])
   vendor       Vendor?      @relation(fields: [vendorId], references: [id])
   versions     FormVersion[]
+  assets       FormAsset[]
 
   @@unique([organizationId, id])
   @@index([organizationId, status])
   @@map("form_templates")
+}
+
+model FormAsset {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  templateId     String   @map("template_id") @db.Uuid
+  storageKey     String   @map("storage_key")
+  filename       String
+  mimeType       String   @map("mime_type")
+  sizeBytes      Int      @map("size_bytes")
+  checksum       String
+  uploadedById   String   @map("uploaded_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  template     FormTemplate @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, templateId])
+  @@map("form_assets")
 }
 
 model FormVersion {

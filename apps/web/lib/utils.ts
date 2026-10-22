@@ -15,6 +15,7 @@ const LABELS: Record<string, string> = {
   REJECTED: "Rejected",
   REUPLOAD: "Please upload again",
   AWAITING: "Not sent",
+  READY: "Ready to send",
   SUBMITTED: "Sent",
   REVOKED: "Revoked",
   ARCHIVED: "Archived",

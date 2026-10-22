@@ -58,17 +58,17 @@ export function VendorAssignmentForm({ assignment }: { assignment: VendorAssignm
           editableFieldIds: correcting ? new Set(assignment.editableFieldIds) : undefined,
         });
       }
-      return api(`/assignments/${assignment.id}/${mode === "draft" ? "draft" : "submit"}`, {
+      return api<{ data: VendorAssignment }>(`/assignments/${assignment.id}/${mode === "draft" ? "draft" : "submit"}`, {
         method: mode === "draft" ? "PUT" : "POST",
         body: JSON.stringify({ lockVersion: assignment.lockVersion, values }),
       });
     },
-    onSuccess: async (_data, mode) => {
+    onSuccess: async (result, mode) => {
       setError("");
       setFieldErrors([]);
-      setMessage(mode === "submit" ? "Submitted." : "Draft saved.");
-      await client.invalidateQueries({ queryKey: ["my-assignments"] });
-      await client.invalidateQueries({ queryKey: ["assignment", assignment.id] });
+      setMessage(mode === "submit" ? "Sent. The organizer will look at it." : "Saved. The status is now in progress.");
+      client.setQueryData<{ data: VendorAssignment[] }>(["my-assignments"], (current) => current ? { ...current, data: current.data.map((item) => item.id === result.data.id ? result.data : item) } : current);
+      client.setQueryData(["assignment", assignment.id], result);
     },
     onError: (caught) => {
       if (caught instanceof FormValidationError) {

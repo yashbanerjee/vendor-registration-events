@@ -11,7 +11,7 @@ import { useSession } from "@/components/providers";
 export default function LoginPage() {
   const router = useRouter();
   const { refresh } = useSession();
-  const [email, setEmail] = useState("info@vehda.ae");
+  const [email, setEmail] = useState("info@vedha.ae");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [mfaToken, setMfaToken] = useState("");

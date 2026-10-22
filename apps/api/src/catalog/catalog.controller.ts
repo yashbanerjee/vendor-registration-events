@@ -1,8 +1,11 @@
-import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Put, Query, Req } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Put, Query, Req, Res, StreamableFile, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
+import type { Response } from "express";
 import { PERMISSIONS } from "@vmp/shared";
 import { RequirePermissions } from "../common/auth";
 import type { AuthedRequest } from "../common/guards";
+import { isPreviewableMime } from "../documents/scan";
 import { CatalogService } from "./catalog.service";
 
 @ApiTags("catalog")
@@ -128,5 +131,34 @@ export class CatalogController {
   @RequirePermissions(PERMISSIONS.formsWrite)
   duplicate(@Req() request: AuthedRequest, @Param("id") id: string) {
     return this.catalog.duplicate(request.user!, id);
+  }
+
+  @Post("forms/:id/assets")
+  @RequirePermissions(PERMISSIONS.formsWrite)
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 20_971_520 } }))
+  uploadAsset(
+    @Req() request: AuthedRequest,
+    @Param("id") id: string,
+    @UploadedFile() file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+  ) {
+    return this.catalog.uploadAsset(request.user!, id, file);
+  }
+
+  @Get("form-assets/:id/content")
+  async asset(
+    @Req() request: AuthedRequest,
+    @Param("id") id: string,
+    @Query("disposition") disposition: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const file = await this.catalog.readAsset(request.user!, id);
+    const inline = disposition !== "attachment" && isPreviewableMime(file.mimeType);
+    const type = inline ? file.mimeType : "application/octet-stream";
+    const contentDisposition = `${inline ? "inline" : "attachment"}; filename="${file.filename}"`;
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.setHeader("Content-Type", type);
+    response.setHeader("Content-Disposition", contentDisposition);
+    response.setHeader("Content-Length", String(file.bytes.length));
+    return new StreamableFile(file.bytes, { type, disposition: contentDisposition, length: file.bytes.length });
   }
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { assertTransition, WorkflowError } from "./workflow";
-import { assertLockedFieldsUnchanged, fieldAnswers, formSchemaDefinition, LockedFieldError, validateSubmission } from "./form-schema";
+import { assertLockedFieldsUnchanged, collectDocumentIds, fieldAnswers, formSchemaDefinition, LockedFieldError, validateSubmission } from "./form-schema";
 import { escapeSpreadsheetCell, toCsv } from "./csv";
 
 const sectionId = "11111111-1111-4111-8111-111111111111";
@@ -98,6 +98,36 @@ test("field answers mark filled and empty inputs", () => {
     { id: boothId, label: "Booth", filled: false },
     { id: notesId, label: "Notes", filled: false },
   ]);
+});
+
+test("a download and reupload field requires the vendor file", () => {
+  const fieldId = "55555555-5555-4555-8555-555555555555";
+  const assetId = "66666666-6666-4666-8666-666666666666";
+  const documentId = "77777777-7777-4777-8777-777777777777";
+  const withReupload = formSchemaDefinition.parse({
+    sections: schema.sections,
+    fields: [
+      ...schema.fields,
+      {
+        id: fieldId,
+        key: "packet",
+        type: "reupload",
+        label: "Booth plan",
+        required: true,
+        sectionId,
+        order: 3,
+        template: { assetId, filename: "booth-plan.pdf" },
+      },
+    ],
+  });
+  assert.throws(() => validateSubmission({ schema: withReupload, values: { [companyId]: "Harbor", [boothId]: "A1" } }));
+  assert.doesNotThrow(() =>
+    validateSubmission({
+      schema: withReupload,
+      values: { [companyId]: "Harbor", [boothId]: "A1", [fieldId]: { documentId, filename: "booth-plan-filled.pdf" } },
+    }),
+  );
+  assert.deepEqual(collectDocumentIds(withReupload.fields, { [fieldId]: { documentId, filename: "booth-plan-filled.pdf" } }), [documentId]);
 });
 
 test("spreadsheet cells neutralize formula injection", () => {

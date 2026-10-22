@@ -1,13 +1,17 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { createHash, randomUUID } from "node:crypto";
-import { fieldAnswers, formSchemaDefinition, type FormSchemaDefinition } from "@vmp/shared";
+import { fieldAnswers, formSchemaDefinition, PERMISSIONS, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { z } from "zod";
 import type { AuthContext } from "../common/auth";
 import { randomReference } from "../common/crypto";
 import { decodeCursor, encodeCursor } from "../common/http";
+import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
+import { mimeForFilename, scanBuffer } from "../documents/scan";
+import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService } from "../prisma/prisma.service";
+import { StorageService } from "../storage/storage.service";
 import { WorkflowService } from "../workflow/workflow.service";
 import { assignVendorCategories, assignVendorCategoryNames, refreshCategoryLabels, UnknownCategoryError } from "./categories";
 
@@ -114,6 +118,7 @@ export class CatalogService {
     @Inject(TenantService) private readonly tenant: TenantService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(WorkflowService) private readonly workflow: WorkflowService,
+    @Inject(StorageService) private readonly storage: StorageService,
   ) {}
 
   async listVendors(user: AuthContext, query: { cursor?: string; q?: string; status?: string; limit?: string; categoryId?: string }) {
@@ -632,6 +637,14 @@ export class CatalogService {
         if (keys.has(field.key)) throw new ConflictException(`The internal key ${field.key} is used more than once.`);
         keys.add(field.key);
       }
+      const assetIds = reuploadAssetIds(schema.fields);
+      if (assetIds.length) {
+        const found = await tx.formAsset.findMany({
+          where: { organizationId: user.organizationId, id: { in: assetIds } },
+          select: { id: true },
+        });
+        if (found.length !== new Set(assetIds).size) throw new ConflictException("One of the download files is missing. Upload it again.");
+      }
       const latest = await tx.formVersion.findFirst({ where: { templateId: id }, orderBy: { versionNumber: "desc" } });
       const created = await tx.formVersion.create({
         data: {
@@ -687,6 +700,103 @@ export class CatalogService {
     const right = versions.find((version) => version.id === rightId);
     return { data: { left, right } };
   }
+
+  async uploadAsset(
+    user: AuthContext,
+    templateId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string; size: number } | undefined,
+  ) {
+    if (!file?.buffer?.length) throw new ConflictException("Choose a file to upload.");
+
+    const limit = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { settings: true } });
+      return effectiveSettings(parseStored(organization?.settings)).maxUploadBytes;
+    });
+    if (file.size > limit) throw new ConflictException("The file is larger than the allowed limit.");
+    const filename = file.originalname.replace(/[^\w.\- ]+/g, "_").slice(0, 180) || "upload";
+    const mimeType = mimeForFilename(filename, file.mimetype || "");
+    const scan = await scanBuffer(file.buffer, filename, mimeType, { host: env().CLAMAV_HOST, port: env().CLAMAV_PORT });
+    if (!scan.clean) throw new ConflictException(scan.details || "This file was rejected.");
+    const assetId = randomUUID();
+    const storageKey = `org/${user.organizationId}/forms/${templateId}/${assetId}`;
+    const saved = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const form = await tx.formTemplate.findFirst({ where: { id: templateId, organizationId: user.organizationId, archivedAt: null } });
+      if (!form) throw new NotFoundException();
+      await this.storage.put(user.organizationId, storageKey, file.buffer, mimeType);
+      const asset = await tx.formAsset.create({
+        data: {
+          id: assetId,
+          organizationId: user.organizationId,
+          templateId,
+          storageKey,
+          filename,
+          mimeType,
+          sizeBytes: file.size,
+          checksum: createHash("sha256").update(file.buffer).digest("hex"),
+          uploadedById: user.id,
+        },
+      });
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "form.asset_uploaded",
+        resourceType: "form_asset",
+        resourceId: asset.id,
+        newValue: { templateId, filename, size: file.size },
+      });
+      return asset;
+    });
+    return { data: { id: saved.id, filename: saved.filename } };
+  }
+
+  async readAsset(user: AuthContext, id: string) {
+    const asset = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const found = await tx.formAsset.findFirst({ where: { id, organizationId: user.organizationId } });
+      if (!found) throw new NotFoundException();
+      if (user.vendorId) {
+        const assignments = await tx.formAssignment.findMany({
+          where: { organizationId: user.organizationId, vendorId: user.vendorId },
+          select: { formVersion: { select: { schema: true } } },
+        });
+        if (!assignments.some((assignment) => schemaReferencesAsset(assignment.formVersion.schema, id))) throw new NotFoundException();
+      } else if (![PERMISSIONS.formsRead, PERMISSIONS.formsWrite, PERMISSIONS.documentsRead].some((permission) => user.permissions.includes(permission))) {
+        throw new ForbiddenException("You do not have permission for this action.");
+      }
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "form.asset_downloaded",
+        resourceType: "form_asset",
+        resourceId: id,
+      });
+      return found;
+    });
+    const bytes = await this.storage.get(user.organizationId, asset.storageKey);
+    const mimeType = asset.mimeType === "image/svg+xml" ? "application/octet-stream" : asset.mimeType || "application/octet-stream";
+    return { bytes, filename: asset.filename.replace(/["\r\n]/g, ""), mimeType };
+  }
+}
+
+function reuploadAssetIds(fields: FormField[]): string[] {
+  const ids: string[] = [];
+  for (const field of fields) {
+    if (field.type === "reupload") {
+      if (!field.template?.assetId) throw new ConflictException(`${field.label} needs a file for vendors to download.`);
+      ids.push(field.template.assetId);
+    }
+    if (field.children?.length) ids.push(...reuploadAssetIds(field.children));
+  }
+  return ids;
+}
+
+function schemaReferencesAsset(schema: unknown, assetId: string) {
+  const parsed = formSchemaDefinition.safeParse(schema);
+  if (!parsed.success) return false;
+  const walk = (fields: FormField[]): boolean =>
+    fields.some((field) => (field.type === "reupload" && field.template?.assetId === assetId) || (field.children ? walk(field.children) : false));
+  return walk(parsed.data.fields);
 }
 
 function emptySchema(): FormSchemaDefinition {

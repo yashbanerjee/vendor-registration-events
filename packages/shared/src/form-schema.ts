@@ -17,6 +17,7 @@ export const FIELD_TYPES = [
   "toggle",
   "file",
   "files",
+  "reupload",
   "image",
   "url",
   "address",
@@ -75,6 +76,12 @@ export const fieldSchema: z.ZodType<FormField> = z.lazy(() =>
         maxFiles: z.number().int().positive().max(20).optional(),
       })
       .optional(),
+    template: z
+      .object({
+        assetId: z.string().uuid(),
+        filename: z.string().min(1).max(180),
+      })
+      .optional(),
     sectionId: z.string().uuid(),
     order: z.number().int().nonnegative(),
     conditional: conditionSchema.nullable().optional(),
@@ -104,6 +111,10 @@ export type FormField = {
     accept?: string[];
     maxSizeBytes?: number;
     maxFiles?: number;
+  };
+  template?: {
+    assetId: string;
+    filename: string;
   };
   sectionId: string;
   order: number;
@@ -308,7 +319,7 @@ function validateLeaf(field: FormField, value: unknown, issues: { fieldId: strin
       issues.push({ fieldId: field.id, message: `${field.label} has an unknown option.` });
     }
   }
-  if ((field.type === "file" || field.type === "image") && value) {
+  if ((field.type === "file" || field.type === "image" || field.type === "reupload") && value) {
     const record = value as { documentId?: string };
     if (!record.documentId) issues.push({ fieldId: field.id, message: `${field.label} is missing a document.` });
   }
@@ -362,7 +373,7 @@ export function collectDocumentIds(fields: FormField[], values: Record<string, u
     }
   };
   for (const field of fields) {
-    if (field.type === "file" || field.type === "files" || field.type === "image") take(values[field.id]);
+    if (field.type === "file" || field.type === "files" || field.type === "image" || field.type === "reupload") take(values[field.id]);
     if (field.type === "repeater" && Array.isArray(values[field.id])) {
       for (const row of values[field.id] as Record<string, unknown>[]) {
         for (const child of field.children ?? []) take(row[child.id]);

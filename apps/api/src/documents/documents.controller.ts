@@ -55,10 +55,13 @@ export class DocumentsController {
       throw new ForbiddenException("You do not have permission for this action.");
     }
     const file = await this.documents.read(user, id, disposition);
+    const type = file.inline ? file.mimeType : "application/octet-stream";
+    const contentDisposition = `${file.inline ? "inline" : "attachment"}; filename="${file.filename}"`;
     response.setHeader("X-Content-Type-Options", "nosniff");
-    response.setHeader("Content-Type", file.inline ? file.mimeType : "application/octet-stream");
-    response.setHeader("Content-Disposition", `${file.inline ? "inline" : "attachment"}; filename="${file.filename}"`);
-    return new StreamableFile(file.bytes);
+    response.setHeader("Content-Type", type);
+    response.setHeader("Content-Disposition", contentDisposition);
+    response.setHeader("Content-Length", String(file.bytes.length));
+    return new StreamableFile(file.bytes, { type, disposition: contentDisposition, length: file.bytes.length });
   }
 
   @Get(":id/presign")

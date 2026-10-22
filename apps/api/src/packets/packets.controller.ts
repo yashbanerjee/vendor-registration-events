@@ -1,10 +1,11 @@
-import { Body, Controller, ForbiddenException, Get, Inject, Param, Post, Req, Res, StreamableFile, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Get, Inject, Param, Post, Query, Req, Res, StreamableFile, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 import { PERMISSIONS } from "@vmp/shared";
 import { RequirePermissions } from "../common/auth";
 import type { AuthedRequest } from "../common/guards";
+import { isPreviewableMime } from "../documents/scan";
 import { PacketsService } from "./packets.service";
 
 type Upload = { buffer: Buffer; originalname: string; mimetype: string; size: number };
@@ -74,27 +75,37 @@ export class PacketsController {
   }
 
   @Get("pdf-forms/:id/file")
-  blank(@Req() request: AuthedRequest, @Param("id") id: string, @Res({ passthrough: true }) response: Response) {
-    return this.send(request, response, () => this.packets.downloadBlank(request.user!, id));
+  blank(@Req() request: AuthedRequest, @Param("id") id: string, @Query("disposition") disposition: string, @Res({ passthrough: true }) response: Response) {
+    return this.send(request, response, disposition, () => this.packets.downloadBlank(request.user!, id));
   }
 
   @Get("pdf-returns/:id/file")
-  filledFile(@Req() request: AuthedRequest, @Param("id") id: string, @Res({ passthrough: true }) response: Response) {
-    return this.send(request, response, () => this.packets.downloadReturn(request.user!, id));
+  filledFile(@Req() request: AuthedRequest, @Param("id") id: string, @Query("disposition") disposition: string, @Res({ passthrough: true }) response: Response) {
+    return this.send(request, response, disposition, () => this.packets.downloadReturn(request.user!, id));
   }
 
   @Get("pdf-files/:id/file")
-  extraFile(@Req() request: AuthedRequest, @Param("id") id: string, @Res({ passthrough: true }) response: Response) {
-    return this.send(request, response, () => this.packets.downloadFile(request.user!, id));
+  extraFile(@Req() request: AuthedRequest, @Param("id") id: string, @Query("disposition") disposition: string, @Res({ passthrough: true }) response: Response) {
+    return this.send(request, response, disposition, () => this.packets.downloadFile(request.user!, id));
   }
 
-  private async send(request: AuthedRequest, response: Response, load: () => Promise<{ bytes: Buffer; filename: string; mimeType: string }>) {
+  private async send(
+    request: AuthedRequest,
+    response: Response,
+    disposition: string | undefined,
+    load: () => Promise<{ bytes: Buffer; filename: string; mimeType: string }>,
+  ) {
     this.assertReader(request);
     const file = await load();
+    const safeMime = file.mimeType === "image/svg+xml" ? "application/octet-stream" : file.mimeType || "application/octet-stream";
+    const inline = disposition !== "attachment" && isPreviewableMime(safeMime);
+    const type = inline ? safeMime : "application/octet-stream";
+    const contentDisposition = `${inline ? "inline" : "attachment"}; filename="${file.filename}"`;
     response.setHeader("X-Content-Type-Options", "nosniff");
-    response.setHeader("Content-Type", file.mimeType);
-    response.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
-    return new StreamableFile(file.bytes);
+    response.setHeader("Content-Type", type);
+    response.setHeader("Content-Disposition", contentDisposition);
+    response.setHeader("Content-Length", String(file.bytes.length));
+    return new StreamableFile(file.bytes, { type, disposition: contentDisposition, length: file.bytes.length });
   }
 
   private assertReader(request: AuthedRequest) {

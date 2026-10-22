@@ -18,6 +18,14 @@ test("accepts a glTF model and another extension, and rejects scripts", () => {
   assert.equal(sniffAllowed(Buffer.from([0x4d, 0x5a, 0x00, 0x00]), "booth.glb", "model/gltf-binary").clean, false);
 });
 
+test("accepts phone photos labeled image/jpg", () => {
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+  assert.equal(sniffAllowed(jpeg, "photo.jpg", "image/jpg").clean, true);
+  assert.equal(sniffAllowed(jpeg, "photo.jpeg", "image/pjpeg").clean, true);
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  assert.equal(sniffAllowed(png, "logo.png", "image/x-png").clean, true);
+});
+
 test("rejects the EICAR test string and html disguised as text", () => {
   const eicar = Buffer.from("X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*");
   assert.equal(sniffAllowed(eicar, "note.txt", "text/plain").clean, false);

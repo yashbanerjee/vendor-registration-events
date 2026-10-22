@@ -4,8 +4,9 @@ import { FIELD_TYPES, type FieldType, type FormField, type FormSchemaDefinition 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { arrayMove } from "@dnd-kit/sortable";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { FormRenderer } from "@/components/form-renderer";
+import { RemoteFileLink } from "@/components/file-preview";
 import { ApiError, api } from "@/lib/api";
 import { Button, ErrorNote, Field, Notice, PageHeader, inputClass } from "@/components/ui";
 
@@ -134,7 +135,11 @@ export default function FormBuilderPage() {
               <Field label="Label"><input className={inputClass} value={field.label} onChange={(event) => updateField(field.id, { label: event.target.value })} /></Field>
               <Field label="Internal key"><input className={inputClass} value={field.key} onChange={(event) => updateField(field.id, { key: event.target.value })} /></Field>
               <Field label="Help text"><input className={inputClass} value={field.description ?? ""} onChange={(event) => updateField(field.id, { description: event.target.value })} /></Field>
-              <Field label="Placeholder"><input className={inputClass} value={field.placeholder ?? ""} onChange={(event) => updateField(field.id, { placeholder: event.target.value })} /></Field>
+              {field.type === "reupload" ? (
+                <TemplateFile templateId={params.id} field={field} onChange={(template) => updateField(field.id, { template })} />
+              ) : (
+                <Field label="Placeholder"><input className={inputClass} value={field.placeholder ?? ""} onChange={(event) => updateField(field.id, { placeholder: event.target.value })} /></Field>
+              )}
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={field.required} onChange={(event) => updateField(field.id, { required: event.target.checked })} /> Compulsory</label>
               <p className="text-xs text-muted">A compulsory field must be filled before the vendor can submit.</p>
               <div className="flex gap-2">
@@ -159,5 +164,44 @@ export default function FormBuilderPage() {
 }
 
 function labelFor(type: FieldType) {
+  if (type === "reupload") return "Download & reupload";
   return type.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function TemplateFile({ templateId, field, onChange }: { templateId: string; field: FormField; onChange: (template: { assetId: string; filename: string }) => void }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function pick(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setPending(true);
+    setError("");
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const result = await api<{ data: { id: string; filename: string } }>(`/forms/${templateId}/assets`, { method: "POST", body });
+      onChange({ assetId: result.data.id, filename: result.data.filename });
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "The file could not be uploaded.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-2">
+      <p className="text-xs font-semibold uppercase text-muted">File for vendors</p>
+      <p className="text-xs text-muted">Vendors download this file, then upload their completed copy.</p>
+      {field.template?.assetId && field.template.filename ? (
+        <RemoteFileLink path={`/form-assets/${field.template.assetId}/content`} filename={field.template.filename} />
+      ) : (
+        <p className="text-sm text-muted">No file uploaded yet.</p>
+      )}
+      <input type="file" disabled={pending} onChange={(event) => void pick(event)} />
+      {pending ? <p className="text-xs text-muted">Uploading…</p> : null}
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
+    </div>
+  );
 }

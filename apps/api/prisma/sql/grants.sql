@@ -37,6 +37,7 @@ BEGIN
     'exhibition_form_returns',
     'exhibition_form_files',
     'form_templates',
+    'form_assets',
     'form_versions',
     'form_assignments',
     'invitations',

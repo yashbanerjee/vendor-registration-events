@@ -21,7 +21,7 @@ export default function VendorDocumentsPage() {
           <tbody>
             {documents.rows.map((row) => (
               <tr key={row.id}>
-                <td>{row.status === "AVAILABLE" && row.versions[0]?.filename ? <FileLink documentId={row.id} filename={row.versions[0].filename} /> : row.versions[0]?.filename}</td>
+                <td>{row.status !== "REJECTED" && row.versions[0]?.filename ? <FileLink documentId={row.id} filename={row.versions[0].filename} /> : row.versions[0]?.filename}</td>
                 <td>{formatLabel(row.category)}</td>
                 <td><StatusBadge status={row.status} /></td>
               </tr>

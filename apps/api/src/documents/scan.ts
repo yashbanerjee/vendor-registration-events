@@ -44,6 +44,12 @@ const BLOCKED_EXTENSIONS = new Set([
   "reg", "wasm", "dmg", "iso", "app", "deb", "rpm", "so", "dylib",
 ]);
 
+export function isPreviewableMime(mimeType: string) {
+  if (mimeType === "application/pdf" || mimeType === "application/json") return true;
+  if (mimeType.startsWith("text/") || mimeType.startsWith("video/") || mimeType.startsWith("audio/") || mimeType.startsWith("model/")) return true;
+  return mimeType.startsWith("image/") && mimeType !== "image/svg+xml";
+}
+
 export function mimeForFilename(filename: string, declaredMime = "") {
   const extension = extensionOf(filename);
   return MIME_BY_EXTENSION[extension] ?? (declaredMime && declaredMime !== "application/octet-stream" ? declaredMime : "application/octet-stream");
@@ -53,7 +59,8 @@ export function sniffAllowed(buffer: Buffer, filename: string, declaredMime: str
   const extension = extensionOf(filename);
   if (!extension || BLOCKED_EXTENSIONS.has(extension)) return { clean: false, details: "This file type is not allowed." };
   const expected = MIME_BY_EXTENSION[extension];
-  if (expected && declaredMime && declaredMime !== "application/octet-stream" && declaredMime !== expected && !compatibleMime(declaredMime, expected)) {
+  const declared = normalizeMime(declaredMime);
+  if (expected && declared && declared !== "application/octet-stream" && declared !== expected && !compatibleMime(declared, expected)) {
     return { clean: false, details: "The file extension does not match its content type." };
   }
   if (buffer.includes(Buffer.from(EICAR))) return { clean: false, details: "Malware signature detected." };
@@ -69,6 +76,21 @@ function extensionOf(filename: string) {
   const base = filename.toLowerCase().split(/[/\\]/).pop() ?? "";
   const dot = base.lastIndexOf(".");
   return dot >= 0 ? base.slice(dot + 1) : "";
+}
+
+function normalizeMime(mime: string) {
+  const value = mime.toLowerCase().split(";")[0]?.trim() ?? "";
+  const aliases: Record<string, string> = {
+    "image/jpg": "image/jpeg",
+    "image/pjpeg": "image/jpeg",
+    "image/x-citrix-jpeg": "image/jpeg",
+    "application/jpg": "image/jpeg",
+    "image/x-png": "image/png",
+    "image/x-citrix-png": "image/png",
+    "image/tif": "image/tiff",
+    "image/x-tiff": "image/tiff",
+  };
+  return aliases[value] ?? value;
 }
 
 function compatibleMime(declared: string, expected: string) {
