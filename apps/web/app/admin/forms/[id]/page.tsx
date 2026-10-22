@@ -87,24 +87,26 @@ export default function FormBuilderPage() {
   }
 
   return (
-    <div>
-      <PageHeader
-        title={name || "Form"}
-        description={`This canvas is the form vendors will fill in. Click a field to edit it. Published versions: ${query.data?.data.versions.map((version) => `v${version.versionNumber}`).join(", ") || "none yet"}`}
-        actions={
-          <div className="flex gap-2">
-            <Button onClick={() => save.mutate()} disabled={save.isPending}>Save draft</Button>
-            <Button variant="primary" onClick={() => publish.mutate()} disabled={publish.isPending}>Publish</Button>
-          </div>
-        }
-      />
-      <ErrorNote message={error} />
-      <Notice message={message} />
-      <Field label="Form name">
-        <input className={`${inputClass} max-w-md`} value={name} onChange={(event) => setName(event.target.value)} />
-      </Field>
-      <div className="mt-4 grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_280px]">
-        <aside className="rounded-lg border border-border bg-surface p-3">
+    <div className="flex flex-col lg:h-[calc(100dvh-8.25rem)] lg:min-h-0 lg:overflow-hidden">
+      <div className="shrink-0">
+        <PageHeader
+          title={name || "Form"}
+          description={`This canvas is the form vendors will fill in. Click a field to edit it. Published versions: ${query.data?.data.versions.map((version) => `v${version.versionNumber}`).join(", ") || "none yet"}`}
+          actions={
+            <div className="flex gap-2">
+              <Button onClick={() => save.mutate()} disabled={save.isPending}>Save draft</Button>
+              <Button variant="primary" onClick={() => publish.mutate()} disabled={publish.isPending}>Publish</Button>
+            </div>
+          }
+        />
+        <ErrorNote message={error} />
+        <Notice message={message} />
+        <Field label="Form name">
+          <input className={`${inputClass} max-w-md`} value={name} onChange={(event) => setName(event.target.value)} />
+        </Field>
+      </div>
+      <div className="mt-4 grid min-h-0 flex-1 gap-4 lg:grid-cols-[200px_minmax(0,1fr)_minmax(240px,320px)] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden">
+        <aside className="max-h-72 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden rounded-lg border border-border bg-surface p-3 lg:h-full lg:max-h-full">
           <h2 className="mb-2 text-xs font-semibold uppercase text-muted">Add a field</h2>
           <div className="grid gap-1">
             {palette.map((type) => (
@@ -114,7 +116,7 @@ export default function FormBuilderPage() {
             ))}
           </div>
         </aside>
-        <div>
+        <div className="min-h-0 min-w-0 lg:h-full lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
           {schema.fields.length === 0 ? <p className="mb-3 text-sm text-muted">Add a field. It appears here the same way a vendor will see it.</p> : null}
           <FormRenderer
             schema={schema}
@@ -128,27 +130,29 @@ export default function FormBuilderPage() {
             onUpload={async (_field, file) => ({ documentId: "preview", filename: file.name })}
           />
         </div>
-        <aside className="rounded-lg border border-border bg-surface p-3">
-          <h2 className="mb-2 text-xs font-semibold uppercase text-muted">Configuration</h2>
-          {!field ? <p className="text-sm text-muted">Select a field in the form.</p> : (
-            <div className="grid gap-3">
-              <Field label="Label"><input className={inputClass} value={field.label} onChange={(event) => updateField(field.id, { label: event.target.value })} /></Field>
-              <Field label="Internal key"><input className={inputClass} value={field.key} onChange={(event) => updateField(field.id, { key: event.target.value })} /></Field>
-              <Field label="Help text"><input className={inputClass} value={field.description ?? ""} onChange={(event) => updateField(field.id, { description: event.target.value })} /></Field>
-              {field.type === "reupload" ? (
-                <TemplateFile templateId={params.id} field={field} onChange={(template) => updateField(field.id, { template })} />
-              ) : (
-                <Field label="Placeholder"><input className={inputClass} value={field.placeholder ?? ""} onChange={(event) => updateField(field.id, { placeholder: event.target.value })} /></Field>
-              )}
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={field.required} onChange={(event) => updateField(field.id, { required: event.target.checked })} /> Compulsory</label>
-              <p className="text-xs text-muted">A compulsory field must be filled before the vendor can submit.</p>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => move(field.id, -1)}>Move up</Button>
-                <Button size="sm" onClick={() => move(field.id, 1)}>Move down</Button>
+        <aside className="flex max-h-[calc(100dvh-8.25rem)] min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-surface lg:h-full lg:max-h-full">
+          <h2 className="shrink-0 px-3 pt-3 text-xs font-semibold uppercase text-muted">Configuration</h2>
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3">
+            {!field ? <p className="text-sm text-muted">Select a field in the form.</p> : (
+              <div className="grid min-w-0 gap-3 break-words">
+                <Field label="Label"><input className={inputClass} value={field.label} onChange={(event) => updateField(field.id, { label: event.target.value })} /></Field>
+                <Field label="Internal key"><input className={inputClass} value={field.key} onChange={(event) => updateField(field.id, { key: event.target.value })} /></Field>
+                <Field label="Help text"><input className={inputClass} value={field.description ?? ""} onChange={(event) => updateField(field.id, { description: event.target.value })} /></Field>
+                {field.type === "reupload" ? (
+                  <TemplateFile templateId={params.id} field={field} onChange={(template) => updateField(field.id, { template })} />
+                ) : (
+                  <Field label="Placeholder"><input className={inputClass} value={field.placeholder ?? ""} onChange={(event) => updateField(field.id, { placeholder: event.target.value })} /></Field>
+                )}
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={field.required} onChange={(event) => updateField(field.id, { required: event.target.checked })} /> Compulsory</label>
+                <p className="text-xs text-muted">A compulsory field must be filled before the vendor can submit.</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => move(field.id, -1)}>Move up</Button>
+                  <Button size="sm" onClick={() => move(field.id, 1)}>Move down</Button>
+                </div>
+                <Button size="sm" variant="danger" onClick={() => { setSchema({ ...schema, fields: schema.fields.filter((item) => item.id !== field.id) }); setSelected(null); }}>Remove</Button>
               </div>
-              <Button size="sm" variant="danger" onClick={() => { setSchema({ ...schema, fields: schema.fields.filter((item) => item.id !== field.id) }); setSelected(null); }}>Remove</Button>
-            </div>
-          )}
+            )}
+          </div>
         </aside>
       </div>
     </div>
@@ -191,15 +195,20 @@ function TemplateFile({ templateId, field, onChange }: { templateId: string; fie
   }
 
   return (
-    <div className="grid gap-2">
+    <div className="grid min-w-0 gap-2">
       <p className="text-xs font-semibold uppercase text-muted">File for vendors</p>
       <p className="text-xs text-muted">Vendors download this file, then upload their completed copy.</p>
       {field.template?.assetId && field.template.filename ? (
-        <RemoteFileLink path={`/form-assets/${field.template.assetId}/content`} filename={field.template.filename} />
+        <div className="min-w-0 break-all [&_button]:whitespace-normal [&_button]:text-left">
+          <RemoteFileLink path={`/form-assets/${field.template.assetId}/content`} filename={field.template.filename} />
+        </div>
       ) : (
         <p className="text-sm text-muted">No file uploaded yet.</p>
       )}
-      <input type="file" disabled={pending} onChange={(event) => void pick(event)} />
+      <label className="inline-flex h-9 w-fit max-w-full cursor-pointer items-center rounded-md border border-border px-3 text-sm hover:bg-secondary">
+        <input className="sr-only" type="file" disabled={pending} onChange={(event) => void pick(event)} />
+        {pending ? "Uploading…" : "Choose file"}
+      </label>
       {pending ? <p className="text-xs text-muted">Uploading…</p> : null}
       {error ? <p className="text-xs text-danger">{error}</p> : null}
     </div>

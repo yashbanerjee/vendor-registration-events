@@ -36,7 +36,7 @@ export function FormRenderer({
   return (
     <div className="grid gap-4">
       {sections.map((section) => (
-        <section key={section.id} className="rounded-lg border border-border bg-surface p-4">
+        <section key={section.id} className="min-w-0 rounded-lg border border-border bg-surface p-4">
           <h2 className="text-base font-semibold">{section.title}</h2>
           {section.description ? <p className="mb-3 text-sm text-muted">{section.description}</p> : null}
           <div className="grid gap-4">
@@ -48,7 +48,7 @@ export function FormRenderer({
                 <div
                   key={field.id}
                   onClick={() => onSelectField?.(field.id)}
-                  className={onSelectField ? `rounded-md p-1 ${selectedFieldId === field.id ? "ring-2 ring-brand" : "ring-1 ring-transparent hover:ring-border"}` : undefined}
+                  className={onSelectField ? `min-w-0 rounded-md p-1 ${selectedFieldId === field.id ? "ring-2 ring-brand" : "ring-1 ring-transparent hover:ring-border"}` : "min-w-0"}
                 >
                   <FieldControl id={`${idPrefix ? `${idPrefix}-` : ""}${field.id}`} field={field} value={values[field.id]} note={notes?.find((item) => item.fieldId === field.id)?.note} error={errors?.find((item) => item.fieldId === field.id)?.message} editable={isEditable(field.id, editableFieldIds, disabled)} onChange={onChange} onUpload={onUpload} />
                 </div>
@@ -215,8 +215,8 @@ function ReuploadField({
 }) {
   const template = field.template;
   return (
-    <div className="grid gap-3">
-      <div className="rounded-md border border-border bg-secondary p-3">
+    <div className="grid min-w-0 gap-3">
+      <div className="min-w-0 break-all rounded-md border border-border bg-secondary p-3 [&_button]:whitespace-normal [&_button]:text-left">
         <p className="text-xs font-medium uppercase text-muted">Download this file</p>
         {template?.assetId && template.filename ? (
           <RemoteFileLink path={`/form-assets/${template.assetId}/content`} filename={template.filename} />
@@ -283,7 +283,7 @@ function FileField({
   }
 
   return (
-    <div className="grid gap-2">
+    <div className="grid min-w-0 gap-2 break-words">
       {files.map((file) =>
         localPreview[file.documentId] ? (
           <img key={file.documentId || file.filename} src={localPreview[file.documentId]} alt={file.filename} className="max-h-48 w-full rounded-md border border-border bg-white object-contain" />
@@ -300,7 +300,9 @@ function FileField({
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       {pending ? <p className="text-sm text-muted">Uploading…</p> : null}
       {editable ? (
-        <input id={id} type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />
+        <div className="min-w-0 overflow-hidden">
+          <input id={id} className="block w-full max-w-full text-sm" type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />
+        </div>
       ) : null}
     </div>
   );
