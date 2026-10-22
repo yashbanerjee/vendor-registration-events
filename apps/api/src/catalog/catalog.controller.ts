@@ -70,6 +70,12 @@ export class CatalogController {
     return this.catalog.listExhibitions(request.user!);
   }
 
+  @Get("exhibitions/:id")
+  @RequirePermissions(PERMISSIONS.exhibitionsRead)
+  exhibition(@Req() request: AuthedRequest, @Param("id") id: string) {
+    return this.catalog.getExhibition(request.user!, id);
+  }
+
   @Post("exhibitions")
   @RequirePermissions(PERMISSIONS.exhibitionsWrite)
   createExhibition(@Req() request: AuthedRequest, @Body() body: unknown) {

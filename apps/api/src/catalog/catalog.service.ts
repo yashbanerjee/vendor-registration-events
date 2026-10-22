@@ -1,7 +1,7 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { createHash, randomUUID } from "node:crypto";
-import { formSchemaDefinition, type FormSchemaDefinition } from "@vmp/shared";
+import { fieldAnswers, formSchemaDefinition, type FormSchemaDefinition } from "@vmp/shared";
 import { z } from "zod";
 import type { AuthContext } from "../common/auth";
 import { randomReference } from "../common/crypto";
@@ -50,6 +50,54 @@ const exhibitionSchema = z.object({
   endsAt: z.string().datetime(),
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
 });
+
+const vendorPreview = {
+  id: true,
+  reference: true,
+  companyName: true,
+  contactName: true,
+  email: true,
+  phone: true,
+  status: true,
+  category: true,
+} as const;
+
+type VendorPreview = {
+  id: string;
+  reference: string;
+  companyName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  status: string;
+  category: string;
+};
+
+function formProgress(assignment: {
+  id: string;
+  status: string;
+  submittedAt: Date | null;
+  formVersion: { versionNumber: number; schema: Prisma.JsonValue; template: { name: string } };
+  submission: { revisions: { data: Prisma.JsonValue }[] } | null;
+}) {
+  const latest = assignment.submission?.revisions[0]?.data;
+  const values = latest && typeof latest === "object" && !Array.isArray(latest) ? (latest as Record<string, unknown>) : {};
+  const parsed = formSchemaDefinition.safeParse(assignment.formVersion.schema);
+  const required = new Set(parsed.success ? parsed.data.fields.filter((field) => field.required).map((field) => field.id) : []);
+  const fields = parsed.success ? fieldAnswers(parsed.data, values).map((field) => ({ ...field, required: required.has(field.id) })) : [];
+  const requiredFields = fields.filter((field) => field.required);
+  return {
+    id: assignment.id,
+    status: assignment.status,
+    submittedAt: assignment.submittedAt,
+    form: { name: assignment.formVersion.template.name, versionNumber: assignment.formVersion.versionNumber },
+    fields,
+    filledCount: fields.filter((field) => field.filled).length,
+    fieldCount: fields.length,
+    requiredFilled: requiredFields.filter((field) => field.filled).length,
+    requiredCount: requiredFields.length,
+  };
+}
 
 const templateSchema = z.object({
   name: z.string().min(2).max(200),
@@ -402,6 +450,61 @@ export class CatalogService {
       }),
     );
     return { data: rows };
+  }
+
+  async getExhibition(user: AuthContext, id: string) {
+    if (!z.string().uuid().safeParse(id).success) throw new NotFoundException();
+    const loaded = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const exhibition = await tx.exhibition.findFirst({ where: { id, organizationId: user.organizationId } });
+      if (!exhibition) return null;
+      const [links, assignments] = await Promise.all([
+        tx.vendorExhibition.findMany({
+          where: { organizationId: user.organizationId, exhibitionId: id, vendor: { archivedAt: null } },
+          select: { vendor: { select: vendorPreview } },
+        }),
+        tx.formAssignment.findMany({
+          where: { organizationId: user.organizationId, exhibitionId: id, vendor: { archivedAt: null } },
+          orderBy: { updatedAt: "desc" },
+          select: {
+            id: true,
+            status: true,
+            submittedAt: true,
+            vendor: { select: vendorPreview },
+            formVersion: { select: { versionNumber: true, schema: true, template: { select: { name: true } } } },
+            submission: { select: { revisions: { orderBy: { revisionNumber: "desc" }, take: 1, select: { data: true } } } },
+          },
+        }),
+      ]);
+      return { exhibition, links, assignments };
+    });
+    if (!loaded) throw new NotFoundException();
+
+    const vendors = new Map<string, { vendor: VendorPreview; forms: ReturnType<typeof formProgress>[] }>();
+    for (const link of loaded.links) vendors.set(link.vendor.id, { vendor: link.vendor, forms: [] });
+    for (const assignment of loaded.assignments) {
+      const current = vendors.get(assignment.vendor.id) ?? { vendor: assignment.vendor, forms: [] };
+      current.forms.push(formProgress(assignment));
+      vendors.set(assignment.vendor.id, current);
+    }
+
+    return {
+      data: {
+        id: loaded.exhibition.id,
+        name: loaded.exhibition.name,
+        code: loaded.exhibition.code,
+        venue: loaded.exhibition.venue,
+        description: loaded.exhibition.description,
+        startsAt: loaded.exhibition.startsAt,
+        endsAt: loaded.exhibition.endsAt,
+        status: loaded.exhibition.status,
+        vendors: [...vendors.values()]
+          .map((entry) => ({
+            ...entry.vendor,
+            forms: entry.forms.sort((left, right) => Number(left.status === "REVOKED") - Number(right.status === "REVOKED")),
+          }))
+          .sort((left, right) => left.companyName.localeCompare(right.companyName)),
+      },
+    };
   }
 
   async saveExhibition(user: AuthContext, body: unknown, id?: string) {
