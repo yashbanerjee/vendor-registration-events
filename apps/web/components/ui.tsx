@@ -51,7 +51,7 @@ export function Badge({ tone, children }: { tone: "success" | "warning" | "dange
     info: "bg-[var(--badge-info-bg)] text-[var(--badge-info-fg)]",
     neutral: "bg-[var(--badge-neutral-bg)] text-[var(--badge-neutral-fg)]",
   };
-  return <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold", styles[tone])}>{children}</span>;
+  return <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide", styles[tone])}>{children}</span>;
 }
 
 export function StatusBadge({ status }: { status: string }) {
@@ -59,8 +59,8 @@ export function StatusBadge({ status }: { status: string }) {
 }
 
 export function statusTone(status: string): "success" | "warning" | "danger" | "info" | "neutral" {
-  if (status === "APPROVED" || status === "AVAILABLE" || status === "ACTIVE" || status === "SENT" || status === "DELIVERED") return "success";
-  if (status.includes("PENDING") || status === "CORRECTION_REQUESTED" || status === "QUARANTINED" || status === "QUEUED") return "warning";
+  if (status === "APPROVED" || status === "AVAILABLE" || status === "ACTIVE" || status === "SENT" || status === "DELIVERED" || status === "SUBMITTED") return "success";
+  if (status.includes("PENDING") || status === "CORRECTION_REQUESTED" || status === "QUARANTINED" || status === "QUEUED" || status === "REUPLOAD") return "warning";
   if (status === "REJECTED" || status === "FAILED" || status === "BOUNCED") return "danger";
   if (status === "IN_PROGRESS" || status === "INVITED" || status === "PUBLISHED") return "info";
   return "neutral";

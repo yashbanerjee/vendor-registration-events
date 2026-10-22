@@ -6,9 +6,10 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { Logger } from "nestjs-pino";
 import { AppModule } from "./app.module";
-import { allowedOrigins, env } from "./config/env";
+import { allowedOrigins, ensureMigrateDatabaseUrl, env } from "./config/env";
 
 async function bootstrap() {
+  ensureMigrateDatabaseUrl();
   const config = env();
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
@@ -35,7 +36,8 @@ async function bootstrap() {
     );
     SwaggerModule.setup("api/docs", app, document);
   }
-  await app.listen(config.API_PORT);
+  const port = Number(process.env.PORT || config.API_PORT);
+  await app.listen(port, "0.0.0.0");
 }
 
 void bootstrap();

@@ -7,7 +7,8 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
-import { Badge, EmptyState, ErrorNote, PageHeader, StatusBadge, inputClass } from "@/components/ui";
+import { Badge, EmptyState, ErrorNote, StatusBadge, inputClass } from "@/components/ui";
+import { PdfForms } from "./pdf-forms";
 
 type FieldFill = { id: string; label: string; filled: boolean; required: boolean };
 type FormProgress = {
@@ -46,7 +47,8 @@ type ExhibitionDetail = {
   };
 };
 
-type Filter = "all" | "complete" | "partial" | "open";
+type Filter = "all" | "complete" | "partial" | "open" | "none";
+type View = "questions" | "pdf";
 
 function activeForms(vendor: VendorProgress) {
   const active = vendor.forms.filter((form) => form.status !== "REVOKED");
@@ -55,7 +57,7 @@ function activeForms(vendor: VendorProgress) {
 
 function vendorState(vendor: VendorProgress): Exclude<Filter, "all"> {
   const forms = activeForms(vendor).filter((form) => form.fieldCount > 0);
-  if (!forms.length) return "open";
+  if (!forms.length) return "none";
   const filled = forms.reduce((sum, form) => sum + form.filledCount, 0);
   const total = forms.reduce((sum, form) => sum + form.fieldCount, 0);
   if (filled === 0) return "open";
@@ -72,6 +74,7 @@ export default function ExhibitionDetailPage() {
   const params = useParams<{ id: string }>().id;
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [view, setView] = useState<View>("questions");
   const query = useQuery({
     queryKey: ["exhibition", params],
     queryFn: () => api<ExhibitionDetail>(`/exhibitions/${params}`),
@@ -86,10 +89,12 @@ export default function ExhibitionDetailPage() {
     let complete = 0;
     let partial = 0;
     let open = 0;
+    let none = 0;
     for (const vendor of vendors) {
       const state = vendorState(vendor);
       if (state === "complete") complete += 1;
       else if (state === "partial") partial += 1;
+      else if (state === "none") none += 1;
       else open += 1;
       for (const form of activeForms(vendor)) {
         filled += form.filledCount;
@@ -97,7 +102,7 @@ export default function ExhibitionDetailPage() {
         requiredOpen += form.requiredCount - form.requiredFilled;
       }
     }
-    return { filled, total, requiredOpen, complete, partial, open, percent: percent(filled, total) };
+    return { filled, total, requiredOpen, complete, partial, open, none, percent: percent(filled, total) };
   }, [vendors]);
   const visible = vendors.filter((vendor) => {
     const haystack = `${vendor.companyName} ${vendor.contactName} ${vendor.email} ${vendor.reference} ${vendor.category}`.toLowerCase();
@@ -108,54 +113,61 @@ export default function ExhibitionDetailPage() {
 
   return (
     <div>
-      <Link href="/admin/exhibitions" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground">
+      <Link href="/admin/exhibitions" className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground">
         <ChevronLeft size={16} aria-hidden />
-        Exhibitions
+        All exhibitions
       </Link>
       <ErrorNote message={query.isError ? "Could not load this exhibition." : ""} />
       {query.isLoading ? <p className="text-sm text-muted">Loading vendors…</p> : null}
       {exhibition ? (
         <>
-          <section className="mb-4 overflow-hidden rounded-lg border border-border bg-surface">
-            <div className="h-1.5 bg-brand" />
-            <div className="p-5">
-              <PageHeader
-                title={exhibition.name}
-                description={exhibition.description || "Vendor progress for this exhibition."}
-                actions={<StatusBadge status={exhibition.status} />}
-              />
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-                <span className="font-medium uppercase tracking-wide">{exhibition.code}</span>
-                {exhibition.venue ? <span className="inline-flex items-center gap-1"><MapPin size={14} aria-hidden />{exhibition.venue}</span> : null}
-                <span className="inline-flex items-center gap-1"><CalendarRange size={14} aria-hidden />{formatDate(exhibition.startsAt)} – {formatDate(exhibition.endsAt)}</span>
+          <section className="mb-6 rounded-2xl border border-border bg-surface px-6 py-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{exhibition.code}</p>
+                <h1 className="mt-1 text-2xl font-semibold tracking-tight">{exhibition.name}</h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{exhibition.description || "Questionnaires and PDF forms are tracked separately."}</p>
               </div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Stat label="Overall" value={`${totals.percent}%`} hint={totals.requiredOpen ? `${totals.filled} of ${totals.total} fields done · ${totals.requiredOpen} required left` : `${totals.filled} of ${totals.total} fields done`} />
-                <Stat label="Complete" value={String(totals.complete)} hint="Every field filled in" />
-                <Stat label="In progress" value={String(totals.partial)} hint="Some fields still open" />
-                <Stat label="Not started" value={String(totals.open)} hint="No answers yet" />
-              </div>
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={totals.percent} aria-valuemin={0} aria-valuemax={100} aria-label="Overall field progress">
-                <div className="h-full rounded-full bg-brand" style={{ width: `${totals.percent}%` }} />
-              </div>
+              <StatusBadge status={exhibition.status} />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted">
+              {exhibition.venue ? <span className="inline-flex items-center gap-1.5"><MapPin size={14} aria-hidden />{exhibition.venue}</span> : null}
+              <span className="inline-flex items-center gap-1.5"><CalendarRange size={14} aria-hidden />{formatDate(exhibition.startsAt)} – {formatDate(exhibition.endsAt)}</span>
             </div>
           </section>
 
-          <div className="mb-4 flex flex-wrap gap-2">
-            <input className={`${inputClass} max-w-sm`} placeholder="Search company, contact, or email" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Search vendors" />
-            <FilterButton current={filter} value="all" onSelect={setFilter}>All ({vendors.length})</FilterButton>
-            <FilterButton current={filter} value="complete" onSelect={setFilter}>Complete</FilterButton>
-            <FilterButton current={filter} value="partial" onSelect={setFilter}>In progress</FilterButton>
-            <FilterButton current={filter} value="open" onSelect={setFilter}>Not started</FilterButton>
+          <div className="mb-6 flex gap-6 border-b border-border" role="tablist" aria-label="Exhibition flows">
+            <TabButton current={view} value="questions" onSelect={setView}>Questionnaires</TabButton>
+            <TabButton current={view} value="pdf" onSelect={setView}>PDF forms</TabButton>
           </div>
 
-          {vendors.length === 0 ? <EmptyState title="No vendors yet" body="Assign vendors to this exhibition and their form progress will show up here." /> : null}
-          {vendors.length > 0 && visible.length === 0 ? <p className="text-sm text-muted">No vendors match this search.</p> : null}
-          <div className="grid gap-3">
-            {visible.map((vendor) => (
-              <VendorCard key={vendor.id} vendor={vendor} />
-            ))}
-          </div>
+          {view === "questions" ? (
+            <>
+              <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Stat label="Fields done" value={`${totals.percent}%`} hint={totals.requiredOpen ? `${totals.filled} of ${totals.total} · ${totals.requiredOpen} required left` : `${totals.filled} of ${totals.total} fields`} />
+                <Stat label="Complete" value={String(totals.complete)} hint="Every questionnaire field filled" />
+                <Stat label="In progress" value={String(totals.partial)} hint="Some fields still open" />
+                <Stat label="Not started" value={String(totals.open)} hint={totals.none ? `${totals.none} without a questionnaire` : "No answers yet"} />
+              </div>
+              <div className="mb-4 flex flex-wrap gap-2">
+                <input className={`${inputClass} max-w-sm`} placeholder="Search company, contact, or email" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Search vendors" />
+                <FilterButton current={filter} value="all" onSelect={setFilter}>All ({vendors.length})</FilterButton>
+                <FilterButton current={filter} value="complete" onSelect={setFilter}>Complete</FilterButton>
+                <FilterButton current={filter} value="partial" onSelect={setFilter}>In progress</FilterButton>
+                <FilterButton current={filter} value="open" onSelect={setFilter}>Not started</FilterButton>
+                <FilterButton current={filter} value="none" onSelect={setFilter}>No questionnaire</FilterButton>
+              </div>
+              {vendors.length === 0 ? <EmptyState title="No vendors yet" body="Assign a questionnaire from the vendor directory. PDF-only vendors are added on the PDF forms tab." /> : null}
+              {vendors.length > 0 && visible.length === 0 ? <p className="text-sm text-muted">No vendors match this search.</p> : null}
+              <div className="grid gap-3">
+                {visible.map((vendor) => (
+                  <VendorCard key={vendor.id} vendor={vendor} />
+                ))}
+              </div>
+            </>
+          ) : (
+            <PdfForms exhibitionId={exhibition.id} />
+          )}
         </>
       ) : null}
     </div>
@@ -164,18 +176,27 @@ export default function ExhibitionDetailPage() {
 
 function Stat({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
-    <div className="rounded-md border border-border bg-secondary px-3 py-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
-      <p className="text-xs text-muted">{hint}</p>
+    <div className="rounded-2xl border border-border bg-surface px-4 py-4 shadow-sm">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">{label}</p>
+      <p className="mt-2 text-3xl font-semibold tracking-tight">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-muted">{hint}</p>
     </div>
+  );
+}
+
+function TabButton({ current, value, onSelect, children }: { current: View; value: View; onSelect: (value: View) => void; children: React.ReactNode }) {
+  const selected = current === value;
+  return (
+    <button type="button" role="tab" aria-selected={selected} className={`-mb-px border-b-2 pb-3 text-sm font-semibold ${selected ? "border-brand text-foreground" : "border-transparent text-muted hover:text-foreground"}`} onClick={() => onSelect(value)}>
+      {children}
+    </button>
   );
 }
 
 function FilterButton({ current, value, onSelect, children }: { current: Filter; value: Filter; onSelect: (value: Filter) => void; children: React.ReactNode }) {
   const selected = current === value;
   return (
-    <button type="button" aria-pressed={selected} className={`h-9 rounded-md border px-3 text-sm font-semibold ${selected ? "border-brand bg-brand text-[var(--brand-foreground)]" : "border-border bg-surface hover:bg-secondary"}`} onClick={() => onSelect(value)}>
+    <button type="button" aria-pressed={selected} className={`h-8 rounded-full px-3 text-sm font-medium ${selected ? "bg-foreground text-surface" : "bg-surface text-muted ring-1 ring-border hover:text-foreground"}`} onClick={() => onSelect(value)}>
       {children}
     </button>
   );
@@ -188,9 +209,9 @@ function VendorCard({ vendor }: { vendor: VendorProgress }) {
   const done = percent(filled, total);
   const initial = vendor.companyName.trim().charAt(0).toUpperCase() || "V";
   return (
-    <article className="overflow-hidden rounded-lg border border-border bg-surface">
-      <div className="flex flex-wrap items-start gap-3 border-b border-border px-4 py-4">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--badge-info-bg)] text-base font-semibold text-brand" aria-hidden>
+    <article className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+      <div className="flex flex-wrap items-start gap-4 border-b border-border px-5 py-5">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-secondary text-sm font-semibold" aria-hidden>
           {initial}
         </div>
         <div className="min-w-0 flex-1">
@@ -207,13 +228,13 @@ function VendorCard({ vendor }: { vendor: VendorProgress }) {
             <span className="font-semibold">{total ? `${filled} of ${total} done` : "No fields"}</span>
             <span className="text-muted">{done}%</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={100} aria-label={`${vendor.companyName} field progress`}>
+          <div className="h-1.5 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={100} aria-label={`${vendor.companyName} field progress`}>
             <div className={`h-full rounded-full ${done === 100 ? "bg-[var(--success)]" : "bg-brand"}`} style={{ width: `${done}%` }} />
           </div>
         </div>
       </div>
-      <div className="grid gap-4 p-4">
-        {forms.length === 0 ? <p className="text-sm text-muted">No form is assigned, so there is nothing to complete yet.</p> : null}
+      <div className="grid gap-5 p-5">
+        {forms.length === 0 ? <p className="text-sm text-muted">No questionnaire is assigned. PDF forms are on the other tab.</p> : null}
         {forms.map((form) => (
           <FormBlock key={form.id} form={form} />
         ))}
@@ -231,7 +252,7 @@ function FormBlock({ form }: { form: FormProgress }) {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-semibold">{form.form.name} v{form.form.versionNumber}</h3>
         <StatusBadge status={form.status} />
-        <Link className="text-sm text-brand underline" href={`/admin/reviews/${form.id}`}>Open submission</Link>
+        <Link className="text-sm font-medium text-brand" href={`/admin/reviews/${form.id}`}>Open submission</Link>
         <span className="text-xs text-muted">{share}% · {form.requiredFilled} of {form.requiredCount} required</span>
       </div>
       {form.fieldCount === 0 ? <p className="text-sm text-muted">This form has no answer fields.</p> : (
@@ -248,12 +269,12 @@ function FieldColumn({ title, count, fields, tone, empty, markRequired }: { titl
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? fields : fields.slice(0, 8);
   return (
-    <div className={`rounded-md border border-border px-3 py-3 ${tone === "success" ? "bg-[var(--badge-success-bg)]" : "bg-[var(--badge-warning-bg)]"}`}>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{title} · {count}</p>
+    <div className="rounded-xl border border-border bg-surface px-4 py-4">
+      <p className={`mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] ${tone === "success" ? "text-[var(--success)]" : "text-[var(--warning)]"}`}>{title} · {count}</p>
       {fields.length === 0 ? <p className="text-sm text-muted">{empty}</p> : (
         <ul className="flex flex-wrap gap-1.5">
           {visible.map((field) => (
-            <li key={field.id} className="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-1 text-xs font-medium shadow-[0_0_0_1px_var(--border)]">
+            <li key={field.id} className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium">
               {tone === "success" ? <Check size={12} className="text-[var(--success)]" aria-hidden /> : null}
               {field.label}
               {markRequired && field.required ? <span className="text-[var(--danger)]">Required</span> : null}

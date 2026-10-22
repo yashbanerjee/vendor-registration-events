@@ -9,6 +9,7 @@ import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
 import { CatalogModule } from "./catalog/catalog.module";
 import { DocumentsModule } from "./documents/documents.module";
+import { PacketsModule } from "./packets/packets.module";
 import { ImportsModule } from "./imports/imports.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { PlatformModule } from "./platform/platform.module";
@@ -45,6 +46,7 @@ import { WorkflowModule } from "./workflow/workflow.module";
     CatalogModule,
     WorkflowModule,
     DocumentsModule,
+    PacketsModule,
     ImportsModule,
     PlatformModule,
   ],

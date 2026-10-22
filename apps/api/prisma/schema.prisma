@@ -100,6 +100,12 @@ enum ImportRowStatus {
   ERROR
 }
 
+enum PacketStatus {
+  AWAITING
+  SUBMITTED
+  REUPLOAD
+}
+
 model Organization {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -126,6 +132,9 @@ model Organization {
   imports      ImportJob[]
   reviewNotes  ReviewNote[]
   vendorCategories VendorCategory[]
+  exhibitionForms ExhibitionForm[]
+  exhibitionFormReturns ExhibitionFormReturn[]
+  exhibitionFormFiles ExhibitionFormFile[]
 
   @@map("organizations")
 }
@@ -259,6 +268,7 @@ model Vendor {
   documents    Document[]
   templates    FormTemplate[]
   categories   VendorCategoryLink[]
+  pdfReturns   ExhibitionFormReturn[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, reference])
@@ -316,11 +326,88 @@ model Exhibition {
   assignments  FormAssignment[]
   templates    FormTemplate[]
   documents    Document[]
+  pdfForms     ExhibitionForm[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, code])
   @@index([organizationId, startsAt])
   @@map("exhibitions")
+}
+
+model ExhibitionForm {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  exhibitionId   String   @map("exhibition_id") @db.Uuid
+  name           String
+  storageKey     String   @map("storage_key")
+  filename       String
+  mimeType       String   @map("mime_type")
+  sizeBytes      Int      @map("size_bytes")
+  checksum       String
+  createdById    String   @map("created_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  exhibition   Exhibition             @relation(fields: [organizationId, exhibitionId], references: [organizationId, id], onDelete: Cascade)
+  returns      ExhibitionFormReturn[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, exhibitionId])
+  @@map("exhibition_forms")
+}
+
+model ExhibitionFormReturn {
+  id               String       @id @default(uuid()) @db.Uuid
+  organizationId   String       @map("organization_id") @db.Uuid
+  exhibitionFormId String       @map("exhibition_form_id") @db.Uuid
+  vendorId         String       @map("vendor_id") @db.Uuid
+  status           PacketStatus @default(AWAITING)
+  storageKey       String       @default("") @map("storage_key")
+  filename         String       @default("")
+  mimeType         String       @default("") @map("mime_type")
+  sizeBytes        Int          @default(0) @map("size_bytes")
+  checksum         String       @default("")
+  adminNote        String       @default("") @map("admin_note")
+  requestedAt      DateTime?    @map("requested_at") @db.Timestamptz(6)
+  uploadedAt       DateTime?    @map("uploaded_at") @db.Timestamptz(6)
+  submittedAt      DateTime?    @map("submitted_at") @db.Timestamptz(6)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId], references: [id])
+  form         ExhibitionForm      @relation(fields: [organizationId, exhibitionFormId], references: [organizationId, id], onDelete: Cascade)
+  vendor       Vendor              @relation(fields: [organizationId, vendorId], references: [organizationId, id], onDelete: Cascade)
+  files        ExhibitionFormFile[]
+
+  @@unique([organizationId, id])
+  @@unique([exhibitionFormId, vendorId])
+  @@index([organizationId, vendorId])
+  @@map("exhibition_form_returns")
+}
+
+model ExhibitionFormFile {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  returnId       String       @map("return_id") @db.Uuid
+  name           String
+  status         PacketStatus @default(AWAITING)
+  storageKey     String       @map("storage_key")
+  filename       String
+  mimeType       String       @map("mime_type")
+  sizeBytes      Int          @map("size_bytes")
+  checksum       String
+  adminNote      String       @default("") @map("admin_note")
+  requestedAt    DateTime?    @map("requested_at") @db.Timestamptz(6)
+  uploadedAt     DateTime?    @map("uploaded_at") @db.Timestamptz(6)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  formReturn   ExhibitionFormReturn @relation(fields: [organizationId, returnId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, returnId])
+  @@map("exhibition_form_files")
 }
 
 model VendorExhibition {

@@ -13,6 +13,8 @@ const LABELS: Record<string, string> = {
   CORRECTION_REQUESTED: "Needs changes",
   APPROVED: "Approved",
   REJECTED: "Rejected",
+  REUPLOAD: "Re-upload requested",
+  AWAITING: "Not submitted",
   REVOKED: "Revoked",
   ARCHIVED: "Archived",
   AVAILABLE: "Available",

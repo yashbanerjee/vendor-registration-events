@@ -25,29 +25,29 @@ export default function ExhibitionsPage() {
   });
   return (
     <div>
-      <PageHeader title="Exhibitions" description="Open an event to see every vendor and which form fields are done or still open." actions={<Button variant="primary" onClick={() => setOpen(true)}>Add exhibition</Button>} />
+      <PageHeader title="Exhibitions" description="Open an event to follow questionnaires and PDF forms separately." actions={<Button variant="primary" onClick={() => setOpen(true)}>Add exhibition</Button>} />
       <ErrorNote message={query.isError ? "Could not load exhibitions." : ""} />
       {query.isLoading ? <p className="text-sm text-muted">Loading exhibitions…</p> : null}
       {!query.isLoading && exhibitions.total === 0 ? <EmptyState title="No exhibitions yet" body="Add an event, then assign vendors so you can track their form progress." /> : null}
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         {exhibitions.rows.map((row) => (
-          <Link key={row.id} href={`/admin/exhibitions/${row.id}`} className="group overflow-hidden rounded-lg border border-border bg-surface transition hover:border-brand">
-            <div className="h-1 bg-brand" />
-            <div className="flex items-start gap-3 p-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-base font-semibold tracking-tight">{row.name}</h2>
-                  <StatusBadge status={row.status} />
-                </div>
-                <p className="mt-1 text-xs font-medium uppercase tracking-wide text-muted">{row.code}</p>
-                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-                  {row.venue ? <span className="inline-flex items-center gap-1"><MapPin size={14} aria-hidden />{row.venue}</span> : null}
-                  <span className="inline-flex items-center gap-1"><CalendarRange size={14} aria-hidden />{formatDate(row.startsAt)} – {formatDate(row.endsAt)}</span>
-                  <span className="inline-flex items-center gap-1"><Users size={14} aria-hidden />{row._count.vendors} vendors</span>
-                </div>
+          <Link key={row.id} href={`/admin/exhibitions/${row.id}`} className="group rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-panel">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">{row.code}</p>
+                <h2 className="mt-1 truncate text-lg font-semibold tracking-tight">{row.name}</h2>
               </div>
-              <ChevronRight className="mt-1 shrink-0 text-muted transition group-hover:text-brand" size={18} aria-hidden />
+              <StatusBadge status={row.status} />
             </div>
+            <div className="mt-5 grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
+              <Meta icon={<MapPin size={14} aria-hidden />} label="Venue" value={row.venue || "—"} />
+              <Meta icon={<Users size={14} aria-hidden />} label="Vendors" value={String(row._count.vendors)} />
+              <Meta icon={<CalendarRange size={14} aria-hidden />} label="Starts" value={formatDate(row.startsAt)} />
+            </div>
+            <p className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand">
+              Open event
+              <ChevronRight size={16} className="transition group-hover:translate-x-0.5" aria-hidden />
+            </p>
           </Link>
         ))}
       </div>
@@ -63,6 +63,15 @@ export default function ExhibitionsPage() {
           <Button type="submit" variant="primary">Save exhibition</Button>
         </form>
       </Modal>
+    </div>
+  );
+}
+
+function Meta({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-muted">{icon}{label}</p>
+      <p className="mt-1 truncate text-sm font-medium">{value}</p>
     </div>
   );
 }

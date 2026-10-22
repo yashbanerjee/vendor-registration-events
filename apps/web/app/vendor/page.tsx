@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { FileLink } from "@/components/file-preview";
 import { Pager, usePagedRows } from "@/components/pager";
+import { VendorPackets } from "@/components/vendor-packets";
 import { Button, EmptyState, Notice, PageHeader, StatusBadge } from "@/components/ui";
 
 type Assignment = {
@@ -45,15 +46,14 @@ function VendorDashboard() {
   const profile = rows[0]?.vendor;
   return (
     <div className="grid gap-4">
-      <PageHeader title="Dashboard" description="Your company profile and the answers on each exhibition form." />
+      <PageHeader title="Dashboard" description="PDF forms and online questionnaires stay in their own sections." />
       <Notice message={submitted ? "Your form was submitted. The answers are below." : ""} />
       {query.isLoading ? <p className="text-sm text-muted">Loading dashboard…</p> : null}
-      {forms.total === 0 && !query.isLoading ? <EmptyState title="No forms yet" body="When an organizer assigns a form, it will appear here." /> : null}
       {profile ? (
-        <section className="rounded-lg border border-border bg-surface p-5">
-          <h2 className="text-base font-semibold">{profile.companyName}</h2>
-          <p className="mt-1 text-sm text-muted">{profile.reference}</p>
-          <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+        <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{profile.reference}</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight">{profile.companyName}</h2>
+          <dl className="mt-5 grid gap-4 border-t border-border pt-5 sm:grid-cols-2 lg:grid-cols-4">
             <Detail label="Contact" value={profile.contactName} />
             <Detail label="Email" value={profile.email} />
             <Detail label="Phone" value={profile.phone || "Not provided"} />
@@ -61,10 +61,18 @@ function VendorDashboard() {
           </dl>
         </section>
       ) : null}
-      {forms.rows.map((row) => (
-        <FormSummary key={row.id} row={row} />
-      ))}
-      <Pager page={forms.page} pageCount={forms.pageCount} total={forms.total} rangeStart={forms.rangeStart} rangeEnd={forms.rangeEnd} onPage={forms.setPage} />
+      <VendorPackets />
+      <section className="grid gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">Questionnaires</p>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight">Online forms</h2>
+        </div>
+        {forms.total === 0 && !query.isLoading ? <EmptyState title="No questionnaires yet" body="When an organizer assigns an online form, it will appear here. PDF forms are separate." /> : null}
+        {forms.rows.map((row) => (
+          <FormSummary key={row.id} row={row} />
+        ))}
+        <Pager page={forms.page} pageCount={forms.pageCount} total={forms.total} rangeStart={forms.rangeStart} rangeEnd={forms.rangeEnd} onPage={forms.setPage} />
+      </section>
     </div>
   );
 }
@@ -76,7 +84,7 @@ function FormSummary({ row }: { row: Assignment }) {
   const sections = [...schema.sections].sort((a, b) => a.order - b.order);
   const when = [row.exhibition.startsAt ? formatDate(row.exhibition.startsAt) : "", row.exhibition.endsAt ? formatDate(row.exhibition.endsAt) : ""].filter(Boolean).join(" – ");
   return (
-    <section className="rounded-lg border border-border bg-surface p-5">
+    <section className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">{row.form.name}</h2>
@@ -155,8 +163,8 @@ function fileAnswers(value: unknown): { documentId: string; filename: string }[]
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-medium text-muted">{label}</dt>
-      <dd className="text-sm">{value}</dd>
+      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</dt>
+      <dd className="mt-1 text-sm font-medium">{value}</dd>
     </div>
   );
 }

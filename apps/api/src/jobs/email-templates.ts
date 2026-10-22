@@ -27,6 +27,7 @@ const themes: Record<string, { label: string; color: string; on: string; action:
   rejected: { label: "Not approved", color: "#C9372C", on: "#ffffff", action: "View the submission" },
   "password-reset": { label: "Password reset", color: "#F52D71", on: "#ffffff", action: "Reset password" },
   credentials: { label: "Account ready", color: "#F52D71", on: "#ffffff", action: "Open the portal" },
+  packet: { label: "Forms", color: "#F52D71", on: "#ffffff", action: "Open your forms" },
 };
 
 function escapeHtml(value: string) {

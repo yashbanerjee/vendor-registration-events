@@ -51,7 +51,7 @@ const schema = z.object({
   CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
   ENABLE_SWAGGER: z
     .enum(["true", "false"])
-    .default("true")
+    .default("false")
     .transform((value) => value === "true"),
   IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(5000),
   IMPORT_MAX_BYTES: z.coerce.number().int().positive().default(5_242_880),
@@ -61,7 +61,14 @@ export type AppEnv = z.infer<typeof schema>;
 
 let cached: AppEnv | undefined;
 
+export function ensureMigrateDatabaseUrl() {
+  if (!process.env.MIGRATE_DATABASE_URL && process.env.DATABASE_URL) {
+    process.env.MIGRATE_DATABASE_URL = process.env.DATABASE_URL;
+  }
+}
+
 export function env(): AppEnv {
+  ensureMigrateDatabaseUrl();
   if (cached) return cached;
   const parsed = schema.safeParse(process.env);
   if (!parsed.success) {
