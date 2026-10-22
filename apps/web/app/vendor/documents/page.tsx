@@ -14,7 +14,7 @@ export default function VendorDocumentsPage() {
   const documents = usePagedRows(query.data?.data ?? []);
   return (
     <div>
-      <PageHeader title="Your documents" description="Only files uploaded for your company are listed." />
+      <PageHeader title="My files" description="Files your company has uploaded." />
       <div className="table-wrap">
         <table className="data">
           <thead><tr><th>File</th><th>Category</th><th>Status</th></tr></thead>

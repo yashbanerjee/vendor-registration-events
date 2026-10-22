@@ -22,7 +22,7 @@ export default function FormsPage() {
   });
   return (
     <div>
-      <PageHeader title="Forms" description="Drafts stay editable. Publishing creates an immutable version." actions={<Button variant="primary" onClick={() => setOpen(true)}>New form</Button>} />
+      <PageHeader title="Forms" description="Write the questions a company answers online. Publish a form when it is ready to send." actions={<Button variant="primary" onClick={() => setOpen(true)}>New form</Button>} />
       <div className="table-wrap">
         <table className="data">
           <thead><tr><th>Name</th><th>Scope</th><th>Status</th><th>Latest version</th></tr></thead>

@@ -242,13 +242,13 @@ export default function VendorsPage() {
   return (
     <div>
       <PageHeader
-        title="Vendors"
-        description="Directory of exhibiting companies. Each vendor can be invited or moved to another form."
+        title="Companies"
+        description="Add a company, then send them the form for an event."
         actions={
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => void download("/imports/template", "vendor-demo.csv").catch(() => setError("Could not download the demo CSV."))}>Demo CSV</Button>
             <Button disabled={upload.isPending} onClick={() => fileRef.current?.click()}>{upload.isPending ? "Uploading…" : "Bulk upload"}</Button>
-            <Button variant="primary" onClick={() => { setError(""); setOpen(true); }}>Add vendor</Button>
+            <Button variant="primary" onClick={() => { setError(""); setOpen(true); }}>Add company</Button>
             <input ref={fileRef} className="hidden" type="file" accept=".csv,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) upload.mutate(file); }} />
           </div>
         }
@@ -279,7 +279,7 @@ export default function VendorsPage() {
       <Pager page={vendors.page} pageCount={vendors.pageCount} total={vendors.total} rangeStart={vendors.rangeStart} rangeEnd={vendors.rangeEnd} onPage={vendors.setPage} />
       {query.isLoading ? <p className="mt-3 text-sm text-muted">Loading vendors…</p> : null}
       {!query.isLoading && vendors.total === 0 ? <p className="mt-3 text-sm text-muted">No vendors match this filter.</p> : null}
-      <Modal open={open} title="Add vendor" onClose={() => setOpen(false)}>
+      <Modal open={open} title="Add a company" onClose={() => setOpen(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); setError(""); create.mutate(); }}>
           <ErrorNote message={error} />
           <Field label="Company"><input className={inputClass} required value={form.companyName} onChange={(event) => setForm({ ...form, companyName: event.target.value })} /></Field>

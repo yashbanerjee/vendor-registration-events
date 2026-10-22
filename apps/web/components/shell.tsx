@@ -12,7 +12,7 @@ import { useSession } from "./providers";
 import { BrandMark } from "./brand-mark";
 import { Button, Modal } from "./ui";
 
-export type NavItem = { href: string; label: string; icon: React.ReactNode };
+export type NavItem = { href: string; label: string; icon: React.ReactNode; secondary?: boolean };
 
 export function AppShell({ items, home }: { items: NavItem[]; home: string }) {
   const pathname = usePathname();
@@ -198,6 +198,26 @@ export function ShellFrame({ items, home, children }: { items: NavItem[]; home: 
   );
 }
 
+function crumbLabel(crumb: string) {
+  const names: Record<string, string> = {
+    exhibitions: "Events",
+    vendors: "Companies",
+    reviews: "Check answers",
+    submissions: "All answers",
+    documents: "Files",
+    forms: "Forms",
+    jobs: "Emails",
+    audit: "History",
+    settings: "Settings",
+    categories: "Categories",
+    assignments: "Form",
+    "pdf-forms": "PDF",
+    imports: "Upload",
+  };
+  if (/^[0-9a-f-]{16,}$/i.test(crumb)) return "";
+  return names[crumb] ?? `${crumb.charAt(0).toUpperCase()}${crumb.slice(1).replaceAll("-", " ")}`;
+}
+
 function ShellNav({ items, home }: { items: NavItem[]; home: string }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -215,14 +235,17 @@ function ShellNav({ items, home }: { items: NavItem[]; home: string }) {
         </button>
       </div>
       <nav className="flex gap-1 overflow-auto px-2 pb-3 md:block" aria-label="Primary">
-        {items.map((item) => {
+        {items.map((item, index) => {
           const active = pathname === item.href || (item.href !== home && pathname.startsWith(`${item.href}/`));
+          const showMore = item.secondary && !items[index - 1]?.secondary;
           return (
-            <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn("flex items-center gap-2 rounded-md px-2 py-2 text-sm", active ? "bg-[var(--badge-info-bg)] font-semibold text-[var(--badge-info-fg)]" : "text-foreground hover:bg-secondary")}>
-              {item.icon}
-              {collapsed ? <span className="sr-only md:not-sr-only md:hidden">{item.label}</span> : null}
-              <span className={collapsed ? "md:sr-only" : ""}>{item.label}</span>
-            </Link>
+            <div key={item.href}>
+              {showMore ? <p className={cn("px-2 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wide text-muted", collapsed ? "md:sr-only" : "")}>More</p> : null}
+              <Link href={item.href} aria-current={active ? "page" : undefined} className={cn("flex items-center gap-2 rounded-md px-2 py-2 text-sm", active ? "bg-[var(--badge-info-bg)] font-semibold text-[var(--badge-info-fg)]" : "text-foreground hover:bg-secondary", item.secondary && !active ? "text-muted" : "")}>
+                {item.icon}
+                <span className={collapsed ? "md:sr-only" : ""}>{item.label}</span>
+              </Link>
+            </div>
           );
         })}
       </nav>
@@ -251,7 +274,7 @@ function ShellMain({ children, home }: { children: React.ReactNode; home: string
           <label className="relative block max-w-xl">
             <span className="sr-only">Search</span>
             <Search className="pointer-events-none absolute left-2 top-2 text-muted" size={16} />
-            <input className="h-8 w-full rounded-md border border-border bg-secondary pl-8 pr-3 text-sm" placeholder="Search vendors, exhibitions, forms" value={query} onChange={(event) => { setQuery(event.target.value); setOpenSearch(true); }} onFocus={() => setOpenSearch(true)} />
+            <input className="h-8 w-full rounded-md border border-border bg-secondary pl-8 pr-3 text-sm" placeholder={home.startsWith("/vendor") ? "Search" : "Search a company or event"} value={query} onChange={(event) => { setQuery(event.target.value); setOpenSearch(true); }} onFocus={() => setOpenSearch(true)} />
           </label>
           {openSearch && query.trim().length > 1 ? (
             <div className="absolute z-30 mt-1 w-full max-w-xl rounded-md border border-border bg-surface p-1 shadow-panel">
@@ -286,9 +309,11 @@ function ShellMain({ children, home }: { children: React.ReactNode; home: string
       </header>
       <div className="px-4 pt-3 text-xs text-muted" aria-label="Breadcrumb">
         <Link href={home}>Home</Link>
-        {crumbs.slice(1).map((crumb) => (
-          <span key={crumb}> / <span className="capitalize">{crumb.replaceAll("-", " ")}</span></span>
-        ))}
+        {crumbs.slice(1).map((crumb) => {
+          const label = crumbLabel(crumb);
+          if (!label) return null;
+          return <span key={crumb}> / {label}</span>;
+        })}
       </div>
       <main className="px-4 py-4">{children}</main>
     </div>

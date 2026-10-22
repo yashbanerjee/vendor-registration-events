@@ -27,10 +27,10 @@ export default function ReviewsPage() {
   });
   return (
     <div>
-      <PageHeader title="Review queue" description="Submissions waiting for approval or correction." actions={<Button variant="primary" onClick={() => setOpen(true)}>Assign form</Button>} />
+      <PageHeader title="Check answers" description="Open a company to accept their form, or ask them to fix something." actions={<Button variant="primary" onClick={() => setOpen(true)}>Send a form</Button>} />
       <div className="table-wrap">
         <table className="data">
-          <thead><tr><th>Vendor</th><th>Exhibition</th><th>Form</th><th>Status</th></tr></thead>
+          <thead><tr><th>Company</th><th>Event</th><th>Form</th><th>Status</th></tr></thead>
           <tbody>
             {reviews.rows.map((row) => (
               <tr key={row.id}>
@@ -45,16 +45,16 @@ export default function ReviewsPage() {
       </div>
       <Pager page={reviews.page} pageCount={reviews.pageCount} total={reviews.total} rangeStart={reviews.rangeStart} rangeEnd={reviews.rangeEnd} onPage={reviews.setPage} />
       {reviews.total === 0 && !queue.isLoading ? <p className="mt-3 text-sm text-muted">The queue is empty.</p> : null}
-      <Modal open={open} title="Assign a published form" onClose={() => setOpen(false)}>
+      <Modal open={open} title="Send a form" onClose={() => setOpen(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); assign.mutate(); }}>
           <ErrorNote message={error} />
-          <Field label="Vendor">
+          <Field label="Company">
             <select className={inputClass} required value={form.vendorId} onChange={(event) => setForm({ ...form, vendorId: event.target.value })}>
               <option value="">Select</option>
               {(vendors.data?.data ?? []).map((vendor) => <option key={vendor.id} value={vendor.id}>{vendor.companyName}</option>)}
             </select>
           </Field>
-          <Field label="Exhibition">
+          <Field label="Event">
             <select className={inputClass} required value={form.exhibitionId} onChange={(event) => setForm({ ...form, exhibitionId: event.target.value })}>
               <option value="">Select</option>
               {(exhibitions.data?.data ?? []).map((exhibition) => <option key={exhibition.id} value={exhibition.id}>{exhibition.name}</option>)}

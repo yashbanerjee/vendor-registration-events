@@ -63,14 +63,14 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
           </div>
           {form.exhibition.name ? <p className="mt-1 text-sm text-muted">{form.exhibition.name}</p> : null}
           <ol className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
-            {["Download", "Upload PDF", "Add documents", "Submit"].map((label, index) => (
+            {["Get the form", "Upload it", "Add papers", "Send"].map((label, index) => (
               <li key={label} className={`rounded-full px-2.5 py-1 ${index < step ? "bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)]" : "bg-surface text-muted ring-1 ring-border"}`}>{index + 1} {label}</li>
             ))}
           </ol>
         </div>
         <Button size="sm" onClick={() => void download(`/pdf-forms/${form.id}/file`, form.filename)}>
           <Download size={14} aria-hidden />
-          Download blank PDF
+          Download form
         </Button>
       </div>
       {form.filledName ? <p className="mt-3 text-sm text-muted">Filled copy: {form.filledName}</p> : null}
@@ -118,9 +118,9 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
       ) : null}
       {!locked ? (
         <div className="mt-4">
-          <Button variant="primary" disabled={run.isPending || !form.filledName} onClick={() => run.mutate(() => api(`/my/pdf-forms/${form.id}/submit`, { method: "POST" }))}>Submit PDF form</Button>
+          <Button variant="primary" disabled={run.isPending || !form.filledName} onClick={() => run.mutate(() => api(`/my/pdf-forms/${form.id}/submit`, { method: "POST" }))}>Send</Button>
         </div>
-      ) : <p className="mt-3 text-sm text-muted">Submitted. A new upload opens only if this form or a document is sent back.</p>}
+      ) : <p className="mt-3 text-sm text-muted">Sent. You can upload again only if the organizer asks for a new copy.</p>}
     </div>
   );
 }

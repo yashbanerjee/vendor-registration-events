@@ -56,9 +56,8 @@ export function PdfForms({ exhibitionId }: { exhibitionId: string }) {
       <section className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <div className="border-b border-border p-5 lg:border-b-0 lg:border-r">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">Library</p>
-            <h2 className="mt-1 text-lg font-semibold tracking-tight">Blank forms for this event</h2>
-            <p className="mt-1 text-sm text-muted">Upload each PDF on its own. This does not create or change a questionnaire.</p>
+            <h2 className="text-lg font-semibold tracking-tight">PDF files for this event</h2>
+            <p className="mt-1 text-sm text-muted">Upload the blank PDF. Companies download it, fill it in, and send it back.</p>
             <ErrorNote message={error || (query.isError ? "Could not load PDF forms." : "")} />
             {canWrite ? <form className="mt-4 grid gap-3" onSubmit={(event) => { event.preventDefault(); setError(""); upload.mutate(); }}>
               <Field label="Form name"><input className={inputClass} required value={name} onChange={(event) => setName(event.target.value)} placeholder="Booth application" /></Field>
@@ -73,7 +72,7 @@ export function PdfForms({ exhibitionId }: { exhibitionId: string }) {
           <div className="p-5">
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted">On this exhibition</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">Files on this event</p>
                 <p className="text-2xl font-semibold tracking-tight">{forms.length}</p>
               </div>
               <p className="text-sm text-muted">{submitted} returned</p>
@@ -158,9 +157,8 @@ function AssignVendors({ exhibitionId, assignedIds, onAssigned }: { exhibitionId
     <section className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">Distribution</p>
-          <h2 className="mt-1 text-lg font-semibold tracking-tight">Assign vendors</h2>
-          <p className="mt-1 max-w-xl text-sm text-muted">This only sends the PDF forms. It does not assign a questionnaire.</p>
+          <h2 className="text-lg font-semibold tracking-tight">Send these PDFs</h2>
+          <p className="mt-1 max-w-xl text-sm text-muted">Pick the companies that should receive these files. This does not send the online questions.</p>
         </div>
         <Button variant="primary" disabled={!picked.length || assign.isPending} onClick={() => { setError(""); assign.mutate(); }}>
           <Send size={14} aria-hidden />

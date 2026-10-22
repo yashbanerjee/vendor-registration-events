@@ -24,10 +24,10 @@ export default function ExhibitionsPage() {
   });
   return (
     <div>
-      <PageHeader title="Exhibitions" description="Open an event to follow questionnaires and PDF forms separately." actions={<Button variant="primary" onClick={() => setOpen(true)}>Add exhibition</Button>} />
+      <PageHeader title="Events" description="Each show is one event. Open it to see who is filling the form and which PDFs they sent." actions={<Button variant="primary" onClick={() => setOpen(true)}>Add event</Button>} />
       <ErrorNote message={query.isError ? "Could not load exhibitions." : ""} />
       {query.isLoading ? <p className="text-sm text-muted">Loading exhibitions…</p> : null}
-      {!query.isLoading && exhibitions.total === 0 ? <EmptyState title="No exhibitions yet" body="Add an event, then assign vendors so you can track their form progress." /> : null}
+      {!query.isLoading && exhibitions.total === 0 ? <EmptyState title="No events yet" body="Add the show first. You can add companies and forms after that." /> : null}
       {exhibitions.total > 0 ? (
         <div className="table-wrap">
           <table className="data">
@@ -57,7 +57,7 @@ export default function ExhibitionsPage() {
         </div>
       ) : null}
       <Pager page={exhibitions.page} pageCount={exhibitions.pageCount} total={exhibitions.total} rangeStart={exhibitions.rangeStart} rangeEnd={exhibitions.rangeEnd} onPage={exhibitions.setPage} />
-      <Modal open={open} title="Add exhibition" onClose={() => setOpen(false)}>
+      <Modal open={open} title="Add event" onClose={() => setOpen(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); create.mutate(); }}>
           <ErrorNote message={error} />
           <Field label="Name"><input className={inputClass} required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></Field>
@@ -65,7 +65,7 @@ export default function ExhibitionsPage() {
           <Field label="Venue"><input className={inputClass} value={form.venue} onChange={(event) => setForm({ ...form, venue: event.target.value })} /></Field>
           <Field label="Starts"><input className={inputClass} type="datetime-local" required value={form.startsAt} onChange={(event) => setForm({ ...form, startsAt: event.target.value })} /></Field>
           <Field label="Ends"><input className={inputClass} type="datetime-local" required value={form.endsAt} onChange={(event) => setForm({ ...form, endsAt: event.target.value })} /></Field>
-          <Button type="submit" variant="primary">Save exhibition</Button>
+          <Button type="submit" variant="primary">Save event</Button>
         </form>
       </Modal>
     </div>

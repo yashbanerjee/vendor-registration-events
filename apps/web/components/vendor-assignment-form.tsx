@@ -104,12 +104,12 @@ export function VendorAssignmentForm({ assignment }: { assignment: VendorAssignm
       <ErrorNote message={error} />
       <Notice message={message} />
       {assignment.status === "SUBMITTED_PENDING_REVIEW" || assignment.status === "RESUBMITTED_PENDING_REVIEW" ? (
-        <p className="text-sm">This part is pending review. Approved answers stay locked.</p>
+        <p className="text-sm">Sent. The organizer will look at it.</p>
       ) : null}
       {assignment.status === "CORRECTION_REQUESTED" ? (
-        <p className="text-sm">Update only the flagged fields, then resubmit. The other answers stay as you sent them.</p>
+        <p className="text-sm">Please fix the marked questions, then press Send again.</p>
       ) : null}
-      {assignment.status === "APPROVED" ? <p className="text-sm">This part is approved and locked.</p> : null}
+      {assignment.status === "APPROVED" ? <p className="text-sm">Accepted. This part cannot be changed.</p> : null}
       <FormRenderer
         schema={assignment.form.schema}
         values={values}
@@ -123,8 +123,8 @@ export function VendorAssignmentForm({ assignment }: { assignment: VendorAssignm
       />
       {editable ? (
         <div className="flex gap-2">
-          {assignment.status !== "CORRECTION_REQUESTED" ? <Button onClick={() => save.mutate("draft")} disabled={save.isPending}>Save draft</Button> : null}
-          <Button variant="primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{assignment.status === "CORRECTION_REQUESTED" ? "Resubmit" : "Submit"}</Button>
+          {assignment.status !== "CORRECTION_REQUESTED" ? <Button onClick={() => save.mutate("draft")} disabled={save.isPending}>Save</Button> : null}
+          <Button variant="primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{assignment.status === "CORRECTION_REQUESTED" ? "Send again" : "Send"}</Button>
         </div>
       ) : null}
     </section>

@@ -36,7 +36,7 @@ function MasterForm() {
 
   return (
     <div className="grid gap-4">
-      <PageHeader title="Registration form" description="Every field is on this form, including PDF forms. Fill them here instead of opening each exhibition." />
+      <PageHeader title="Your form" description="Answer the questions. Then upload each PDF at the bottom. Press Send when a part is finished." />
       <Notice message={submitted ? "Your form was submitted." : ""} />
       <ErrorNote message={!loading && failed ? "Could not load your form." : ""} />
       {loading ? <p className="text-sm text-muted">Loading your form…</p> : null}
@@ -61,8 +61,8 @@ function MasterForm() {
       {pdfs.length > 0 ? (
         <section className="grid gap-4">
           <div>
-            <h2 className="text-base font-semibold">PDF forms</h2>
-            <p className="mt-1 text-sm text-muted">These files are part of the same registration form. Download each blank PDF, upload the completed copy, and add any extra documents by name.</p>
+            <h2 className="text-base font-semibold">PDF files</h2>
+            <p className="mt-1 text-sm text-muted">Download the blank file, fill it in, and upload it here. Add any extra papers with a name, then press Send.</p>
           </div>
           {pdfs.map((form) => (
             <div key={form.id} id={`pdf-${form.id}`} className="scroll-mt-20">

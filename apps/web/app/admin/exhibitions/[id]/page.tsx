@@ -115,7 +115,7 @@ export default function ExhibitionDetailPage() {
     <div>
       <Link href="/admin/exhibitions" className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground">
         <ChevronLeft size={16} aria-hidden />
-        All exhibitions
+        All events
       </Link>
       <ErrorNote message={query.isError ? "Could not load this exhibition." : ""} />
       {query.isLoading ? <p className="text-sm text-muted">Loading vendors…</p> : null}
@@ -126,7 +126,7 @@ export default function ExhibitionDetailPage() {
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{exhibition.code}</p>
                 <h1 className="mt-1 text-2xl font-semibold tracking-tight">{exhibition.name}</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{exhibition.description || "Questionnaires and PDF forms are tracked separately."}</p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{exhibition.description || "See who has answered the questions, or open PDF files to collect the paper forms."}</p>
               </div>
               <StatusBadge status={exhibition.status} />
             </div>
@@ -137,8 +137,8 @@ export default function ExhibitionDetailPage() {
           </section>
 
           <div className="mb-6 flex gap-6 border-b border-border" role="tablist" aria-label="Exhibition flows">
-            <TabButton current={view} value="questions" onSelect={setView}>Questionnaires</TabButton>
-            <TabButton current={view} value="pdf" onSelect={setView}>PDF forms</TabButton>
+            <TabButton current={view} value="questions" onSelect={setView}>Questions</TabButton>
+            <TabButton current={view} value="pdf" onSelect={setView}>PDF files</TabButton>
           </div>
 
           {view === "questions" ? (
@@ -157,7 +157,7 @@ export default function ExhibitionDetailPage() {
                 <FilterButton current={filter} value="open" onSelect={setFilter}>Not started</FilterButton>
                 <FilterButton current={filter} value="none" onSelect={setFilter}>No questionnaire</FilterButton>
               </div>
-              {vendors.length === 0 ? <EmptyState title="No vendors yet" body="Assign a questionnaire from the vendor directory. PDF-only vendors are added on the PDF forms tab." /> : null}
+              {vendors.length === 0 ? <EmptyState title="No companies yet" body="Add a company, then send them this form. PDF-only companies are added under PDF files." /> : null}
               {vendors.length > 0 && visible.length === 0 ? <p className="text-sm text-muted">No vendors match this search.</p> : null}
               <div className="grid gap-3">
                 {visible.map((vendor) => (
