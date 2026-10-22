@@ -16,6 +16,7 @@ export function FormRenderer({
   onUpload,
   selectedFieldId,
   onSelectField,
+  idPrefix,
 }: {
   schema: FormSchemaDefinition;
   values: Record<string, unknown>;
@@ -27,6 +28,7 @@ export function FormRenderer({
   onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
   selectedFieldId?: string | null;
   onSelectField?: (fieldId: string) => void;
+  idPrefix?: string;
 }) {
   const byId = new Map(schema.fields.map((field) => [field.id, field]));
   const sections = [...schema.sections].sort((a, b) => a.order - b.order);
@@ -47,7 +49,7 @@ export function FormRenderer({
                   onClick={() => onSelectField?.(field.id)}
                   className={onSelectField ? `rounded-md p-1 ${selectedFieldId === field.id ? "ring-2 ring-brand" : "ring-1 ring-transparent hover:ring-border"}` : undefined}
                 >
-                  <FieldControl field={field} value={values[field.id]} note={notes?.find((item) => item.fieldId === field.id)?.note} error={errors?.find((item) => item.fieldId === field.id)?.message} editable={isEditable(field.id, editableFieldIds, disabled)} onChange={onChange} onUpload={onUpload} />
+                  <FieldControl id={`${idPrefix ? `${idPrefix}-` : ""}${field.id}`} field={field} value={values[field.id]} note={notes?.find((item) => item.fieldId === field.id)?.note} error={errors?.find((item) => item.fieldId === field.id)?.message} editable={isEditable(field.id, editableFieldIds, disabled)} onChange={onChange} onUpload={onUpload} />
                 </div>
               ))}
           </div>
@@ -58,6 +60,7 @@ export function FormRenderer({
 }
 
 function FieldControl({
+  id,
   field,
   value,
   note,
@@ -66,6 +69,7 @@ function FieldControl({
   onChange,
   onUpload,
 }: {
+  id: string;
   field: FormField;
   value: unknown;
   note?: string;
@@ -76,25 +80,25 @@ function FieldControl({
 }) {
   if (field.type === "heading") return <h3 className="text-sm font-semibold">{field.label}</h3>;
   if (field.type === "info") return <p className="text-sm text-muted">{field.description || field.label}</p>;
-  const describedBy = [note ? `${field.id}-note` : "", error ? `${field.id}-error` : ""].filter(Boolean).join(" ") || undefined;
+  const describedBy = [note ? `${id}-note` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
   return (
     <div className={note || error ? "rounded-md border border-[var(--warning)] bg-[var(--badge-warning-bg)] p-3" : ""}>
-      <label className="grid gap-1 text-sm" htmlFor={field.id}>
+      <label className="grid gap-1 text-sm" htmlFor={id}>
         <span className="font-medium">
           {field.label}
           {field.required ? <span className="text-danger"> *</span> : null}
           {!editable ? <span className="ml-2 text-xs font-normal text-muted">Locked</span> : null}
         </span>
         {field.description ? <span className="text-xs text-muted">{field.description}</span> : null}
-        <Control id={field.id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
+        <Control id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
       </label>
       {error ? (
-        <p id={`${field.id}-error`} className="mt-2 text-sm text-danger">
+        <p id={`${id}-error`} className="mt-2 text-sm text-danger">
           {error}
         </p>
       ) : null}
       {note ? (
-        <p id={`${field.id}-note`} className="mt-2 text-sm text-[var(--badge-warning-fg)]">
+        <p id={`${id}-note`} className="mt-2 text-sm text-[var(--badge-warning-fg)]">
           Correction: {note}
         </p>
       ) : null}

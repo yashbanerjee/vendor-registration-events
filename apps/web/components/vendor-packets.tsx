@@ -1,13 +1,13 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Download, FileUp } from "lucide-react";
 import { useRef, useState } from "react";
 import { ApiError, api, download } from "@/lib/api";
 import { Button, ErrorNote, Field, StatusBadge, inputClass } from "@/components/ui";
 
 type PacketFile = { id: string; name: string; filename: string; status: string; adminNote: string };
-type Packet = {
+export type Packet = {
   id: string;
   name: string;
   filename: string;
@@ -18,44 +18,7 @@ type Packet = {
   files: PacketFile[];
 };
 
-export function VendorPackets() {
-  const client = useQueryClient();
-  const query = useQuery({ queryKey: ["my-pdf-forms"], queryFn: () => api<{ data: Packet[] }>("/my/pdf-forms") });
-  const packets = query.data?.data ?? [];
-  const groups = new Map<string, { name: string; venue: string; forms: Packet[] }>();
-  for (const packet of packets) {
-    const current = groups.get(packet.exhibition.id) ?? { name: packet.exhibition.name, venue: packet.exhibition.venue, forms: [] };
-    current.forms.push(packet);
-    groups.set(packet.exhibition.id, current);
-  }
-  if (query.isError) return <p className="text-sm text-muted">Could not load your PDF forms.</p>;
-  if (query.isLoading || packets.length === 0) return null;
-
-  return (
-    <section className="grid gap-3">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">PDF forms</p>
-        <h2 className="mt-1 text-lg font-semibold tracking-tight">Download, fill, and send back</h2>
-        <p className="mt-1 text-sm text-muted">These are separate from online questionnaires. Download the blank PDF, upload your completed copy, and attach any extra documents by name.</p>
-      </div>
-      {[...groups.entries()].map(([id, group]) => (
-        <article key={id} className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
-          <div>
-            <h3 className="font-semibold">{group.name}</h3>
-            {group.venue ? <p className="text-sm text-muted">{group.venue}</p> : null}
-            <div className="mt-4 grid gap-4">
-              {group.forms.map((form) => (
-                <PacketCard key={form.id} form={form} onChange={() => client.invalidateQueries({ queryKey: ["my-pdf-forms"] })} />
-              ))}
-            </div>
-          </div>
-        </article>
-      ))}
-    </section>
-  );
-}
-
-function PacketCard({ form, onChange }: { form: Packet; onChange: () => Promise<void> }) {
+export function PacketCard({ form, onChange }: { form: Packet; onChange: () => Promise<void> }) {
   const locked = form.status === "SUBMITTED";
   const docRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
@@ -95,9 +58,10 @@ function PacketCard({ form, onChange }: { form: Packet; onChange: () => Promise<
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h4 className="font-semibold">{form.name}</h4>
+            <h3 className="font-semibold">{form.name}</h3>
             <StatusBadge status={form.status} />
           </div>
+          {form.exhibition.name ? <p className="mt-1 text-sm text-muted">{form.exhibition.name}</p> : null}
           <ol className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
             {["Download", "Upload PDF", "Add documents", "Submit"].map((label, index) => (
               <li key={label} className={`rounded-full px-2.5 py-1 ${index < step ? "bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)]" : "bg-surface text-muted ring-1 ring-border"}`}>{index + 1} {label}</li>
