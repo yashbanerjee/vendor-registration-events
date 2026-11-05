@@ -153,6 +153,7 @@ export function VendorAssignmentForm({ assignment, compact = false }: { assignme
         errors={fieldErrors}
         disabled={!editable}
         idPrefix={assignment.id}
+        documentTable
         visibleSectionId={staged ? sections[currentStage]?.id : null}
         onChange={(fieldId, value) => setValues((current) => ({ ...current, [fieldId]: value }))}
         onUpload={upload}

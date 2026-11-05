@@ -19,6 +19,7 @@ export function FormRenderer({
   onSelectField,
   idPrefix,
   visibleSectionId,
+  documentTable,
 }: {
   schema: FormSchemaDefinition;
   values: Record<string, unknown>;
@@ -32,21 +33,39 @@ export function FormRenderer({
   onSelectField?: (fieldId: string) => void;
   idPrefix?: string;
   visibleSectionId?: string | null;
+  documentTable?: boolean;
 }) {
   const byId = new Map(schema.fields.map((field) => [field.id, field]));
   const sections = [...schema.sections].sort((a, b) => a.order - b.order).filter((section) => !visibleSectionId || section.id === visibleSectionId);
   return (
     <div className="grid gap-4">
-      {sections.map((section) => (
-        <section key={section.id} className="min-w-0 rounded-lg border border-border bg-surface p-4">
-          <h2 className="text-base font-semibold">{section.title}</h2>
-          {section.description ? <p className="mb-3 text-sm text-muted">{section.description}</p> : null}
-          <div className="grid gap-4">
-            {schema.fields
-              .filter((field) => field.sectionId === section.id)
-              .sort((a, b) => a.order - b.order)
-              .filter((field) => isFieldVisible(field, values, byId))
-              .map((field) => (
+      {sections.map((section) => {
+        const visible = schema.fields
+          .filter((field) => field.sectionId === section.id)
+          .sort((a, b) => a.order - b.order)
+          .filter((field) => isFieldVisible(field, values, byId));
+        const groups = groupFields(visible, Boolean(documentTable));
+        return (
+          <section key={section.id} className="min-w-0 rounded-lg border border-border bg-surface p-4">
+            <h2 className="text-base font-semibold">{section.title}</h2>
+            {section.description ? <p className="mb-3 text-sm text-muted">{section.description}</p> : null}
+            <div className="grid gap-4">
+              {groups.map((group) => group.table ? (
+                <DocumentTable
+                  key={group.fields[0]?.id}
+                  fields={group.fields}
+                  values={values}
+                  notes={notes}
+                  errors={errors}
+                  disabled={disabled}
+                  editableFieldIds={editableFieldIds}
+                  idPrefix={idPrefix}
+                  selectedFieldId={selectedFieldId}
+                  onSelectField={onSelectField}
+                  onChange={onChange}
+                  onUpload={onUpload}
+                />
+              ) : group.fields.map((field) => (
                 <div
                   key={field.id}
                   onClick={() => onSelectField?.(field.id)}
@@ -54,10 +73,110 @@ export function FormRenderer({
                 >
                   <FieldControl id={`${idPrefix ? `${idPrefix}-` : ""}${field.id}`} field={field} value={values[field.id]} note={notes?.find((item) => item.fieldId === field.id)?.note} error={errors?.find((item) => item.fieldId === field.id)?.message} editable={isEditable(field.id, editableFieldIds, disabled)} onChange={onChange} onUpload={onUpload} />
                 </div>
-              ))}
-          </div>
-        </section>
-      ))}
+              )))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function groupFields(fields: FormField[], table: boolean) {
+  const groups: { table: boolean; fields: FormField[] }[] = [];
+  for (const field of fields) {
+    const useTable = table && isDocumentField(field);
+    const last = groups.at(-1);
+    if (last && last.table && useTable) last.fields.push(field);
+    else groups.push({ table: useTable, fields: [field] });
+  }
+  return groups;
+}
+
+function isDocumentField(field: FormField) {
+  return field.type === "reupload" || field.type === "file" || field.type === "files";
+}
+
+function DocumentTable({
+  fields,
+  values,
+  notes,
+  errors,
+  disabled,
+  editableFieldIds,
+  idPrefix,
+  selectedFieldId,
+  onSelectField,
+  onChange,
+  onUpload,
+}: {
+  fields: FormField[];
+  values: Record<string, unknown>;
+  notes?: { fieldId: string; note: string }[];
+  errors?: { fieldId: string; message: string }[];
+  disabled?: boolean;
+  editableFieldIds?: string[];
+  idPrefix?: string;
+  selectedFieldId?: string | null;
+  onSelectField?: (fieldId: string) => void;
+  onChange?: (fieldId: string, value: unknown) => void;
+  onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
+}) {
+  return (
+    <div className="table-wrap">
+      <table className="data min-w-[760px]">
+        <thead>
+          <tr>
+            <th className="min-w-44">Document required</th>
+            <th className="min-w-52">Note</th>
+            <th className="min-w-40">Document template</th>
+            <th className="min-w-44">Upload document</th>
+          </tr>
+        </thead>
+        <tbody>
+          {fields.map((field) => {
+            const id = `${idPrefix ? `${idPrefix}-` : ""}${field.id}`;
+            const note = notes?.find((item) => item.fieldId === field.id)?.note;
+            const error = errors?.find((item) => item.fieldId === field.id)?.message;
+            const editable = isEditable(field.id, editableFieldIds, disabled);
+            const uploaded = fileItems(values[field.id]).length > 0;
+            const describedBy = [note ? `${id}-note` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
+            const template = field.type === "reupload" ? field.template : undefined;
+            return (
+              <tr
+                key={field.id}
+                onClick={() => onSelectField?.(field.id)}
+                className={error || note ? "bg-[var(--badge-warning-bg)]" : uploaded ? "bg-[var(--badge-success-bg)]" : ""}
+              >
+                <td className="align-top">
+                  <span className={`text-sm font-medium ${selectedFieldId === field.id ? "underline" : ""}`}>
+                    {field.label}
+                    {field.required ? <span className="text-danger"> *</span> : null}
+                  </span>
+                  {!editable ? <span className="mt-1 block text-xs text-muted">Locked</span> : null}
+                </td>
+                <td className="align-top">
+                  <p className="text-sm text-muted">{field.description || "—"}</p>
+                  {error ? <p id={`${id}-error`} className="mt-1 text-sm text-danger">{error}</p> : null}
+                  {note ? <p id={`${id}-note`} className="mt-1 text-sm text-[var(--badge-warning-fg)]">Correction: {note}</p> : null}
+                </td>
+                <td className="align-top">
+                  {template?.assetId && template.filename ? (
+                    <span className="break-all [&_button]:whitespace-normal [&_button]:text-left">
+                      <RemoteFileLink path={`/form-assets/${template.assetId}/content`} filename={template.filename} />
+                    </span>
+                  ) : (
+                    <span className="text-sm text-muted">—</span>
+                  )}
+                </td>
+                <td className="align-top">
+                  <FileField id={id} field={field} value={values[field.id]} editable={editable} describedBy={describedBy} dense onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -240,6 +359,7 @@ function FileField({
   value,
   editable,
   describedBy,
+  dense,
   onChange,
   onUpload,
 }: {
@@ -248,6 +368,7 @@ function FileField({
   value: unknown;
   editable: boolean;
   describedBy?: string;
+  dense?: boolean;
   onChange: (value: unknown) => void;
   onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
 }) {
@@ -284,13 +405,30 @@ function FileField({
     }
   }
 
+  const chooseLabel = pending ? "Uploading…" : files.length ? (multiple ? "Add another" : "Replace") : "Upload";
   return (
     <div className="grid min-w-0 gap-2 break-words">
+      {dense ? (
+        files.length ? (
+          <span className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-[var(--badge-success-fg)]">
+            <UploadTick />
+            Uploaded
+          </span>
+        ) : (
+          <span className="text-sm text-muted">Not uploaded</span>
+        )
+      ) : null}
       {files.map((file) => (
         <div key={file.documentId || file.filename} className="flex min-w-0 items-start gap-2">
-          <span className="mt-1"><UploadTick /></span>
+          {dense ? null : <span className="mt-1"><UploadTick /></span>}
           <div className="min-w-0 flex-1">
-            {localPreview[file.documentId] ? (
+            {dense ? (
+              file.documentId && isStoredDocument(file.documentId) ? (
+                <FileLink documentId={file.documentId} filename={file.filename} />
+              ) : (
+                <span className="text-sm">{file.filename}</span>
+              )
+            ) : localPreview[file.documentId] ? (
               <img src={localPreview[file.documentId]} alt={file.filename} className="max-h-48 w-full rounded-md border border-border bg-white object-contain" />
             ) : file.documentId && isStoredDocument(file.documentId) ? (
               isImageName(file.filename) ? (
@@ -305,11 +443,18 @@ function FileField({
         </div>
       ))}
       {error ? <p className="text-sm text-danger">{error}</p> : null}
-      <UploadStatus pending={pending} />
+      {dense ? null : <UploadStatus pending={pending} />}
       {editable ? (
-        <div className="min-w-0 overflow-hidden">
-          <input id={id} className="block w-full max-w-full text-sm" type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />
-        </div>
+        dense ? (
+          <label className={`inline-flex h-8 w-fit cursor-pointer items-center rounded-md border border-border bg-surface px-2.5 text-sm font-semibold hover:bg-secondary ${pending || !onUpload ? "cursor-wait opacity-70" : ""}`}>
+            <input id={id} className="sr-only" type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />
+            {chooseLabel}
+          </label>
+        ) : (
+          <div className="min-w-0 overflow-hidden">
+            <input id={id} className="block w-full max-w-full text-sm" type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />
+          </div>
+        )
       ) : null}
     </div>
   );
