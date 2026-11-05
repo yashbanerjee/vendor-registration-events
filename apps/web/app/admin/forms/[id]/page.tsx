@@ -3,13 +3,13 @@
 import { FIELD_TYPES, type FieldType, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { arrayMove } from "@dnd-kit/sortable";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState, type ChangeEvent } from "react";
 import { FormRenderer } from "@/components/form-renderer";
 import { RemoteFileLink } from "@/components/file-preview";
 import { ApiError, api } from "@/lib/api";
-import { Button, ErrorNote, Field, Notice, PageHeader, UploadStatus, UploadTick, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, Modal, Notice, PageHeader, UploadStatus, UploadTick, inputClass } from "@/components/ui";
 
 type Template = {
   data: {
@@ -26,7 +26,9 @@ const palette = FIELD_TYPES.filter((type) => type !== "repeater");
 
 export default function FormBuilderPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const client = useQueryClient();
+  const [removing, setRemoving] = useState(false);
   const query = useQuery({ queryKey: ["form", params.id], queryFn: () => api<Template>(`/forms/${params.id}`) });
   const [schema, setSchema] = useState<FormSchemaDefinition | null>(null);
   const [name, setName] = useState("");
@@ -55,7 +57,16 @@ export default function FormBuilderPage() {
     onSuccess: async () => { setMessage("Published a new immutable version."); setError(""); await client.invalidateQueries({ queryKey: ["form", params.id] }); },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Publish failed."),
   });
+  const remove = useMutation({
+    mutationFn: () => api("/forms/archive", { method: "POST", body: JSON.stringify({ ids: [params.id] }) }),
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ["forms"] });
+      router.push("/admin/forms");
+    },
+    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not delete the form."),
+  });
 
+  if (query.isError) return <p className="text-sm text-muted">This form was not found.</p>;
   if (!schema) return <p className="text-sm text-muted">Loading form…</p>;
   const sectionId = schema.sections[0]?.id;
   const field = schema.fields.find((item) => item.id === selected) ?? null;
@@ -95,6 +106,7 @@ export default function FormBuilderPage() {
           description={`This canvas is the form vendors will fill in. Click a field to edit it. Published versions: ${query.data?.data.versions.map((version) => `v${version.versionNumber}`).join(", ") || "none yet"}`}
           actions={
             <div className="flex gap-2">
+              <Button variant="danger" onClick={() => { setError(""); setRemoving(true); }}>Delete</Button>
               <Button onClick={() => save.mutate()} disabled={save.isPending}>Save draft</Button>
               <Button variant="primary" onClick={() => publish.mutate()} disabled={publish.isPending}>Publish</Button>
             </div>
@@ -156,6 +168,15 @@ export default function FormBuilderPage() {
           </div>
         </aside>
       </div>
+      <Modal open={removing} title="Delete form" onClose={() => setRemoving(false)}>
+        <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); remove.mutate(); }}>
+          <p className="text-sm">Delete {name || "this form"}? It leaves the forms list and cannot be assigned again. Answers already sent stay on record. A company that has not sent it yet will no longer see it.</p>
+          <div className="flex gap-2">
+            <Button type="button" onClick={() => setRemoving(false)}>Cancel</Button>
+            <Button type="submit" variant="danger" disabled={remove.isPending}>Delete</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 

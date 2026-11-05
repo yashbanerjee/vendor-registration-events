@@ -1064,7 +1064,7 @@ export class WorkflowService {
       orderBy: { versionNumber: "desc" },
       include: { template: true },
     });
-    if (!latest || latest.id === assignment.formVersionId) return;
+    if (!latest || latest.template.archivedAt || latest.id === assignment.formVersionId) return;
     const clash = await tx.formAssignment.findFirst({
       where: {
         organizationId: assignment.organizationId,

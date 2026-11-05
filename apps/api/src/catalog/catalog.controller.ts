@@ -103,6 +103,12 @@ export class CatalogController {
     return this.catalog.createForm(request.user!, body);
   }
 
+  @Post("forms/archive")
+  @RequirePermissions(PERMISSIONS.formsWrite)
+  archiveForms(@Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.catalog.archiveForms(request.user!, body);
+  }
+
   @Get("forms/compare/:leftId/:rightId")
   @RequirePermissions(PERMISSIONS.formsRead)
   compare(@Req() request: AuthedRequest, @Param("leftId") leftId: string, @Param("rightId") rightId: string) {

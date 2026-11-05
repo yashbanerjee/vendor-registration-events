@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { createHash, randomUUID } from "node:crypto";
-import { fieldAnswers, formSchemaDefinition, PERMISSIONS, type FormField, type FormSchemaDefinition } from "@vmp/shared";
+import { assertTransition, fieldAnswers, formSchemaDefinition, PERMISSIONS, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { z } from "zod";
 import type { AuthContext } from "../common/auth";
 import { randomReference } from "../common/crypto";
@@ -578,8 +578,50 @@ export class CatalogService {
         include: { versions: { orderBy: { versionNumber: "desc" } } },
       }),
     );
-    if (!form) throw new NotFoundException();
+    if (!form || form.archivedAt) throw new NotFoundException();
     return { data: form };
+  }
+
+  async archiveForms(user: AuthContext, body: unknown) {
+    const input = z.object({ ids: z.array(z.string().uuid()).min(1).max(100) }).parse(body);
+    const archived = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const forms = await tx.formTemplate.findMany({
+        where: { organizationId: user.organizationId, id: { in: input.ids }, archivedAt: null },
+      });
+      for (const form of forms) {
+        const open = await tx.formAssignment.findMany({
+          where: {
+            organizationId: user.organizationId,
+            formVersion: { templateId: form.id },
+            status: { in: ["INVITED", "IN_PROGRESS", "CORRECTION_REQUESTED"] },
+          },
+          select: { id: true, status: true },
+        });
+        for (const assignment of open) {
+          assertTransition(assignment.status, "REVOKED");
+          await tx.formAssignment.update({
+            where: { id: assignment.id },
+            data: { status: "REVOKED", lockVersion: { increment: 1 } },
+          });
+          await tx.invitation.updateMany({
+            where: { assignmentId: assignment.id, usedAt: null, revokedAt: null },
+            data: { revokedAt: new Date() },
+          });
+        }
+        await tx.formTemplate.update({ where: { id: form.id }, data: { archivedAt: new Date() } });
+        await this.audit.record(tx, {
+          organizationId: user.organizationId,
+          actorId: user.id,
+          actorRole: user.roles.join(","),
+          action: "form.archived",
+          resourceType: "form_template",
+          resourceId: form.id,
+          newValue: { name: form.name, closedAssignments: open.length },
+        });
+      }
+      return forms.length;
+    });
+    return { data: { archived } };
   }
 
   async createForm(user: AuthContext, body: unknown) {
