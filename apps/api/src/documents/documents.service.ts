@@ -10,7 +10,7 @@ import { OutboxProcessor, OutboxService } from "../jobs/jobs.service";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
-import { isPreviewableMime, mimeForFilename, scanBuffer } from "./scan";
+import { fileMatchesAccept, isPreviewableMime, mimeForFilename, scanBuffer } from "./scan";
 
 @Injectable()
 export class DocumentsService {
@@ -63,6 +63,10 @@ export class DocumentsService {
           const schema = formSchemaDefinition.parse(assignment.formVersion.schema);
           const field = schema.fields.find((item) => item.id === fields.fieldId);
           if (!field || !["file", "files", "image", "reupload"].includes(field.type)) throw new ConflictException("That field does not accept files.");
+          if (field.type === "image" && !mimeType.startsWith("image/")) throw new ConflictException(`${field.label} must be an image.`);
+          if (field.file?.accept?.length && !fileMatchesAccept(field.file.accept, filename, mimeType)) {
+            throw new ConflictException(`${field.label} must be uploaded as ${field.file.accept.join(", ")}.`);
+          }
         }
       }
       await this.storage.put(user.organizationId, storageKey, file.buffer, mimeType);

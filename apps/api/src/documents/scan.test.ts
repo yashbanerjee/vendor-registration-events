@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { sniffAllowed } from "./scan";
+import { fileMatchesAccept, sniffAllowed } from "./scan";
+
+test("file rules match the extension or mime type that was asked for", () => {
+  assert.equal(fileMatchesAccept([".pdf"], "layout.PDF", "application/pdf"), true);
+  assert.equal(fileMatchesAccept([".pdf"], "photo.png", "image/png"), false);
+  assert.equal(fileMatchesAccept([".png", ".jpg", ".jpeg"], "view.jpg", "image/jpeg"), true);
+  assert.equal(fileMatchesAccept(["image/*"], "stamp.png", "image/png"), true);
+});
 
 test("accepts a PDF signature and rejects an executable renamed as pdf", () => {
   const pdf = Buffer.from("%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF\n");

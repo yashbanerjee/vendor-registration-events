@@ -162,6 +162,18 @@ export async function scanWithClamAv(buffer: Buffer, host: string, port: number)
   return { clean: true, details: "clamav clean" };
 }
 
+export function fileMatchesAccept(accept: string[], filename: string, mimeType: string) {
+  const extension = `.${extensionOf(filename)}`;
+  const mime = normalizeMime(mimeType);
+  return accept.some((rule) => {
+    const item = rule.toLowerCase().trim();
+    if (!item) return false;
+    if (item.startsWith(".")) return item === extension;
+    if (item.endsWith("/*")) return mime.startsWith(item.slice(0, -1));
+    return normalizeMime(item) === mime;
+  });
+}
+
 export async function scanBuffer(buffer: Buffer, filename: string, declaredMime: string, clam?: { host: string; port: number }) {
   const signature = sniffAllowed(buffer, filename, declaredMime);
   if (!signature.clean) return signature;

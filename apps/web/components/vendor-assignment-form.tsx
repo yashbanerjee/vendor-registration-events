@@ -76,6 +76,7 @@ export function VendorAssignmentForm({ assignment, compact = false }: { assignme
         setFieldErrors(issues);
         setError("Fill every compulsory field before submitting.");
         const first = issues[0]?.fieldId;
+        showStageForField(first);
         requestAnimationFrame(() => {
           if (!first) return;
           document.getElementById(`${assignment.id}-${first}`)?.scrollIntoView({ block: "center" });
@@ -101,7 +102,17 @@ export function VendorAssignmentForm({ assignment, compact = false }: { assignme
     },
   });
 
+  const sections = [...assignment.form.schema.sections].sort((left, right) => left.order - right.order);
+  const [stage, setStage] = useState(0);
+  const currentStage = Math.min(stage, Math.max(sections.length - 1, 0));
   const editable = assignment.status === "INVITED" || assignment.status === "IN_PROGRESS" || assignment.status === "CORRECTION_REQUESTED";
+  const staged = sections.length > 1;
+
+  function showStageForField(fieldId?: string) {
+    const field = assignment.form.schema.fields.find((item) => item.id === fieldId);
+    const index = sections.findIndex((section) => section.id === field?.sectionId);
+    if (index >= 0) setStage(index);
+  }
   return (
     <section id={`assignment-${assignment.id}`} className="scroll-mt-20 grid gap-4">
       {compact ? null : (
@@ -125,6 +136,15 @@ export function VendorAssignmentForm({ assignment, compact = false }: { assignme
         <p className="text-sm">Please fix the marked questions, then press Send again.</p>
       ) : null}
       {assignment.status === "APPROVED" ? <p className="text-sm">Accepted. This part cannot be changed.</p> : null}
+      {staged ? (
+        <nav aria-label="Form stages" className="flex flex-wrap gap-2">
+          {sections.map((section, index) => (
+            <Button key={section.id} size="sm" variant={index === currentStage ? "primary" : "secondary"} aria-current={index === currentStage ? "step" : undefined} onClick={() => setStage(index)}>
+              {index + 1}. {section.title}
+            </Button>
+          ))}
+        </nav>
+      ) : null}
       <FormRenderer
         schema={assignment.form.schema}
         values={values}
@@ -133,13 +153,18 @@ export function VendorAssignmentForm({ assignment, compact = false }: { assignme
         errors={fieldErrors}
         disabled={!editable}
         idPrefix={assignment.id}
+        visibleSectionId={staged ? sections[currentStage]?.id : null}
         onChange={(fieldId, value) => setValues((current) => ({ ...current, [fieldId]: value }))}
         onUpload={upload}
       />
       {editable ? (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {staged && currentStage > 0 ? <Button onClick={() => setStage(currentStage - 1)}>Back</Button> : null}
           {assignment.status !== "CORRECTION_REQUESTED" ? <Button onClick={() => save.mutate("draft")} disabled={save.isPending}>Save</Button> : null}
-          <Button variant="primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{assignment.status === "CORRECTION_REQUESTED" ? "Send again" : "Send"}</Button>
+          {staged && currentStage < sections.length - 1 ? <Button variant="primary" onClick={() => setStage(currentStage + 1)}>Next</Button> : null}
+          {!staged || currentStage === sections.length - 1 ? (
+            <Button variant="primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{assignment.status === "CORRECTION_REQUESTED" ? "Send again" : "Send"}</Button>
+          ) : null}
         </div>
       ) : null}
     </section>
