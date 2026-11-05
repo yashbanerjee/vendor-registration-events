@@ -137,9 +137,9 @@ export function VendorAssignmentForm({ assignment, compact = false }: { assignme
       ) : null}
       {assignment.status === "APPROVED" ? <p className="text-sm">Accepted. This part cannot be changed.</p> : null}
       {staged ? (
-        <nav aria-label="Form stages" className="flex flex-wrap gap-2">
+        <nav aria-label="Form stages" className="grid gap-2 sm:flex sm:flex-wrap">
           {sections.map((section, index) => (
-            <Button key={section.id} size="sm" variant={index === currentStage ? "primary" : "secondary"} aria-current={index === currentStage ? "step" : undefined} onClick={() => setStage(index)}>
+            <Button key={section.id} size="sm" variant={index === currentStage ? "primary" : "secondary"} aria-current={index === currentStage ? "step" : undefined} className="h-auto min-h-11 w-full whitespace-normal px-3 py-2 text-left sm:h-8 sm:w-auto sm:whitespace-nowrap" onClick={() => setStage(index)}>
               {index + 1}. {section.title}
             </Button>
           ))}
@@ -159,12 +159,12 @@ export function VendorAssignmentForm({ assignment, compact = false }: { assignme
         onUpload={upload}
       />
       {editable ? (
-        <div className="flex flex-wrap gap-2">
-          {staged && currentStage > 0 ? <Button onClick={() => setStage(currentStage - 1)}>Back</Button> : null}
-          {assignment.status !== "CORRECTION_REQUESTED" ? <Button onClick={() => save.mutate("draft")} disabled={save.isPending}>Save</Button> : null}
-          {staged && currentStage < sections.length - 1 ? <Button variant="primary" onClick={() => setStage(currentStage + 1)}>Next</Button> : null}
+        <div className="sticky bottom-0 z-10 -mx-3 grid grid-cols-2 gap-2 border-t border-border bg-surface px-3 py-3 sm:static sm:mx-0 sm:flex sm:flex-wrap sm:border-0 sm:bg-transparent sm:p-0">
+          {staged && currentStage > 0 ? <Button className="w-full sm:w-auto" onClick={() => setStage(currentStage - 1)}>Back</Button> : null}
+          {assignment.status !== "CORRECTION_REQUESTED" ? <Button className="w-full sm:w-auto" onClick={() => save.mutate("draft")} disabled={save.isPending}>Save</Button> : null}
+          {staged && currentStage < sections.length - 1 ? <Button className="w-full sm:w-auto" variant="primary" onClick={() => setStage(currentStage + 1)}>Next</Button> : null}
           {!staged || currentStage === sections.length - 1 ? (
-            <Button variant="primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{assignment.status === "CORRECTION_REQUESTED" ? "Send again" : "Send"}</Button>
+            <Button className="w-full sm:w-auto" variant="primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{assignment.status === "CORRECTION_REQUESTED" ? "Send again" : "Send"}</Button>
           ) : null}
         </div>
       ) : null}

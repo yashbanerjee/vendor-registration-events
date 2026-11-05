@@ -46,7 +46,7 @@ export function FormRenderer({
           .filter((field) => isFieldVisible(field, values, byId));
         const groups = groupFields(visible, Boolean(documentTable));
         return (
-          <section key={section.id} className="min-w-0 rounded-lg border border-border bg-surface p-4">
+          <section key={section.id} className="min-w-0 rounded-lg border border-border bg-surface p-3 sm:p-4">
             <h2 className="text-base font-semibold">{section.title}</h2>
             {section.description ? <p className="mb-3 text-sm text-muted">{section.description}</p> : null}
             <div className="grid gap-4">
@@ -124,13 +124,13 @@ function DocumentTable({
 }) {
   return (
     <div className="table-wrap">
-      <table className="data min-w-[760px]">
+      <table className="data documents">
         <thead>
           <tr>
-            <th className="min-w-44">Document required</th>
-            <th className="min-w-52">Note</th>
-            <th className="min-w-40">Document template</th>
-            <th className="min-w-44">Upload document</th>
+            <th className="min-w-40">Document required</th>
+            <th className="min-w-48">Note</th>
+            <th className="min-w-36">Document template</th>
+            <th className="min-w-40">Upload document</th>
           </tr>
         </thead>
         <tbody>
@@ -146,21 +146,22 @@ function DocumentTable({
               <tr
                 key={field.id}
                 onClick={() => onSelectField?.(field.id)}
+                data-state={error || note ? "attention" : uploaded ? "uploaded" : undefined}
                 className={error || note ? "bg-[var(--badge-warning-bg)]" : uploaded ? "bg-[var(--badge-success-bg)]" : ""}
               >
-                <td className="align-top">
+                <td className="align-top" data-label="Document required">
                   <span className={`text-sm font-medium ${selectedFieldId === field.id ? "underline" : ""}`}>
                     {field.label}
                     {field.required ? <span className="text-danger"> *</span> : null}
                   </span>
                   {!editable ? <span className="mt-1 block text-xs text-muted">Locked</span> : null}
                 </td>
-                <td className="align-top">
+                <td className="align-top" data-label="Note">
                   <p className="text-sm text-muted">{field.description || "—"}</p>
                   {error ? <p id={`${id}-error`} className="mt-1 text-sm text-danger">{error}</p> : null}
                   {note ? <p id={`${id}-note`} className="mt-1 text-sm text-[var(--badge-warning-fg)]">Correction: {note}</p> : null}
                 </td>
-                <td className="align-top">
+                <td className="align-top" data-label="Document template">
                   {template?.assetId && template.filename ? (
                     <span className="break-all [&_button]:whitespace-normal [&_button]:text-left">
                       <RemoteFileLink path={`/form-assets/${template.assetId}/content`} filename={template.filename} />
@@ -169,7 +170,7 @@ function DocumentTable({
                     <span className="text-sm text-muted">—</span>
                   )}
                 </td>
-                <td className="align-top">
+                <td className="align-top" data-label="Upload document">
                   <FileField id={id} field={field} value={values[field.id]} editable={editable} describedBy={describedBy} dense onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
                 </td>
               </tr>
@@ -263,13 +264,14 @@ function Control({
   onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
 }) {
   const text = typeof value === "string" || typeof value === "number" ? String(value) : "";
+  const touchClass = `${inputClass} max-sm:h-11 max-sm:text-base`;
   if (field.type === "textarea") {
-    return <textarea id={id} className={`${inputClass} min-h-24 py-2`} disabled={!editable} aria-describedby={describedBy} placeholder={field.placeholder} value={text} onChange={(event) => onChange(event.target.value)} />;
+    return <textarea id={id} className={`${inputClass} min-h-24 py-2 max-sm:text-base`} disabled={!editable} aria-describedby={describedBy} placeholder={field.placeholder} value={text} onChange={(event) => onChange(event.target.value)} />;
   }
   if (field.type === "select" || field.type === "country") {
     const options = field.type === "country" ? COUNTRIES.map((country) => ({ value: country.code, label: country.name })) : field.options ?? [];
     return (
-      <select id={id} className={inputClass} disabled={!editable} aria-describedby={describedBy} value={text} onChange={(event) => onChange(event.target.value)}>
+      <select id={id} className={touchClass} disabled={!editable} aria-describedby={describedBy} value={text} onChange={(event) => onChange(event.target.value)}>
         <option value="">Select</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
@@ -314,7 +316,7 @@ function Control({
     return <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={onChange} onUpload={onUpload} />;
   }
   const type = field.type === "number" || field.type === "currency" ? "number" : field.type === "datetime" ? "datetime-local" : field.type === "tel" ? "tel" : field.type === "email" ? "email" : field.type === "url" ? "url" : field.type === "date" ? "date" : field.type === "time" ? "time" : "text";
-  return <input id={id} className={inputClass} type={type} disabled={!editable} aria-describedby={describedBy} placeholder={field.placeholder} value={text} onChange={(event) => onChange(event.target.value)} />;
+  return <input id={id} className={touchClass} type={type} disabled={!editable} aria-describedby={describedBy} placeholder={field.placeholder} value={text} onChange={(event) => onChange(event.target.value)} />;
 }
 
 function ReuploadField({
@@ -446,7 +448,7 @@ function FileField({
       {dense ? null : <UploadStatus pending={pending} />}
       {editable ? (
         dense ? (
-          <label className={`inline-flex h-8 w-fit cursor-pointer items-center rounded-md border border-border bg-surface px-2.5 text-sm font-semibold hover:bg-secondary ${pending || !onUpload ? "cursor-wait opacity-70" : ""}`}>
+          <label className={`inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-secondary sm:h-8 sm:w-fit sm:justify-start ${pending || !onUpload ? "cursor-wait opacity-70" : ""}`}>
             <input id={id} className="sr-only" type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />
             {chooseLabel}
           </label>

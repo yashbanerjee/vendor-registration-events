@@ -315,7 +315,7 @@ function ShellMain({ children, home }: { children: React.ReactNode; home: string
           return <span key={crumb}> / {label}</span>;
         })}
       </div>
-      <main className="px-4 py-4">{children}</main>
+      <main className="px-3 py-4 sm:px-4">{children}</main>
     </div>
   );
 }

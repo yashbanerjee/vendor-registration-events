@@ -867,7 +867,7 @@ export class WorkflowService {
         template: input.purpose === "CORRECTION" ? "correction" : "invitation",
         subject: input.subject,
         title: input.subject,
-        text: `${input.intro}\n\nOpen this secure link: ${link}\nThe link expires in ${invitationHours} hours and can be used once.`,
+        text: `${input.intro}\n\nThe form is here:\n${link}\n\nThis invitation expires in ${invitationHours} hours.`,
         link: `/invite/${token}`,
         actionUrl: link,
         audience: "vendor",
@@ -880,7 +880,7 @@ export class WorkflowService {
       template: input.purpose === "CORRECTION" ? "correction" : "invitation",
       subject: input.purpose === "CORRECTION" ? `Corrections sent to ${input.vendor.companyName}` : `Invitation sent to ${input.vendor.companyName}`,
       title: input.purpose === "CORRECTION" ? "Corrections sent" : "Invitation sent",
-      text: `${input.vendor.companyName} (${input.vendor.email}) received this request. The secure link was sent only to the vendor.`,
+      text: `${input.vendor.companyName} (${input.vendor.email}) received this request. The invitation link was sent only to the company.`,
       link: `/admin/reviews`,
     });
   }

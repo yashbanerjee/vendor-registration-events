@@ -8,9 +8,9 @@ import { AuditService } from "../audit/audit.service";
 import { scanBuffer } from "../documents/scan";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
-import { emailAttachments, publicActionUrl, renderEmail, type EmailAudience } from "./email-templates";
+import { publicActionUrl, renderEmail, type EmailAudience } from "./email-templates";
 import { beginMailSend, mailSendIntervalMs } from "./mail-pace";
-import { MailDeliveryError, batchFailureKind, deliveryRoutes, type SmtpEndpoint } from "./mail-route";
+import { MailDeliveryError, addressIn, batchFailureKind, deliveryRoutes, senderIdentity, transactionalHeaders, type SmtpEndpoint } from "./mail-route";
 import { StorageService } from "../storage/storage.service";
 
 export type OutboxPayload = Record<string, unknown>;
@@ -373,13 +373,14 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
       origin: env().WEB_ORIGIN,
     });
     const audience: EmailAudience = payload.audience === "admin" ? "admin" : "vendor";
-    const rendered = renderEmail({
+    const renderedFor = (fromAddress: string) => renderEmail({
       template,
       audience,
       organizationName: organization?.name ?? "s7",
       title: String(payload.title ?? subject),
       body: text,
       actionUrl,
+      fromAddress,
     });
     const config = env();
     const primary: SmtpEndpoint = {
@@ -411,14 +412,22 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
     const failures: unknown[] = [];
     for (const route of routes) {
       try {
+        const identity = senderIdentity({
+          fromName: mail.emailFromName,
+          fromAddress: addressIn(route.from) || mail.emailFromAddress,
+          smtpUser: route.user,
+        });
+        const rendered = renderedFor(identity.replyTo);
         const info = await this.transportFor(route).sendMail({
-          from: route.from,
+          from: identity.from,
+          replyTo: identity.replyTo,
+          envelope: { from: identity.envelopeFrom, to },
+          messageId: identity.messageId,
           to,
           subject,
           text: rendered.text,
           html: rendered.html,
-          attachments: emailAttachments(),
-          headers: { "X-Idempotency-Key": idempotencyKey },
+          headers: transactionalHeaders(idempotencyKey),
         });
         await this.tenant.transaction(organizationId, async (tx) => {
           await tx.emailMessage.update({
@@ -481,6 +490,7 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
           host: route.host,
           port: route.port,
           secure: route.secure,
+          name: senderIdentity({ fromName: "", fromAddress: route.from, smtpUser: route.user }).domain,
           auth: route.user ? { user: route.user, pass: route.password } : undefined,
           maxConnections: 1,
           maxMessages: 100,

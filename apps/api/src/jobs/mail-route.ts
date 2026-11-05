@@ -1,3 +1,7 @@
+import { randomUUID } from "node:crypto";
+
+const mailbox = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export type SmtpEndpoint = {
   host: string;
   port: number;
@@ -6,6 +10,43 @@ export type SmtpEndpoint = {
   password: string;
   from: string;
 };
+
+export type SenderIdentity = {
+  from: { name: string; address: string } | string;
+  replyTo: string;
+  envelopeFrom: string;
+  domain: string;
+  messageId: string;
+};
+
+export function addressIn(value: string) {
+  const match = value.match(/<([^>]+)>/);
+  return (match?.[1] ?? value).trim().toLowerCase();
+}
+
+/** The visible From address has to be the authenticated mailbox, on that domain. */
+export function senderIdentity(input: { fromName: string; fromAddress: string; smtpUser: string }): SenderIdentity {
+  const authenticated = input.smtpUser.trim().toLowerCase();
+  const configured = addressIn(input.fromAddress);
+  const address = mailbox.test(authenticated) ? authenticated : configured;
+  const domain = address.split("@")[1] || "localhost";
+  const name = input.fromName.replace(/[\r\n"]/g, "").trim();
+  return {
+    from: name ? { name, address } : address,
+    replyTo: address,
+    envelopeFrom: address,
+    domain,
+    messageId: `<${randomUUID()}@${domain}>`,
+  };
+}
+
+export function transactionalHeaders(idempotencyKey?: string) {
+  return {
+    ...(idempotencyKey ? { "X-Idempotency-Key": idempotencyKey } : {}),
+    "Auto-Submitted": "auto-generated",
+    "X-Auto-Response-Suppress": "All",
+  };
+}
 
 export type DeliveryRoute = SmtpEndpoint & { name: "primary" | "fallback" };
 

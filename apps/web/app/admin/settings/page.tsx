@@ -26,10 +26,20 @@ type Settings = {
   storageSecretSet: boolean;
 };
 
+type MailAuth = {
+  domain: string;
+  spf: boolean;
+  dkim: boolean;
+  dmarc: boolean;
+  dmarcName: string;
+  dmarcValue: string;
+};
+
 type Organization = {
   data: {
     name: string;
     settings: Settings;
+    mailAuth: MailAuth | null;
     limits: { maxUploadMb: number; importMaxRows: number };
   };
 };
@@ -186,6 +196,7 @@ export default function SettingsPage() {
             description="Messages to vendors and administrators use these sender and SMTP details. A large batch waits in the queue and goes out one every 5 seconds so a mailbox limit of about 15 per minute is not exceeded."
             extra={form.smtpPasswordSet ? <Badge tone="success">Password saved</Badge> : <Badge tone="neutral">No password saved</Badge>}
           >
+            <MailAuthNote auth={organization.data?.data.mailAuth ?? null} />
             <div className="grid items-start gap-3 sm:grid-cols-2">
               <Field label="From name">
                 <input className={inputClass} value={form.emailFromName} onChange={(event) => set("emailFromName", event.target.value)} required />
@@ -307,6 +318,21 @@ export default function SettingsPage() {
           </Card>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function MailAuthNote({ auth }: { auth: MailAuth | null }) {
+  if (!auth) return null;
+  if (auth.spf && auth.dkim && auth.dmarc) {
+    return <p className="text-sm text-muted">SPF, DKIM, and DMARC are published for {auth.domain}.</p>;
+  }
+  return (
+    <div className="grid gap-2 rounded-md border border-[var(--warning)] bg-[var(--badge-warning-bg)] p-3 text-sm">
+      <p>Add the missing DNS records so inboxes deliver mail from {auth.domain} to the inbox.</p>
+      {auth.spf ? null : <p>Add an SPF TXT record for {auth.domain} that includes the mailbox host.</p>}
+      {auth.dkim ? null : <p>Turn on DKIM for {auth.domain} in the mailbox settings. In Hostinger this is under Email deliverability.</p>}
+      {auth.dmarc ? null : <p>Add a TXT record named <span className="font-medium">{auth.dmarcName}</span> with value <span className="break-all font-medium">{auth.dmarcValue}</span>.</p>}
     </div>
   );
 }

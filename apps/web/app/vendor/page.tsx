@@ -139,7 +139,7 @@ function FormCard({ assignment, open, onOpen }: { assignment: VendorAssignment; 
       {assignment.status === "APPROVED" ? <p className="mt-3 text-sm text-muted">Accepted. This form cannot be changed.</p> : null}
       {assignment.status === "REJECTED" ? <p className="mt-3 text-sm text-muted">Not accepted.</p> : null}
       <div className="mt-4">
-        <Button variant={canContinue ? "primary" : "secondary"} onClick={onOpen}>{canContinue ? "Continue" : "View"}</Button>
+        <Button className="w-full sm:w-auto" variant={canContinue ? "primary" : "secondary"} onClick={onOpen}>{canContinue ? "Continue" : "View"}</Button>
       </div>
       {open ? (
         <div className="mt-4 border-t border-border pt-4">

@@ -1,33 +1,14 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 export type EmailAudience = "vendor" | "admin";
 
-const logoCid = "s7-logo";
-let logoBytes: Buffer | undefined;
-
-export function emailAttachments() {
-  logoBytes ??= readFileSync(path.join(__dirname, "../../assets/s7-logo.png"));
-  return [
-    {
-      filename: "s7-logo.png",
-      content: logoBytes,
-      cid: logoCid,
-      contentType: "image/png",
-      contentDisposition: "inline" as const,
-    },
-  ];
-}
-
-const themes: Record<string, { label: string; color: string; on: string; action: string }> = {
-  invitation: { label: "Invitation", color: "#F52D71", on: "#ffffff", action: "Open invitation" },
-  correction: { label: "Correction requested", color: "#B76E00", on: "#ffffff", action: "Update the requested fields" },
-  "submission-ack": { label: "Submission", color: "#F52D71", on: "#ffffff", action: "View submission" },
-  approved: { label: "Approved", color: "#16803D", on: "#ffffff", action: "View the approved form" },
-  rejected: { label: "Not approved", color: "#C9372C", on: "#ffffff", action: "View the submission" },
-  "password-reset": { label: "Password reset", color: "#F52D71", on: "#ffffff", action: "Reset password" },
-  credentials: { label: "Account ready", color: "#F52D71", on: "#ffffff", action: "Open the portal" },
-  packet: { label: "Forms", color: "#F52D71", on: "#ffffff", action: "Open your forms" },
+const actions: Record<string, string> = {
+  invitation: "Open invitation",
+  correction: "Update the requested fields",
+  "submission-ack": "View submission",
+  approved: "View the approved form",
+  rejected: "View the submission",
+  "password-reset": "Reset password",
+  credentials: "Open the portal",
+  packet: "Open your forms",
 };
 
 function escapeHtml(value: string) {
@@ -78,53 +59,45 @@ export function renderEmail(input: {
   title: string;
   body: string;
   actionUrl?: string;
+  fromAddress?: string;
 }) {
-  const theme = themes[input.template] ?? { label: "Notice", color: "#F52D71", on: "#ffffff", action: "Open the portal" };
-  const action = input.audience === "admin" && input.template !== "password-reset" ? "Open the admin portal" : theme.action;
+  const action = input.audience === "admin" && input.template !== "password-reset" ? "Open the admin portal" : actions[input.template] ?? "Open the portal";
   const paragraphs = input.body
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
-  const text = [input.organizationName, theme.label, input.title, "", input.body, input.actionUrl ? `\n${action}: ${input.actionUrl}` : ""]
-    .filter((line) => line !== undefined)
-    .join("\n");
+  const actionLine = input.actionUrl && !input.body.includes(input.actionUrl) ? `\n${action}: ${input.actionUrl}` : "";
+  const text = [input.organizationName, input.title, "", input.body, actionLine].filter((line) => line !== undefined).join("\n");
   const bodyHtml = paragraphs
-    .map((paragraph) => `<p style="margin:0 0 12px;line-height:1.5;">${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+    .map((paragraph) => `<p style="margin:0 0 12px;">${linkify(escapeHtml(paragraph).replace(/\n/g, "<br>"))}</p>`)
     .join("");
-  const button = input.actionUrl
-    ? `<p style="margin:20px 0 0;"><a href="${escapeHtml(input.actionUrl)}" style="display:inline-block;background:${theme.color};color:${theme.on};text-decoration:none;padding:10px 16px;border-radius:6px;font-weight:600;">${escapeHtml(action)}</a></p>`
+  const extraLink = input.actionUrl && !input.body.includes(input.actionUrl)
+    ? `<p style="margin:0 0 12px;"><a href="${escapeHtml(input.actionUrl)}">${escapeHtml(input.actionUrl)}</a></p>`
     : "";
-  const audience = input.audience === "admin" ? "an administrator" : "the vendor";
+  const audience = input.audience === "admin" ? "an administrator" : "a company";
+  const sender = input.fromAddress ? ` It was sent from ${escapeHtml(input.fromAddress)}.` : "";
   const html = `<!doctype html>
-<html>
-  <body style="margin:0;background:#FFF5F9;color:#111111;font-family:Segoe UI,Arial,sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFF5F9;padding:24px 12px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #F3D4E0;border-radius:8px;">
-            <tr>
-              <td style="height:6px;background:#F52D71;border-radius:8px 8px 0 0;font-size:0;line-height:0;">&nbsp;</td>
-            </tr>
-            <tr>
-              <td style="padding:20px 24px 8px;">
-                <img src="cid:${logoCid}" width="64" height="64" alt="s7" style="display:block;width:64px;height:64px;border:0;outline:none;text-decoration:none;" />
-                <p style="margin:12px 0 0;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#6B5560;">${escapeHtml(input.organizationName)}</p>
-                <p style="margin:8px 0 0;display:inline-block;background:${theme.color};color:${theme.on};border-radius:999px;padding:2px 8px;font-size:12px;font-weight:600;">${escapeHtml(theme.label)}</p>
-                <h1 style="margin:12px 0 0;font-size:22px;line-height:1.3;">${escapeHtml(input.title)}</h1>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:8px 24px 24px;font-size:15px;">
-                ${bodyHtml}
-                ${button}
-                <p style="margin:24px 0 0;font-size:12px;color:#6B5560;">This message was sent to ${audience}. If you were not expecting it, you can ignore it.</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escapeHtml(input.title)}</title>
+  </head>
+  <body style="margin:0;padding:24px;background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;">
+    <p style="margin:0 0 8px;font-size:13px;color:#444444;">${escapeHtml(input.organizationName)}</p>
+    <h1 style="margin:0 0 16px;font-size:20px;line-height:1.3;font-weight:600;">${escapeHtml(input.title)}</h1>
+    ${bodyHtml}
+    ${extraLink}
+    <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#444444;">This message was sent to ${audience} about a form or account with ${escapeHtml(input.organizationName)}.${sender}</p>
   </body>
 </html>`;
   return { html, text };
+}
+
+function linkify(escaped: string) {
+  return escaped.replace(/https?:\/\/[^\s<]+/g, (url) => {
+    const clean = url.replace(/[).,]+$/, "");
+    const tail = url.slice(clean.length);
+    return `<a href="${clean}">${clean}</a>${tail}`;
+  });
 }

@@ -8,7 +8,9 @@ import type { AuthContext } from "../common/auth";
 import { safeEqualText } from "../common/crypto";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
-import { emailAttachments, renderEmail } from "../jobs/email-templates";
+import { renderEmail } from "../jobs/email-templates";
+import { lookupMailAuth } from "../jobs/mail-auth";
+import { senderIdentity, transactionalHeaders } from "../jobs/mail-route";
 import { OutboxProcessor } from "../jobs/jobs.service";
 import { PrismaService, TenantService } from "../prisma/prisma.service";
 import { effectiveSettings, nextStored, parseStored, publicSettings, settingsBody } from "./org-settings";
@@ -286,7 +288,7 @@ export class PlatformService {
       tx.organization.findUnique({ where: { id: user.organizationId } }),
     );
     if (!organization) throw new NotFoundException();
-    return { data: this.presentOrganization(organization) };
+    return { data: await this.presentOrganization(organization) };
   }
 
   async updateOrganization(user: AuthContext, body: unknown) {
@@ -320,7 +322,7 @@ export class PlatformService {
       });
       return updated;
     });
-    return { data: this.presentOrganization(organization) };
+    return { data: await this.presentOrganization(organization) };
   }
 
   async sendTestEmail(user: AuthContext, body: unknown) {
@@ -333,6 +335,11 @@ export class PlatformService {
     if (!mail.smtpHost) throw new BadRequestException("Save an SMTP host before sending a test email.");
     const subject = `Test email from ${organization.name}`;
     const bodyText = "This is a test message from s7. The saved email settings accepted this message.";
+    const identity = senderIdentity({
+      fromName: mail.emailFromName,
+      fromAddress: mail.emailFromAddress,
+      smtpUser: mail.smtpUser,
+    });
     const rendered = renderEmail({
       template: "test",
       audience: "admin",
@@ -340,6 +347,7 @@ export class PlatformService {
       title: "Test email",
       body: bodyText,
       actionUrl: env().WEB_ORIGIN,
+      fromAddress: identity.replyTo,
     });
     const idempotencyKey = `test:${organization.id}:${randomUUID()}`;
     const record = await this.tenant.transaction(user.organizationId, (tx) =>
@@ -360,17 +368,21 @@ export class PlatformService {
           host: mail.smtpHost,
           port: mail.smtpPort,
           secure: mail.smtpSecure,
+          name: identity.domain,
           auth: mail.smtpUser ? { user: mail.smtpUser, pass: mail.smtpPassword } : undefined,
         });
     try {
       await this.processor.reserveMailSlot(mail.smtpHost);
       const info = await transport.sendMail({
-        from: mail.emailFrom,
+        from: identity.from,
+        replyTo: identity.replyTo,
+        envelope: { from: identity.envelopeFrom, to: input.to },
+        messageId: identity.messageId,
         to: input.to,
         subject,
         text: rendered.text,
         html: rendered.html,
-        attachments: emailAttachments(),
+        headers: transactionalHeaders(),
       });
       await this.tenant.transaction(user.organizationId, async (tx) => {
         await tx.emailMessage.update({
@@ -400,13 +412,16 @@ export class PlatformService {
     return { data: { to: input.to, status: "SENT" as const } };
   }
 
-  private presentOrganization(organization: { id: string; name: string; slug: string; settings: Prisma.JsonValue }) {
+  private async presentOrganization(organization: { id: string; name: string; slug: string; settings: Prisma.JsonValue }) {
     const config = env();
+    const settings = publicSettings(parseStored(organization.settings));
+    const mailAuth = await lookupMailAuth(settings.emailFromAddress).catch(() => null);
     return {
       id: organization.id,
       name: organization.name,
       slug: organization.slug,
-      settings: publicSettings(parseStored(organization.settings)),
+      settings,
+      mailAuth,
       limits: {
         maxUploadMb: Math.max(1, Math.floor(config.MAX_UPLOAD_BYTES / (1024 * 1024))),
         importMaxRows: config.IMPORT_MAX_ROWS,

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { batchFailureKind, deliveryRoutes, mailFailureKind, type SmtpEndpoint } from "./mail-route";
+import { addressIn, batchFailureKind, deliveryRoutes, mailFailureKind, senderIdentity, type SmtpEndpoint } from "./mail-route";
 
 const primary: SmtpEndpoint = {
   host: "smtp.primary.example",
@@ -23,6 +23,19 @@ test("the same server is not used as its own fallback", () => {
   const routes = deliveryRoutes(primary, [primary, { ...primary, host: "localhost" }, { ...primary, host: "" }]);
   assert.equal(routes.length, 1);
   assert.equal(routes[0]?.name, "primary");
+});
+
+test("the authenticated mailbox is the visible sender", () => {
+  const identity = senderIdentity({
+    fromName: "Vehda \"team\"",
+    fromAddress: "other@example.com",
+    smtpUser: "Info@Example.com",
+  });
+  assert.deepEqual(identity.from, { name: "Vehda team", address: "info@example.com" });
+  assert.equal(identity.replyTo, "info@example.com");
+  assert.equal(identity.envelopeFrom, "info@example.com");
+  assert.match(identity.messageId, /^<[0-9a-f-]+@example\.com>$/);
+  assert.equal(addressIn("s7 <Desk@Example.com>"), "desk@example.com");
 });
 
 test("a refused address fails once, and a rate limit stays retryable", () => {

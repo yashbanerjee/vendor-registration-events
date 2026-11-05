@@ -94,3 +94,34 @@ table.data th { text-align: left; font-size: 12px; letter-spacing: 0.02em; color
 table.data th, table.data td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 table.data tr:last-child td { border-bottom: 0; }
 table.data tbody tr:hover { background: color-mix(in srgb, var(--surface-secondary) 65%, transparent); }
+
+@media (max-width: 767px) {
+  .table-wrap:has(table.documents) { overflow: visible; border: 0; background: transparent; }
+  table.documents, table.documents tbody, table.documents tr, table.documents td { display: block; width: 100%; min-width: 0; }
+  table.documents thead { display: none; }
+  table.documents tr {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+  table.documents tr:last-child { margin-bottom: 0; }
+  table.documents td { border: 0; padding: 10px 0 0; }
+  table.documents td:first-child { padding-top: 0; }
+  table.documents td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  table.documents tbody tr:hover { background: var(--surface); }
+  table.documents tr[data-state="uploaded"],
+  table.documents tr[data-state="uploaded"]:hover { background: var(--badge-success-bg); }
+  table.documents tr[data-state="attention"],
+  table.documents tr[data-state="attention"]:hover { background: var(--badge-warning-bg); }
+}
