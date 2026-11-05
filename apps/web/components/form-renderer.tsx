@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { COUNTRIES, isFieldVisible, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { FileLink, InlineFilePreview, RemoteFileLink } from "./file-preview";
 import { isEditable } from "@/lib/locking";
-import { UploadStatus, UploadTick, inputClass } from "./ui";
+import { UploadStatus, UploadTick, inputClass, textareaClass } from "./ui";
 
 export function FormRenderer({
   schema,
@@ -46,10 +46,12 @@ export function FormRenderer({
           .filter((field) => isFieldVisible(field, values, byId));
         const groups = groupFields(visible, Boolean(documentTable));
         return (
-          <section key={section.id} className="min-w-0 rounded-lg border border-border bg-surface p-3 sm:p-4">
-            <h2 className="text-base font-semibold">{section.title}</h2>
-            {section.description ? <p className="mb-3 text-sm text-muted">{section.description}</p> : null}
-            <div className="grid gap-4">
+          <section key={section.id} className="min-w-0 rounded-lg border border-border bg-surface p-4 sm:p-5">
+            <header className="mb-4">
+              <h2 className="text-base font-semibold leading-6">{section.title}</h2>
+              {section.description ? <p className="mt-1 max-w-3xl text-sm leading-5 text-muted">{section.description}</p> : null}
+            </header>
+            <div className="grid gap-3">
               {groups.map((group) => group.table ? (
                 <DocumentTable
                   key={group.fields[0]?.id}
@@ -201,47 +203,44 @@ function FieldControl({
   onChange?: (fieldId: string, value: unknown) => void;
   onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
 }) {
-  if (field.type === "heading") return <h3 className="text-sm font-semibold">{field.label}</h3>;
-  if (field.type === "info") return <p className="text-sm text-muted">{field.description || field.label}</p>;
+  if (field.type === "heading") return <h3 className="px-3 text-sm font-semibold leading-6">{field.label}</h3>;
+  if (field.type === "info") return <p className="px-3 text-sm leading-5 text-muted">{field.description || field.label}</p>;
   const describedBy = [note ? `${id}-note` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
+  const shell = note || error
+    ? "rounded-md border border-[var(--warning)] bg-[var(--badge-warning-bg)] px-3 py-3"
+    : "rounded-md border border-transparent px-3 py-3";
+  const body = (
+    <>
+      <span className="flex items-baseline justify-between gap-3">
+        <span className="font-medium leading-5">
+          {field.label}
+          {field.required ? <span className="text-danger"> *</span> : null}
+        </span>
+        {!editable ? <span className="shrink-0 text-xs font-medium leading-5 text-muted">Locked</span> : null}
+      </span>
+      {field.description ? <span className="text-sm leading-5 text-muted">{field.description}</span> : null}
+    </>
+  );
   if (field.type === "reupload") {
     return (
-      <div className={note || error ? "rounded-md border border-[var(--warning)] bg-[var(--badge-warning-bg)] p-3" : ""}>
-        <div className="grid gap-1 text-sm">
-          <span className="font-medium">
-            {field.label}
-            {field.required ? <span className="text-danger"> *</span> : null}
-            {!editable ? <span className="ml-2 text-xs font-normal text-muted">Locked</span> : null}
-          </span>
-          {field.description ? <span className="text-xs text-muted">{field.description}</span> : null}
+      <div className={shell}>
+        <div className="grid gap-1.5 text-sm">
+          {body}
           <ReuploadField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
         </div>
-        {error ? <p id={`${id}-error`} className="mt-2 text-sm text-danger">{error}</p> : null}
-        {note ? <p id={`${id}-note`} className="mt-2 text-sm text-[var(--badge-warning-fg)]">Correction: {note}</p> : null}
+        {error ? <p id={`${id}-error`} className="mt-2 text-sm leading-5 text-danger">{error}</p> : null}
+        {note ? <p id={`${id}-note`} className="mt-2 text-sm leading-5 text-[var(--badge-warning-fg)]">Correction: {note}</p> : null}
       </div>
     );
   }
   return (
-    <div className={note || error ? "rounded-md border border-[var(--warning)] bg-[var(--badge-warning-bg)] p-3" : ""}>
-      <label className="grid gap-1 text-sm" htmlFor={id}>
-        <span className="font-medium">
-          {field.label}
-          {field.required ? <span className="text-danger"> *</span> : null}
-          {!editable ? <span className="ml-2 text-xs font-normal text-muted">Locked</span> : null}
-        </span>
-        {field.description ? <span className="text-xs text-muted">{field.description}</span> : null}
+    <div className={shell}>
+      <label className="grid gap-1.5 text-sm" htmlFor={id}>
+        {body}
         <Control id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
       </label>
-      {error ? (
-        <p id={`${id}-error`} className="mt-2 text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
-      {note ? (
-        <p id={`${id}-note`} className="mt-2 text-sm text-[var(--badge-warning-fg)]">
-          Correction: {note}
-        </p>
-      ) : null}
+      {error ? <p id={`${id}-error`} className="mt-2 text-sm leading-5 text-danger">{error}</p> : null}
+      {note ? <p id={`${id}-note`} className="mt-2 text-sm leading-5 text-[var(--badge-warning-fg)]">Correction: {note}</p> : null}
     </div>
   );
 }
@@ -264,14 +263,13 @@ function Control({
   onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
 }) {
   const text = typeof value === "string" || typeof value === "number" ? String(value) : "";
-  const touchClass = `${inputClass} max-sm:h-11 max-sm:text-base`;
   if (field.type === "textarea") {
-    return <textarea id={id} className={`${inputClass} min-h-24 py-2 max-sm:text-base`} disabled={!editable} aria-describedby={describedBy} placeholder={field.placeholder} value={text} onChange={(event) => onChange(event.target.value)} />;
+    return <textarea id={id} className={textareaClass} disabled={!editable} aria-describedby={describedBy} placeholder={field.placeholder} value={text} onChange={(event) => onChange(event.target.value)} />;
   }
   if (field.type === "select" || field.type === "country") {
     const options = field.type === "country" ? COUNTRIES.map((country) => ({ value: country.code, label: country.name })) : field.options ?? [];
     return (
-      <select id={id} className={touchClass} disabled={!editable} aria-describedby={describedBy} value={text} onChange={(event) => onChange(event.target.value)}>
+      <select id={id} className={inputClass} disabled={!editable} aria-describedby={describedBy} value={text} onChange={(event) => onChange(event.target.value)}>
         <option value="">Select</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
@@ -283,7 +281,7 @@ function Control({
     return (
       <div className="grid gap-1" role="radiogroup" aria-describedby={describedBy}>
         {(field.options ?? []).map((option) => (
-          <label key={option.value} className="flex items-center gap-2">
+          <label key={option.value} className="flex min-h-10 items-center gap-2.5 leading-5">
             <input type="radio" name={id} disabled={!editable} checked={text === option.value} onChange={() => onChange(option.value)} />
             {option.label}
           </label>
@@ -296,7 +294,7 @@ function Control({
     return (
       <div className="grid gap-1">
         {(field.options ?? []).map((option) => (
-          <label key={option.value} className="flex items-center gap-2">
+          <label key={option.value} className="flex min-h-10 items-center gap-2.5 leading-5">
             <input
               type="checkbox"
               disabled={!editable}
@@ -310,13 +308,17 @@ function Control({
     );
   }
   if (field.type === "toggle") {
-    return <input id={id} type="checkbox" disabled={!editable} checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />;
+    return (
+      <span className="flex min-h-10 items-center">
+        <input id={id} type="checkbox" disabled={!editable} checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />
+      </span>
+    );
   }
   if (field.type === "file" || field.type === "image" || field.type === "files") {
     return <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={onChange} onUpload={onUpload} />;
   }
   const type = field.type === "number" || field.type === "currency" ? "number" : field.type === "datetime" ? "datetime-local" : field.type === "tel" ? "tel" : field.type === "email" ? "email" : field.type === "url" ? "url" : field.type === "date" ? "date" : field.type === "time" ? "time" : "text";
-  return <input id={id} className={touchClass} type={type} disabled={!editable} aria-describedby={describedBy} placeholder={field.placeholder} value={text} onChange={(event) => onChange(event.target.value)} />;
+  return <input id={id} className={inputClass} type={type} disabled={!editable} aria-describedby={describedBy} placeholder={field.placeholder} value={text} onChange={(event) => onChange(event.target.value)} />;
 }
 
 function ReuploadField({

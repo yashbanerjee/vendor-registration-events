@@ -159,7 +159,7 @@ export function VendorAssignmentForm({ assignment, compact = false }: { assignme
         onUpload={upload}
       />
       {editable ? (
-        <div className="sticky bottom-0 z-10 -mx-3 grid grid-cols-2 gap-2 border-t border-border bg-surface px-3 py-3 sm:static sm:mx-0 sm:flex sm:flex-wrap sm:border-0 sm:bg-transparent sm:p-0">
+        <div className="sticky bottom-0 z-10 -mx-4 grid grid-cols-2 gap-2 border-t border-border bg-surface px-4 py-3 sm:static sm:mx-0 sm:flex sm:flex-wrap sm:items-center sm:border-0 sm:bg-transparent sm:p-0">
           {staged && currentStage > 0 ? <Button className="w-full sm:w-auto" onClick={() => setStage(currentStage - 1)}>Back</Button> : null}
           {assignment.status !== "CORRECTION_REQUESTED" ? <Button className="w-full sm:w-auto" onClick={() => save.mutate("draft")} disabled={save.isPending}>Save</Button> : null}
           {staged && currentStage < sections.length - 1 ? <Button className="w-full sm:w-auto" variant="primary" onClick={() => setStage(currentStage + 1)}>Next</Button> : null}

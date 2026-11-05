@@ -17,9 +17,9 @@ const buttonStyles = cva(
         ghost: "text-foreground hover:bg-secondary",
         danger: "bg-danger text-white hover:opacity-90",
       },
-      size: {
+        size: {
         sm: "h-8 px-2.5",
-        md: "h-9 px-3",
+        md: "h-10 px-3",
       },
     },
     defaultVariants: { variant: "secondary", size: "md" },
@@ -33,15 +33,16 @@ export function Button({ className, variant, size, asChild, ...props }: React.Bu
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <label className="grid min-w-0 content-start gap-1 text-sm">
+    <label className="grid min-w-0 content-start gap-1.5 text-sm">
       <span className="font-medium leading-5">{label}</span>
       {children}
-      {hint ? <span className="text-xs leading-4 text-muted">{hint}</span> : null}
+      {hint ? <span className="text-xs leading-5 text-muted">{hint}</span> : null}
     </label>
   );
 }
 
-export const inputClass = "h-9 w-full min-w-0 rounded-md border border-border bg-surface px-3 py-0 text-sm leading-9 text-foreground placeholder:text-muted";
+export const inputClass = "h-10 w-full min-w-0 rounded-md border border-border bg-surface px-3 text-sm leading-10 text-foreground placeholder:text-muted disabled:cursor-not-allowed disabled:bg-secondary disabled:text-foreground max-sm:h-11 max-sm:text-base max-sm:leading-[2.75rem]";
+export const textareaClass = "min-h-28 w-full min-w-0 resize-y rounded-md border border-border bg-surface px-3 py-2.5 text-sm leading-5 text-foreground placeholder:text-muted disabled:cursor-not-allowed disabled:bg-secondary disabled:text-foreground max-sm:text-base";
 
 export function Badge({ tone, children }: { tone: "success" | "warning" | "danger" | "info" | "neutral"; children: React.ReactNode }) {
   const styles = {
@@ -121,12 +122,12 @@ export function Notice({ message, appearance = "success" }: { message?: string; 
 
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: React.ReactNode }) {
   return (
-    <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+      <div className="min-w-0 max-w-2xl">
+        <h1 className="text-xl font-semibold leading-7 tracking-tight">{title}</h1>
+        {description ? <p className="mt-1 text-sm leading-5 text-muted">{description}</p> : null}
       </div>
-      {actions}
+      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
     </div>
   );
 }

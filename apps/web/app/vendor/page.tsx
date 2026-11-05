@@ -56,7 +56,7 @@ function MasterForm() {
         <section className="rounded-lg border border-border bg-surface p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{profile.vendor.reference}</p>
           <h2 className="mt-1 text-xl font-semibold tracking-tight">{profile.vendor.companyName}</h2>
-          <dl className="mt-5 grid gap-4 border-t border-border pt-5 sm:grid-cols-2 lg:grid-cols-4">
+          <dl className="mt-4 grid items-start gap-x-6 gap-y-4 border-t border-border pt-4 sm:grid-cols-2 lg:grid-cols-4">
             <Detail label="Contact" value={profile.vendor.contactName} />
             <Detail label="Email" value={profile.vendor.email} />
             <Detail label="Phone" value={profile.vendor.phone || "Not provided"} />
@@ -91,7 +91,7 @@ function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</dt>
-      <dd className="mt-1 text-sm font-medium">{value}</dd>
+      <dd className="mt-1 break-words text-sm font-medium leading-5">{value}</dd>
     </div>
   );
 }
@@ -119,16 +119,16 @@ function FormCard({ assignment, open, onOpen }: { assignment: VendorAssignment; 
         </div>
         <StatusBadge status={assignment.status} />
       </div>
-      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-        <div className="min-w-0">
+      <dl className="mt-4 grid items-start gap-x-6 gap-y-4 border-t border-border pt-4 sm:grid-cols-2">
+        <div className="min-w-0 sm:col-span-2">
           <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">ID</dt>
-          <dd className="mt-1 break-all font-mono text-xs">{assignment.id}</dd>
+          <dd className="mt-1 break-all font-mono text-xs leading-5">{assignment.id}</dd>
         </div>
         <Detail label="Total fields" value={String(total)} />
         <Detail label="Completed" value={`${completed} of ${total}`} />
       </dl>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={`${assignment.form.name} progress`}>
-        <div className="h-full bg-brand" style={{ width: `${percent}%` }} />
+      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={`${assignment.form.name} progress`}>
+        <div className={`h-full ${percent === 100 ? "bg-[var(--success)]" : "bg-brand"}`} style={{ width: `${percent}%` }} />
       </div>
       {assignment.status === "CORRECTION_REQUESTED" ? (
         <p className="mt-3 text-sm text-[var(--badge-warning-fg)]">{corrections === 1 ? "1 question needs a change." : `${corrections} questions need a change.`}</p>

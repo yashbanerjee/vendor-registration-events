@@ -86,13 +86,13 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
       {!locked ? (
         <div className="mt-4 grid gap-4">
           <Field label="Upload the filled PDF">
-            <input className="block w-full rounded-md border border-dashed border-border bg-secondary px-3 py-3 text-sm" type="file" accept="application/pdf,.pdf" disabled={run.isPending} onChange={(event) => uploadFilled(event.target.files?.[0] ?? null)} />
+            <input type="file" accept="application/pdf,.pdf" disabled={run.isPending} onChange={(event) => uploadFilled(event.target.files?.[0] ?? null)} />
             <UploadStatus pending={busy === "filled"} />
           </Field>
-          <form className="grid gap-2 rounded-md bg-secondary p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end" onSubmit={uploadDocument}>
+          <form className="grid items-start gap-3 rounded-md border border-border bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" onSubmit={uploadDocument}>
             <Field label="Document name"><input className={inputClass} value={docName} onChange={(event) => setDocName(event.target.value)} placeholder="Trade license" /></Field>
             <Field label="File">
-              <input ref={docRef} className="block w-full text-sm" type="file" disabled={run.isPending} onChange={(event) => setDocFile(event.target.files?.[0] ?? null)} />
+              <input ref={docRef} type="file" disabled={run.isPending} onChange={(event) => setDocFile(event.target.files?.[0] ?? null)} />
             </Field>
             <Button type="submit" size="sm" disabled={run.isPending || !docName.trim() || !docFile}>
               {busy === "document" ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <FileUp size={14} aria-hidden />}
@@ -114,7 +114,7 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
               {file.adminNote ? <p className="mt-1">Replace this document. {file.adminNote}</p> : null}
               {file.status === "REUPLOAD" || file.status === "READY" ? (
                 <div className="mt-2 grid gap-1">
-                  <input className="block w-full text-sm" type="file" disabled={run.isPending} aria-label={`Replace ${file.name}`} onChange={(event) => {
+                  <input type="file" disabled={run.isPending} aria-label={`Replace ${file.name}`} onChange={(event) => {
                     const next = event.target.files?.[0];
                     event.target.value = "";
                     if (!next || run.isPending) return;

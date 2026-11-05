@@ -228,7 +228,7 @@ function TemplateFile({ templateId, field, onChange }: { templateId: string; fie
       ) : (
         <p className="text-sm text-muted">No file uploaded yet.</p>
       )}
-      <label className={`inline-flex h-9 w-fit max-w-full items-center gap-2 rounded-md border border-border px-3 text-sm hover:bg-secondary ${pending ? "cursor-wait opacity-70" : "cursor-pointer"}`}>
+      <label className={`inline-flex h-10 w-fit max-w-full items-center gap-2 rounded-md border border-border px-3 text-sm leading-5 hover:bg-secondary ${pending ? "cursor-wait opacity-70" : "cursor-pointer"}`}>
         <input className="sr-only" type="file" disabled={pending} onChange={(event) => void pick(event)} />
         {pending ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null}
         {pending ? "Uploading…" : "Choose file"}

@@ -75,8 +75,8 @@ export function AppShell({ items, home }: { items: NavItem[]; home: string }) {
           <div className="relative min-w-0 flex-1">
             <label className="relative block max-w-xl">
               <span className="sr-only">Search</span>
-              <Search className="pointer-events-none absolute left-2 top-2 text-muted" size={16} />
-              <input className="h-8 w-full rounded-md border border-border bg-secondary pl-8 pr-3 text-sm" placeholder="Search vendors, exhibitions, forms" value={query} onChange={(event) => { setQuery(event.target.value); setOpenSearch(true); }} onFocus={() => setOpenSearch(true)} />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" size={16} />
+              <input className="h-10 w-full rounded-md border border-border bg-secondary pl-9 pr-3 text-sm leading-10" placeholder="Search vendors, exhibitions, forms" value={query} onChange={(event) => { setQuery(event.target.value); setOpenSearch(true); }} onFocus={() => setOpenSearch(true)} />
             </label>
             {openSearch && query.trim().length > 1 ? (
               <div className="absolute z-30 mt-1 w-full max-w-xl rounded-md border border-border bg-surface p-1 shadow-panel" role="listbox">
@@ -273,8 +273,8 @@ function ShellMain({ children, home }: { children: React.ReactNode; home: string
         <div className="relative min-w-0 flex-1">
           <label className="relative block max-w-xl">
             <span className="sr-only">Search</span>
-            <Search className="pointer-events-none absolute left-2 top-2 text-muted" size={16} />
-            <input className="h-8 w-full rounded-md border border-border bg-secondary pl-8 pr-3 text-sm" placeholder={home.startsWith("/vendor") ? "Search" : "Search a company or event"} value={query} onChange={(event) => { setQuery(event.target.value); setOpenSearch(true); }} onFocus={() => setOpenSearch(true)} />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" size={16} />
+            <input className="h-10 w-full rounded-md border border-border bg-secondary pl-9 pr-3 text-sm leading-10" placeholder={home.startsWith("/vendor") ? "Search" : "Search a company or event"} value={query} onChange={(event) => { setQuery(event.target.value); setOpenSearch(true); }} onFocus={() => setOpenSearch(true)} />
           </label>
           {openSearch && query.trim().length > 1 ? (
             <div className="absolute z-30 mt-1 w-full max-w-xl rounded-md border border-border bg-surface p-1 shadow-panel">
@@ -315,7 +315,7 @@ function ShellMain({ children, home }: { children: React.ReactNode; home: string
           return <span key={crumb}> / {label}</span>;
         })}
       </div>
-      <main className="px-3 py-4 sm:px-4">{children}</main>
+      <main className="px-4 py-5">{children}</main>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { ApiError, api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { InlineFilePreview, RemoteFileLink } from "@/components/file-preview";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, Field, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, Notice, PageHeader, StatusBadge, textareaClass } from "@/components/ui";
 import { COUNTRIES, isFieldVisible, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 
 type Review = {
@@ -120,7 +120,7 @@ export default function ReviewDetailPage() {
             {notes.rows.map((item) => <li key={item.id} className="rounded bg-secondary px-2 py-1">{item.body}<span className="mt-1 block text-xs text-muted">{formatDate(item.createdAt)}</span></li>)}
           </ul>
           <Pager page={notes.page} pageCount={notes.pageCount} total={notes.total} rangeStart={notes.rangeStart} rangeEnd={notes.rangeEnd} onPage={notes.setPage} />
-          <Field label="Add note"><textarea className={`${inputClass} min-h-16 py-2`} value={note} onChange={(event) => setNote(event.target.value)} /></Field>
+          <Field label="Add note"><textarea className={textareaClass} value={note} onChange={(event) => setNote(event.target.value)} /></Field>
           <Button onClick={() => addNote.mutate()} disabled={!note.trim()}>Save note</Button>
           <h3 className="text-sm font-semibold">Revisions</h3>
           <ul className="text-sm text-muted">
@@ -180,7 +180,7 @@ function AnswerList({
                           Mark this field
                         </label>
                         <Field label="Comment">
-                          <textarea className={`${inputClass} min-h-16 bg-surface py-2`} value={comments[field.id] ?? ""} onChange={(event) => onComment(field.id, event.target.value)} placeholder="Tell the vendor what to change" />
+                          <textarea className={textareaClass} value={comments[field.id] ?? ""} onChange={(event) => onComment(field.id, event.target.value)} placeholder="Tell the vendor what to change" />
                         </Field>
                       </div>
                     ) : null}
