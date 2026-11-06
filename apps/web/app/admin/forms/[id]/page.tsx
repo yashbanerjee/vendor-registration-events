@@ -9,7 +9,7 @@ import { useEffect, useState, type ChangeEvent } from "react";
 import { FormRenderer } from "@/components/form-renderer";
 import { RemoteFileLink } from "@/components/file-preview";
 import { ApiError, api } from "@/lib/api";
-import { Button, ErrorNote, Field, Modal, Notice, PageHeader, UploadStatus, UploadTick, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, Modal, PageHeader, UploadStatus, UploadTick, inputClass } from "@/components/ui";
 
 type Template = {
   data: {
@@ -34,7 +34,6 @@ export default function FormBuilderPage() {
   const [name, setName] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -46,7 +45,11 @@ export default function FormBuilderPage() {
 
   const save = useMutation({
     mutationFn: () => api(`/forms/${params.id}/draft`, { method: "PUT", body: JSON.stringify({ name, schema, scope: query.data?.data.scope ?? "GLOBAL" }) }),
-    onSuccess: async () => { setMessage("Draft saved."); setError(""); await client.invalidateQueries({ queryKey: ["form", params.id] }); },
+    onSuccess: async () => {
+      setError("");
+      await client.invalidateQueries({ queryKey: ["forms"] });
+      router.push("/admin/forms");
+    },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Save failed."),
   });
   const publish = useMutation({
@@ -54,7 +57,11 @@ export default function FormBuilderPage() {
       await api(`/forms/${params.id}/draft`, { method: "PUT", body: JSON.stringify({ name, schema, scope: query.data?.data.scope ?? "GLOBAL" }) });
       return api(`/forms/${params.id}/publish`, { method: "POST" });
     },
-    onSuccess: async () => { setMessage("Published a new immutable version."); setError(""); await client.invalidateQueries({ queryKey: ["form", params.id] }); },
+    onSuccess: async () => {
+      setError("");
+      await client.invalidateQueries({ queryKey: ["forms"] });
+      router.push("/admin/forms");
+    },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Publish failed."),
   });
   const remove = useMutation({
@@ -99,7 +106,7 @@ export default function FormBuilderPage() {
   }
 
   return (
-    <div className="flex flex-col lg:h-[calc(100dvh-8.25rem)] lg:min-h-0 lg:overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col lg:overflow-hidden">
       <div className="shrink-0">
         <PageHeader
           title={name || "Form"}
@@ -113,13 +120,12 @@ export default function FormBuilderPage() {
           }
         />
         <ErrorNote message={error} />
-        <Notice message={message} />
         <Field label="Form name">
           <input className={`${inputClass} max-w-md`} value={name} onChange={(event) => setName(event.target.value)} />
         </Field>
       </div>
       <div className="mt-4 grid min-h-0 flex-1 gap-4 lg:grid-cols-[200px_minmax(0,1fr)_minmax(240px,320px)] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden">
-        <aside className="max-h-72 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden rounded-lg border border-border bg-surface p-3 lg:h-full lg:max-h-full">
+        <aside className="max-h-72 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain rounded-lg border border-border bg-surface p-3 lg:h-full lg:max-h-full">
           <h2 className="mb-2 text-xs font-semibold uppercase text-muted">Add a field</h2>
           <div className="grid gap-1">
             {palette.map((type) => (
@@ -129,7 +135,7 @@ export default function FormBuilderPage() {
             ))}
           </div>
         </aside>
-        <div className="min-h-0 min-w-0 lg:h-full lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
+        <div className="min-h-0 min-w-0 lg:h-full lg:overflow-y-auto lg:overflow-x-hidden lg:overscroll-contain lg:pr-1">
           {schema.fields.length === 0 ? <p className="mb-3 text-sm text-muted">Add a field. It appears here the same way a vendor will see it.</p> : null}
           <FormRenderer
             schema={schema}
@@ -143,9 +149,9 @@ export default function FormBuilderPage() {
             onUpload={async (_field, file) => ({ documentId: "preview", filename: file.name })}
           />
         </div>
-        <aside className="flex max-h-[calc(100dvh-8.25rem)] min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-surface lg:h-full lg:max-h-full">
+        <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden overscroll-contain rounded-lg border border-border bg-surface lg:h-full">
           <h2 className="shrink-0 px-3 pt-3 text-xs font-semibold uppercase text-muted">Configuration</h2>
-          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3">
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3">
             {!field ? <p className="text-sm text-muted">Select a field in the form.</p> : (
               <div className="grid min-w-0 gap-3 break-words">
                 <Field label="Label"><input className={inputClass} value={field.label} onChange={(event) => updateField(field.id, { label: event.target.value })} /></Field>

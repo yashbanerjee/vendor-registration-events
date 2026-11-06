@@ -9,6 +9,15 @@ import { ApiError, api, download } from "@/lib/api";
 import { Pager, usePagedRows } from "@/components/pager";
 import { Button, ErrorNote, Field, Modal, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
+function fieldError(caught: unknown, fallback: string) {
+  if (!(caught instanceof ApiError)) return fallback;
+  if (Array.isArray(caught.details)) {
+    const issue = caught.details.find((item) => item && typeof item === "object" && "message" in item) as { message?: unknown } | undefined;
+    if (typeof issue?.message === "string" && issue.message) return issue.message;
+  }
+  return caught.message || fallback;
+}
+
 type Assignment = {
   id: string;
   status: string;
@@ -30,7 +39,7 @@ type Vendor = {
 
 type FormOption = { id: string; name: string; status: string; versions?: { id: string; versionNumber: number }[] };
 type ExhibitionOption = { id: string; name: string };
-type ImportResult = { id: string; filename: string; createdCount: number; skippedCount: number; errorCount: number; createdVendorIds: string[] };
+type ImportResult = { id: string; filename: string; createdCount: number; skippedCount: number; errorCount: number; createdVendorIds: string[]; rows?: { rowNumber: number; status: string; messages: string[] }[] };
 type MailSummary = { transferred: number; sent: number; sending: number; failed: number; failedVendors: { id: string; companyName: string; email: string; error: string }[] };
 
 const emptyVendor = { companyName: "", contactName: "", email: "", categoryId: "", phone: "", exhibitionId: "", formVersionId: "" };
@@ -125,7 +134,7 @@ export default function VendorsPage() {
       setNotice("Vendor created. An invitation email is on the way.");
       await refresh();
     },
-    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not create the vendor."),
+    onError: (caught) => setError(fieldError(caught, "Could not create the vendor.")),
   });
   const changeForm = useMutation({
     mutationFn: () => {
@@ -285,12 +294,25 @@ export default function VendorsPage() {
       {query.isLoading ? <p className="mt-3 text-sm text-muted">Loading vendors…</p> : null}
       {!query.isLoading && vendors.total === 0 ? <p className="mt-3 text-sm text-muted">No vendors match this filter.</p> : null}
       <Modal open={open} title="Add a company" onClose={() => setOpen(false)}>
-        <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); setError(""); create.mutate(); }}>
+        <form className="grid gap-3" onSubmit={(event) => {
+          event.preventDefault();
+          const name = form.contactName.trim();
+          if (name.length < 2 || !/^[\p{L}][\p{L}\s.'’-]*$/u.test(name)) {
+            setError("Use letters, spaces, hyphens, and apostrophes only.");
+            return;
+          }
+          if (form.phone.length > 0 && form.phone.length !== 10) {
+            setError("Enter a 10-digit phone number.");
+            return;
+          }
+          setError("");
+          create.mutate();
+        }}>
           <ErrorNote message={error} />
           <Field label="Company"><input className={inputClass} required value={form.companyName} onChange={(event) => setForm({ ...form, companyName: event.target.value })} /></Field>
-          <Field label="Contact"><input className={inputClass} required value={form.contactName} onChange={(event) => setForm({ ...form, contactName: event.target.value })} /></Field>
+          <Field label="Contact" hint="Letters, spaces, hyphens, and apostrophes only."><input className={inputClass} required value={form.contactName} autoComplete="name" onChange={(event) => setForm({ ...form, contactName: event.target.value.replace(/[^\p{L}\s.'’-]/gu, "") })} /></Field>
           <Field label="Email"><input className={inputClass} type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></Field>
-          <Field label="Phone"><input className={inputClass} value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></Field>
+          <Field label="Phone" hint="10 digits."><input className={inputClass} inputMode="numeric" autoComplete="tel" maxLength={10} pattern="\d{10}" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value.replace(/\D/g, "").slice(0, 10) })} /></Field>
           <Field label="Category">
             <select className={inputClass} value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })}>
               <option value="">Select</option>
@@ -348,6 +370,13 @@ export default function VendorsPage() {
           <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); setError(""); sendImported.mutate(); }}>
             <ErrorNote message={error} />
             <p className="text-sm font-medium">{importResult.filename}</p>
+            {importResult.rows?.length ? (
+              <ul className="grid gap-1 text-sm text-muted">
+                {importResult.rows.slice(0, 8).map((row) => (
+                  <li key={row.rowNumber}>Row {row.rowNumber}: {row.messages.join(" ") || row.status}</li>
+                ))}
+              </ul>
+            ) : null}
             <dl className="grid grid-cols-3 gap-2 text-sm">
               <div className="rounded-md bg-secondary px-3 py-2"><dt className="text-muted">Transferred</dt><dd className="text-lg font-semibold">{importResult.createdCount}</dd></div>
               <div className="rounded-md bg-secondary px-3 py-2"><dt className="text-muted">Skipped</dt><dd className="text-lg font-semibold">{importResult.skippedCount}</dd></div>

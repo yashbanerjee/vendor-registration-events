@@ -3,7 +3,7 @@
 import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Search, Sun, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { applyTheme, readTheme, type ThemeChoice } from "@/lib/theme";
@@ -48,7 +48,7 @@ export function AppShell({ items, home }: { items: NavItem[]; home: string }) {
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[auto_1fr]">
-      <aside className={cn("border-b border-t-4 border-t-brand border-border bg-surface md:min-h-screen md:border-b-0 md:border-r", collapsed ? "md:w-20" : "md:w-60")}>
+      <aside className={cn("border-b border-t-4 border-t-brand border-border bg-surface md:h-dvh md:overflow-y-auto md:overscroll-contain md:border-b-0 md:border-r", collapsed ? "md:w-20" : "md:w-60")}>
         <div className="flex h-14 items-center justify-between px-3">
           <Link href={home} aria-label="s7" className="flex items-center text-brand">
             <BrandMark className="h-9 w-9 object-contain" />
@@ -96,7 +96,7 @@ export function AppShell({ items, home }: { items: NavItem[]; home: string }) {
               <Bell size={18} />
             </button>
             {openNotes ? (
-              <div className="absolute right-0 z-30 mt-1 w-80 rounded-md border border-border bg-surface p-2 shadow-panel">
+              <IsolatedScroll className="absolute right-0 z-30 mt-1 max-h-[min(24rem,calc(100dvh-4.5rem))] w-80 overflow-y-auto overscroll-contain rounded-md border border-border bg-surface p-2 shadow-panel">
                 <p className="px-2 py-1 text-xs font-semibold uppercase text-muted">Notifications</p>
                 {(notifications.data?.data ?? []).length === 0 ? <p className="px-2 py-3 text-sm text-muted">Nothing new.</p> : null}
                 {notifications.data?.data.map((note) => (
@@ -105,7 +105,7 @@ export function AppShell({ items, home }: { items: NavItem[]; home: string }) {
                     <span className="block text-xs text-muted">{note.body}</span>
                   </button>
                 ))}
-              </div>
+              </IsolatedScroll>
             ) : null}
           </div>
           <div className="hidden items-center gap-2 text-sm sm:flex">
@@ -191,7 +191,7 @@ export function ShellFrame({ items, home, children }: { items: NavItem[]; home: 
   if (loading) return <p className="p-6 text-sm text-muted">Loading workspace…</p>;
   if (!session) return null;
   return (
-    <div className="min-h-screen md:grid md:grid-cols-[auto_1fr]">
+    <div className="min-h-dvh md:grid md:h-dvh md:grid-cols-[auto_1fr] md:overflow-hidden">
       <ShellNav items={items} home={home} />
       <ShellMain home={home}>{children}</ShellMain>
     </div>
@@ -225,7 +225,7 @@ function ShellNav({ items, home }: { items: NavItem[]; home: string }) {
     if (localStorage.getItem("sidebar") === "collapsed") setCollapsed(true);
   }, []);
   return (
-    <aside className={cn("border-b border-t-4 border-t-brand border-border bg-surface md:min-h-screen md:border-b-0 md:border-r", collapsed ? "md:w-20" : "md:w-60")}>
+    <aside className={cn("border-b border-t-4 border-t-brand border-border bg-surface md:h-dvh md:overflow-y-auto md:overscroll-contain md:border-b-0 md:border-r", collapsed ? "md:w-20" : "md:w-60")}>
       <div className="flex h-14 items-center justify-between px-3">
         <Link href={home} aria-label="s7" className="flex items-center text-brand">
           <BrandMark className="h-9 w-9 object-contain" />
@@ -268,8 +268,8 @@ function ShellMain({ children, home }: { children: React.ReactNode; home: string
   });
   const crumbs = pathname.split("/").filter(Boolean);
   return (
-    <div className="min-w-0">
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-surface px-4">
+    <div className="flex min-h-dvh min-w-0 flex-col md:h-dvh md:min-h-0 md:overflow-hidden">
+      <header className="z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
         <div className="relative min-w-0 flex-1">
           <label className="relative block max-w-xl">
             <span className="sr-only">Search</span>
@@ -293,7 +293,7 @@ function ShellMain({ children, home }: { children: React.ReactNode; home: string
             <Bell size={18} />
           </button>
           {openNotes ? (
-            <div className="absolute right-0 z-30 mt-1 w-80 rounded-md border border-border bg-surface p-2 shadow-panel">
+            <IsolatedScroll className="absolute right-0 z-30 mt-1 max-h-[min(24rem,calc(100dvh-4.5rem))] w-80 overflow-y-auto overscroll-contain rounded-md border border-border bg-surface p-2 shadow-panel">
               {(notifications.data?.data ?? []).length === 0 ? <p className="px-2 py-3 text-sm text-muted">Nothing new.</p> : null}
               {notifications.data?.data.map((note) => (
                 <button key={note.id} className="block w-full rounded px-2 py-2 text-left hover:bg-secondary" onClick={async () => { await api(`/notifications/${note.id}/read`, { method: "POST" }); setOpenNotes(false); if (note.link.startsWith("/")) router.push(note.link); }}>
@@ -301,13 +301,13 @@ function ShellMain({ children, home }: { children: React.ReactNode; home: string
                   <span className="line-clamp-2 text-xs text-muted">{note.body}</span>
                 </button>
               ))}
-            </div>
+            </IsolatedScroll>
           ) : null}
         </div>
         <span className="hidden text-sm sm:inline">{session?.name}</span>
         <SignOutButton />
       </header>
-      <div className="px-4 pt-3 text-xs text-muted" aria-label="Breadcrumb">
+      <div className="shrink-0 px-4 pt-3 text-xs text-muted" aria-label="Breadcrumb">
         <Link href={home}>Home</Link>
         {crumbs.slice(1).map((crumb) => {
           const label = crumbLabel(crumb);
@@ -315,7 +315,24 @@ function ShellMain({ children, home }: { children: React.ReactNode; home: string
           return <span key={crumb}> / {label}</span>;
         })}
       </div>
-      <main className="px-4 py-5">{children}</main>
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-5">{children}</main>
     </div>
   );
+}
+
+function IsolatedScroll({ className, children }: { className?: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const onWheel = (event: WheelEvent) => {
+      const max = node.scrollHeight - node.clientHeight;
+      if (max > 0) node.scrollTop = Math.min(max, Math.max(0, node.scrollTop + event.deltaY));
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, []);
+  return <div ref={ref} className={className}>{children}</div>;
 }

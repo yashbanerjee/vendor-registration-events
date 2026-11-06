@@ -15,13 +15,26 @@ import { StorageService } from "../storage/storage.service";
 import { WorkflowService } from "../workflow/workflow.service";
 import { assignVendorCategories, assignVendorCategoryNames, refreshCategoryLabels, UnknownCategoryError } from "./categories";
 
+const contactNameSchema = z.string().trim().min(2, "Enter the contact name.").max(200).regex(/^[\p{L}][\p{L}\s.'’-]*$/u, "Use letters, spaces, hyphens, and apostrophes only.");
+
+const phoneSchema = z.string().trim().max(40).optional().transform((value, ctx) => {
+  if (value === undefined) return undefined;
+  const digits = value.replace(/\D/g, "");
+  const normalized = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (normalized.length > 0 && normalized.length !== 10) {
+    ctx.addIssue({ code: "custom", message: "Enter a 10-digit phone number." });
+    return z.NEVER;
+  }
+  return normalized;
+});
+
 const vendorFields = z.object({
   reference: z.string().min(2).max(40).regex(/^[A-Za-z0-9_-]+$/).optional(),
   companyName: z.string().min(2).max(200),
-  contactName: z.string().min(2).max(200),
+  contactName: contactNameSchema,
   email: z.string().email().max(320),
   additionalEmails: z.array(z.string().email()).max(10).optional(),
-  phone: z.string().max(40).optional(),
+  phone: phoneSchema,
   addressLine1: z.string().max(200).optional(),
   addressLine2: z.string().max(200).optional(),
   city: z.string().max(120).optional(),

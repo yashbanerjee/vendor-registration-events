@@ -21,10 +21,18 @@ import { assignVendorCategoryNames } from "../catalog/categories";
 const rowSchema = z.object({
   reference: z.string().min(2).max(40).regex(/^[A-Za-z0-9_-]+$/),
   companyName: z.string().min(2).max(200),
-  contactName: z.string().min(2).max(200),
+  contactName: z.string().trim().min(2).max(200).regex(/^[\p{L}][\p{L}\s.'’-]*$/u, "Use letters, spaces, hyphens, and apostrophes only."),
   email: z.string().email(),
   additionalEmails: z.string().optional().default(""),
-  phone: z.string().optional().default(""),
+  phone: z.string().optional().default("").transform((value, ctx) => {
+    const digits = value.replace(/\D/g, "");
+    const normalized = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+    if (normalized.length > 0 && normalized.length !== 10) {
+      ctx.addIssue({ code: "custom", message: "Enter a 10-digit phone number." });
+      return z.NEVER;
+    }
+    return normalized;
+  }),
   addressLine1: z.string().optional().default(""),
   addressLine2: z.string().optional().default(""),
   city: z.string().optional().default(""),
@@ -59,14 +67,15 @@ export class ImportsService {
   ) {}
 
   template() {
+    const stamp = Date.now().toString(36);
     const samples = [
       {
-        reference: "VND-1001",
+        reference: `VND-${stamp}A`.slice(0, 40),
         companyName: "Northwind Displays",
         contactName: "Amina Shah",
-        email: "amina@northwind.example",
-        additionalEmails: "ops@northwind.example",
-        phone: "+1-202-555-0101",
+        email: `amina.${stamp}@northwind.example`,
+        additionalEmails: `ops.${stamp}@northwind.example`,
+        phone: "2025550101",
         addressLine1: "18 Market Street",
         addressLine2: "",
         city: "Boston",
@@ -76,12 +85,12 @@ export class ImportsService {
         category: "Booth builder",
       },
       {
-        reference: "VND-1002",
+        reference: `VND-${stamp}B`.slice(0, 40),
         companyName: "Harbor Lighting",
         contactName: "Jonah Hale",
-        email: "jonah@harbor-lighting.example",
+        email: `jonah.${stamp}@harbor-lighting.example`,
         additionalEmails: "",
-        phone: "+1-202-555-0144",
+        phone: "2025550144",
         addressLine1: "4 Pier Avenue",
         addressLine2: "Suite 2",
         city: "Boston",
@@ -179,7 +188,7 @@ export class ImportsService {
         seenEmails.add(email);
         seenReferences.add(reference);
         const existing = await tx.vendor.findFirst({
-          where: { organizationId: user.organizationId, OR: [{ email }, { reference }] },
+          where: { organizationId: user.organizationId, archivedAt: null, OR: [{ email }, { reference }] },
         });
         if (existing) {
           skippedCount += 1;
@@ -195,6 +204,18 @@ export class ImportsService {
             },
           });
           continue;
+        }
+        const archived = await tx.vendor.findFirst({
+          where: { organizationId: user.organizationId, archivedAt: { not: null }, OR: [{ email }, { reference }] },
+        });
+        if (archived) {
+          await tx.vendor.update({
+            where: { id: archived.id },
+            data: {
+              reference: `archived-${archived.id.replaceAll("-", "").slice(0, 12)}`,
+              email: archived.email.startsWith("archived+") ? archived.email : `archived+${archived.id}@invalid.local`,
+            },
+          });
         }
         const existingUser = await tx.user.findUnique({ where: { email } });
         if (existingUser) {
@@ -277,6 +298,11 @@ export class ImportsService {
         where: { id: created.id },
         data: { status: "COMPLETED", createdCount, skippedCount, errorCount, completedAt: new Date() },
       });
+      const rowNotes = await tx.importJobRow.findMany({
+        where: { importJobId: created.id, status: { in: ["SKIPPED", "ERROR"] } },
+        orderBy: { rowNumber: "asc" },
+        select: { rowNumber: true, status: true, messages: true },
+      });
       await this.audit.record(tx, {
         organizationId: user.organizationId,
         actorId: user.id,
@@ -286,7 +312,7 @@ export class ImportsService {
         resourceId: created.id,
         newValue: { createdCount, skippedCount, errorCount },
       });
-      return { ...finished, createdVendorIds };
+      return { ...finished, createdVendorIds, rows: rowNotes };
     }, { timeout: 120_000, maxWait: 15_000 });
     if (file.path) await rm(file.path, { force: true });
     return { data: job };
@@ -326,7 +352,7 @@ async function parseCsvStream(buffer: Buffer, maxRows: number) {
   const records: Record<string, string>[] = [];
   const parser = Readable.from(buffer).pipe(parse({ columns: true, trim: true, skip_empty_lines: true, relax_column_count: true, bom: true }));
   for await (const row of parser as AsyncIterable<Record<string, string>>) {
-    records.push(row);
+    records.push(cleanRow(row));
     if (records.length > maxRows) throw new ConflictException(`Imports are limited to ${maxRows} rows.`);
   }
   return records;
@@ -344,13 +370,13 @@ async function parseXlsx(buffer: Buffer, maxRows: number) {
       for await (const row of worksheet) {
         const values = row.values as unknown[];
         if (!headers.length) {
-          headers = values.map((value) => String(value ?? "").trim());
+          headers = values.map((value) => cleanCell(String(value ?? "")));
           continue;
         }
         const record: Record<string, string> = {};
         headers.forEach((header, index) => {
           if (!header) return;
-          record[header] = String(values[index] ?? "").trim();
+          record[header] = cleanCell(String(values[index] ?? ""));
         });
         if (Object.values(record).some(Boolean)) rows.push(record);
         if (rows.length > maxRows) throw new ConflictException(`Imports are limited to ${maxRows} rows.`);
@@ -361,6 +387,15 @@ async function parseXlsx(buffer: Buffer, maxRows: number) {
     await rm(directory, { recursive: true, force: true });
   }
   return rows;
+}
+
+function cleanCell(value: string) {
+  const trimmed = value.trim().replace(/^\uFEFF/, "");
+  return trimmed.startsWith("'") ? trimmed.slice(1).trim() : trimmed;
+}
+
+function cleanRow(row: Record<string, string>) {
+  return Object.fromEntries(Object.entries(row).map(([key, value]) => [cleanCell(key), cleanCell(value)]));
 }
 
 async function readFileBuffer(filePath: string) {
