@@ -343,7 +343,7 @@ export class AuthService {
           to: email,
           userId: user.id,
           template: "password-reset",
-          subject: "Reset your s7 password",
+          subject: "Reset your iktva password",
           title: "Password reset",
           text: `A password reset was requested. Open ${link} within one hour. If you did not request this, you can ignore the message.`,
           link,
@@ -382,7 +382,7 @@ export class AuthService {
   async setupMfa(user: AuthContext) {
     const secret = new OTPAuth.Secret({ size: 20 });
     const totp = new OTPAuth.TOTP({
-      issuer: "s7",
+      issuer: "iktva",
       label: user.email,
       algorithm: "SHA1",
       digits: 6,

@@ -50,8 +50,8 @@ export function AppShell({ items, home }: { items: NavItem[]; home: string }) {
     <div className="min-h-screen md:grid md:grid-cols-[auto_1fr]">
       <aside className={cn("border-b border-t-4 border-t-brand border-border bg-surface md:h-dvh md:overflow-y-auto md:overscroll-contain md:border-b-0 md:border-r", collapsed ? "md:w-20" : "md:w-60")}>
         <div className="flex h-14 items-center justify-between px-3">
-          <Link href={home} aria-label="s7" className="flex items-center text-brand">
-            <BrandMark className="h-9 w-9 object-contain" />
+          <Link href={home} aria-label="iktva Forum 2027" className="flex items-center text-brand">
+            <BrandMark compact className="h-9 w-9" />
           </Link>
           <button className="hidden rounded p-1 hover:bg-secondary md:inline-flex" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={toggleSidebar}>
             {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
@@ -227,8 +227,8 @@ function ShellNav({ items, home }: { items: NavItem[]; home: string }) {
   return (
     <aside className={cn("border-b border-t-4 border-t-brand border-border bg-surface md:h-dvh md:overflow-y-auto md:overscroll-contain md:border-b-0 md:border-r", collapsed ? "md:w-20" : "md:w-60")}>
       <div className="flex h-14 items-center justify-between px-3">
-        <Link href={home} aria-label="s7" className="flex items-center text-brand">
-          <BrandMark className="h-9 w-9 object-contain" />
+        <Link href={home} aria-label="iktva Forum 2027" className="flex items-center text-brand">
+          <BrandMark compact className="h-9 w-9" />
         </Link>
         <button className="hidden rounded p-1 hover:bg-secondary md:inline-flex" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setCollapsed((current) => { localStorage.setItem("sidebar", current ? "open" : "collapsed"); return !current; })}>
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}

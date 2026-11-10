@@ -8,12 +8,12 @@ const primary: SmtpEndpoint = {
   secure: false,
   user: "primary",
   password: "secret",
-  from: "s7 <info@example.com>",
+  from: "iktva <info@example.com>",
 };
 
 test("a different fallback server is used after the saved server", () => {
   const routes = deliveryRoutes(primary, [
-    { ...primary, host: "smtp.backup.example", user: "backup", from: "s7 <backup@example.com>" },
+    { ...primary, host: "smtp.backup.example", user: "backup", from: "iktva <backup@example.com>" },
   ]);
   assert.deepEqual(routes.map((route) => route.name), ["primary", "fallback"]);
   assert.equal(routes[1]?.host, "smtp.backup.example");
@@ -35,7 +35,7 @@ test("the authenticated mailbox is the visible sender", () => {
   assert.equal(identity.replyTo, "info@example.com");
   assert.equal(identity.envelopeFrom, "info@example.com");
   assert.match(identity.messageId, /^<[0-9a-f-]+@example\.com>$/);
-  assert.equal(addressIn("s7 <Desk@Example.com>"), "desk@example.com");
+  assert.equal(addressIn("iktva <Desk@Example.com>"), "desk@example.com");
 });
 
 test("a refused address fails once, and a rate limit stays retryable", () => {

@@ -28,10 +28,10 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-4">
-      <form onSubmit={(event) => void submit(event)} className="grid w-full max-w-md gap-4 rounded-lg border border-border bg-surface p-6">
+    <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,_#e5f6fc_0%,_var(--background)_55%)] px-4">
+      <form onSubmit={(event) => void submit(event)} className="grid w-full max-w-md gap-4 rounded-lg border border-border bg-surface p-6 shadow-panel">
         <div>
-          <BrandMark className="mb-3 h-16 w-16 object-contain" />
+          <BrandMark className="mb-4 h-12 w-auto max-w-[220px]" />
           <h1 className="text-2xl font-semibold">Choose a new password</h1>
           <p className="mt-1 text-sm text-muted">Use at least 12 characters, with an uppercase letter, a lowercase letter, and a number.</p>
         </div>

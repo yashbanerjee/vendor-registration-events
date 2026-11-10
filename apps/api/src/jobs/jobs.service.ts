@@ -376,7 +376,7 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
     const renderedFor = (fromAddress: string) => renderEmail({
       template,
       audience,
-      organizationName: organization?.name ?? "s7",
+      organizationName: organization?.name ?? "iktva",
       title: String(payload.title ?? subject),
       body: text,
       actionUrl,

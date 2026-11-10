@@ -67,7 +67,7 @@ export function railwayStorageEnv() {
 function defaultFrom() {
   const match = env().SMTP_FROM.match(/^(.*?)\s*<([^>]+)>\s*$/);
   return {
-    name: match?.[1]?.trim() || "s7",
+    name: match?.[1]?.trim() || "iktva",
     address: match?.[2]?.trim() || "noreply@localhost",
   };
 }

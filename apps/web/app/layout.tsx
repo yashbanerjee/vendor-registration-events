@@ -4,8 +4,8 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
-  title: "s7",
-  description: "Events and exhibitions",
+  title: "iktva Forum 2027",
+  description: "Vendor registration for iktva Forum 2027",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -14,7 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
       </head>
-      <body>
+      <body className="font-sans antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>

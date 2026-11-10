@@ -23,7 +23,8 @@ const config: Config = {
         panel: "0 8px 24px rgba(28, 30, 22, 0.12)",
       },
       fontFamily: {
-        sans: ["Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
+        sans: ["Montserrat", "sans-serif"],
+        mono: ["Montserrat", "sans-serif"],
       },
     },
   },

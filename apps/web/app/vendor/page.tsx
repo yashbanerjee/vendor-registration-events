@@ -122,7 +122,7 @@ function FormCard({ assignment, open, onOpen }: { assignment: VendorAssignment; 
       <dl className="mt-4 grid items-start gap-x-6 gap-y-4 border-t border-border pt-4 sm:grid-cols-2">
         <div className="min-w-0 sm:col-span-2">
           <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">ID</dt>
-          <dd className="mt-1 break-all font-mono text-xs leading-5">{assignment.id}</dd>
+          <dd className="mt-1 break-all text-xs leading-5">{assignment.id}</dd>
         </div>
         <Detail label="Total fields" value={String(total)} />
         <Detail label="Completed" value={`${completed} of ${total}`} />

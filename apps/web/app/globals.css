@@ -2,58 +2,90 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Montserrat";
+  src: url("/fonts/Montserrat-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("/fonts/Montserrat-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("/fonts/Montserrat-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("/fonts/Montserrat-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
-  --background: #fff5f9;
+  --background: #f5f8fb;
   --surface: #ffffff;
-  --surface-secondary: #fff0f5;
-  --foreground: #111111;
-  --muted: #6b5560;
-  --brand: #f52d71;
+  --surface-secondary: #eef3f7;
+  --foreground: #0a0d0d;
+  --muted: #566774;
+  --brand: #0ca4dd;
   --brand-foreground: #ffffff;
-  --accent: #d91f5c;
-  --success: #146c36;
-  --warning: #8a5300;
+  --accent: #bf7351;
+  --success: #016d4e;
+  --warning: #a86131;
   --danger: #ae2e24;
-  --border: #f3d4e0;
-  --ring: #d91f5c;
-  --badge-success-bg: #dff6e6;
-  --badge-success-fg: #0f5c2c;
-  --badge-warning-bg: #fff4d6;
-  --badge-warning-fg: #6b4300;
+  --border: #d2dee8;
+  --ring: #0ca4dd;
+  --badge-success-bg: #d3e9db;
+  --badge-success-fg: #024939;
+  --badge-warning-bg: #f7e4d6;
+  --badge-warning-fg: #7a3f22;
   --badge-danger-bg: #ffebe6;
   --badge-danger-fg: #8e1f1a;
-  --badge-info-bg: #fff0f5;
-  --badge-info-fg: #d91f5c;
-  --badge-neutral-bg: #fff0f5;
-  --badge-neutral-fg: #6b5560;
+  --badge-info-bg: #e5f6fc;
+  --badge-info-fg: #023456;
+  --badge-neutral-bg: #eef3f7;
+  --badge-neutral-fg: #41525c;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #140910;
-  --surface: #1c1016;
-  --surface-secondary: #2a1520;
-  --foreground: #fff5f9;
-  --muted: #e7c3d0;
-  --brand: #ff5a8f;
-  --brand-foreground: #ffffff;
-  --accent: #f52d71;
-  --success: #7ddea3;
-  --warning: #ffd98a;
+  --background: #0a0d0d;
+  --surface: #111b2c;
+  --surface-secondary: #1a273a;
+  --foreground: #fbfcfc;
+  --muted: #9cabb8;
+  --brand: #0ca4dd;
+  --brand-foreground: #0a0d0d;
+  --accent: #dda36c;
+  --success: #78cba6;
+  --warning: #dda36c;
   --danger: #ffb4ab;
-  --border: #4a2434;
-  --ring: #ff5a8f;
-  --badge-success-bg: #123524;
-  --badge-success-fg: #b6f3cd;
-  --badge-warning-bg: #3d2e0d;
-  --badge-warning-fg: #ffe3a3;
+  --border: #2a3a4f;
+  --ring: #0ca4dd;
+  --badge-success-bg: #024939;
+  --badge-success-fg: #d3e9db;
+  --badge-warning-bg: #3d2a1a;
+  --badge-warning-fg: #f7e4d6;
   --badge-danger-bg: #3f1d1a;
   --badge-danger-fg: #ffd2cc;
-  --badge-info-bg: #3a1424;
-  --badge-info-fg: #ffd0e0;
-  --badge-neutral-bg: #2a1520;
-  --badge-neutral-fg: #fff0f5;
+  --badge-info-bg: #023456;
+  --badge-info-fg: #a3d9f6;
+  --badge-neutral-bg: #1a273a;
+  --badge-neutral-fg: #d2dee8;
 }
 
 * { box-sizing: border-box; }
@@ -64,7 +96,8 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: "Montserrat", sans-serif;
+  font-feature-settings: "ss01" on;
 }
 
 :focus-visible {
@@ -91,7 +124,7 @@ input[type="radio"] {
 
 select {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b5560' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23566774' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 1rem;
@@ -99,7 +132,7 @@ select {
 }
 
 .dark select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23e7c3d0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239cabb8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 input[type="file"]:not(.sr-only):not(.hidden) {

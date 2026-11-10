@@ -83,12 +83,14 @@ export function renderEmail(input: {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${escapeHtml(input.title)}</title>
   </head>
-  <body style="margin:0;padding:24px;background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;">
-    <p style="margin:0 0 8px;font-size:13px;color:#444444;">${escapeHtml(input.organizationName)}</p>
-    <h1 style="margin:0 0 16px;font-size:20px;line-height:1.3;font-weight:600;">${escapeHtml(input.title)}</h1>
-    ${bodyHtml}
-    ${extraLink}
-    <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#444444;">This message was sent to ${audience} about a form or account with ${escapeHtml(input.organizationName)}.${sender}</p>
+  <body style="margin:0;padding:24px;background:#f5f8fb;color:#0a0d0d;font-family:Montserrat,sans-serif;font-size:15px;line-height:1.5;">
+    <div style="max-width:560px;margin:0 auto;padding:28px 24px;background:#ffffff;border:1px solid #d2dee8;border-radius:8px;">
+      <p style="margin:0 0 4px;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#0ca4dd;font-weight:600;">${escapeHtml(input.organizationName)}</p>
+      <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;font-weight:700;color:#111b2c;">${escapeHtml(input.title)}</h1>
+      ${bodyHtml}
+      ${extraLink}
+      <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#566774;">This message was sent to ${audience} about a form or account with ${escapeHtml(input.organizationName)}.${sender}</p>
+    </div>
   </body>
 </html>`;
   return { html, text };
