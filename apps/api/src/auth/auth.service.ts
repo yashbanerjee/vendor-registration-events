@@ -9,6 +9,7 @@ import type { AuthContext } from "../common/auth";
 import { decryptString, encryptString, randomToken, sha256 } from "../common/crypto";
 import { assertRateLimit } from "../common/http";
 import { AuditService } from "../audit/audit.service";
+import { composeEmailTemplate } from "../jobs/email-catalog";
 import { OutboxService } from "../jobs/jobs.service";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
@@ -335,6 +336,9 @@ export class AuthService {
         },
       });
       const link = `${env().WEB_ORIGIN}/reset-password/${token}`;
+      const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { settings: true } });
+      const vars = { link };
+      const copy = composeEmailTemplate("password-reset", vars, parseStored(organization?.settings).emailTemplates);
       await this.outbox.enqueue(tx, {
         organizationId: user.organizationId,
         type: "email.password-reset",
@@ -343,10 +347,13 @@ export class AuthService {
           to: email,
           userId: user.id,
           template: "password-reset",
-          subject: "Reset your iktva password",
-          title: "Password reset",
-          text: `A password reset was requested. Open ${link} within one hour. If you did not request this, you can ignore the message.`,
+          subject: copy.subject,
+          title: copy.title,
+          text: copy.body,
+          actionLabel: copy.actionLabel,
+          vars,
           link,
+          actionUrl: link,
           audience: "vendor",
           idempotencyKey: `password-reset:${invitation.id}`,
         },

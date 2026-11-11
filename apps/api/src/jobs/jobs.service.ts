@@ -8,6 +8,7 @@ import { AuditService } from "../audit/audit.service";
 import { scanBuffer } from "../documents/scan";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
+import { catalogKeyFor, composeEmailTemplate } from "./email-catalog";
 import { publicActionUrl, renderEmail, type EmailAudience } from "./email-templates";
 import { beginMailSend, mailSendIntervalMs } from "./mail-pace";
 import { MailDeliveryError, addressIn, batchFailureKind, deliveryRoutes, senderIdentity, transactionalHeaders, type SmtpEndpoint } from "./mail-route";
@@ -367,19 +368,31 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
       tx.organization.findUnique({ where: { id: organizationId }, select: { name: true, settings: true } }),
     );
     const mail = effectiveSettings(parseStored(organization?.settings));
+    const audience: EmailAudience = payload.audience === "admin" ? "admin" : "vendor";
+    const vars = payload.vars && typeof payload.vars === "object" && !Array.isArray(payload.vars)
+      ? payload.vars as Record<string, string | number | undefined | null>
+      : null;
+    const catalogKey = catalogKeyFor(template, audience);
+    const composed = catalogKey && vars
+      ? composeEmailTemplate(catalogKey, vars, mail.emailTemplates)
+      : null;
+    const resolvedSubject = composed?.subject || subject;
+    const resolvedTitle = composed?.title || String(payload.title ?? subject);
+    const resolvedText = composed?.body || text;
+    const actionLabel = composed?.actionLabel || (typeof payload.actionLabel === "string" ? payload.actionLabel : undefined);
     const actionUrl = publicActionUrl({
       link: String(payload.actionUrl ?? payload.link ?? ""),
-      text: text,
+      text: resolvedText,
       origin: env().WEB_ORIGIN,
     });
-    const audience: EmailAudience = payload.audience === "admin" ? "admin" : "vendor";
     const renderedFor = (fromAddress: string) => renderEmail({
       template,
       audience,
       organizationName: organization?.name ?? "iktva",
-      title: String(payload.title ?? subject),
-      body: text,
+      title: resolvedTitle,
+      body: resolvedText,
       actionUrl,
+      actionLabel,
       fromAddress,
     });
     const config = env();
@@ -424,7 +437,7 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
           envelope: { from: identity.envelopeFrom, to },
           messageId: identity.messageId,
           to,
-          subject,
+          subject: resolvedSubject,
           text: rendered.text,
           html: rendered.html,
           headers: transactionalHeaders(idempotencyKey),
@@ -433,6 +446,7 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
           await tx.emailMessage.update({
             where: { id: existing.id },
             data: {
+              subject: resolvedSubject,
               status: "SENT",
               providerMessageId: info.messageId ?? null,
               attemptCount: { increment: 1 },

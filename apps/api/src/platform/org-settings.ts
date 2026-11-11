@@ -2,6 +2,16 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { decryptString, encryptString } from "../common/crypto";
 import { env } from "../config/env";
+import { EMAIL_TEMPLATES, type EmailTemplateKey, type EmailTemplateOverrides } from "../jobs/email-catalog";
+
+const emailTemplateCopySchema = z.object({
+  subject: z.string().max(300).optional(),
+  title: z.string().max(300).optional(),
+  body: z.string().max(20_000).optional(),
+  actionLabel: z.string().max(120).optional(),
+});
+
+const emailTemplateKeys = EMAIL_TEMPLATES.map((item) => item.key) as [EmailTemplateKey, ...EmailTemplateKey[]];
 
 const storedSchema = z.object({
   sessionTtlHours: z.number().optional(),
@@ -21,6 +31,7 @@ const storedSchema = z.object({
   storageAccessKey: z.string().optional(),
   storageSecretEnc: z.string().optional(),
   storagePathStyle: z.boolean().optional(),
+  emailTemplates: z.record(z.enum(emailTemplateKeys), emailTemplateCopySchema).optional(),
 });
 
 export type StoredSettings = z.infer<typeof storedSchema>;
@@ -117,6 +128,7 @@ export function effectiveSettings(stored: StoredSettings) {
     storageSecret,
     storageSecretSet: Boolean(stored.storageSecretEnc),
     storagePathStyle: stored.storagePathStyle ?? (railway.endpoint ? railway.pathStyle : false),
+    emailTemplates: (stored.emailTemplates ?? {}) as EmailTemplateOverrides,
   };
 }
 
@@ -140,6 +152,31 @@ export function publicSettings(stored: StoredSettings) {
     storageAccessKey: settings.storageAccessKey,
     storagePathStyle: settings.storagePathStyle,
     storageSecretSet: settings.storageSecretSet,
+  };
+}
+
+export const emailTemplatesBody = z.object({
+  templates: z.record(z.enum(emailTemplateKeys), emailTemplateCopySchema),
+});
+
+export function nextEmailTemplates(current: StoredSettings, input: z.infer<typeof emailTemplatesBody>): Prisma.InputJsonValue {
+  const next: EmailTemplateOverrides = { ...(current.emailTemplates ?? {}) };
+  for (const [key, value] of Object.entries(input.templates) as [EmailTemplateKey, z.infer<typeof emailTemplateCopySchema>][]) {
+    const cleaned = {
+      subject: value.subject?.trim() || undefined,
+      title: value.title?.trim() || undefined,
+      body: value.body?.trim() || undefined,
+      actionLabel: value.actionLabel?.trim() || undefined,
+    };
+    if (!cleaned.subject && !cleaned.title && !cleaned.body && !cleaned.actionLabel) {
+      delete next[key];
+      continue;
+    }
+    next[key] = cleaned;
+  }
+  return {
+    ...current,
+    emailTemplates: next,
   };
 }
 
@@ -170,5 +207,6 @@ export function nextStored(current: StoredSettings, input: z.infer<typeof settin
     storageAccessKey: input.storageAccessKey || railway.accessKey,
     storageSecretEnc,
     storagePathStyle: input.storagePathStyle,
+    emailTemplates: current.emailTemplates ?? {},
   };
 }

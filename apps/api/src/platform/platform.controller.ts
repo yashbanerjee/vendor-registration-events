@@ -82,6 +82,18 @@ export class PlatformController {
     return this.platform.updateOrganization(request.user!, body);
   }
 
+  @Get("organization/email-templates")
+  @RequirePermissions(PERMISSIONS.settingsManage)
+  emailTemplates(@Req() request: AuthedRequest) {
+    return this.platform.emailTemplates(request.user!);
+  }
+
+  @Patch("organization/email-templates")
+  @RequirePermissions(PERMISSIONS.settingsManage)
+  updateEmailTemplates(@Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.platform.updateEmailTemplates(request.user!, body);
+  }
+
   @Post("organization/test-email")
   @RequirePermissions(PERMISSIONS.settingsManage)
   testEmail(@Req() request: AuthedRequest, @Body() body: unknown) {

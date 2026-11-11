@@ -8,12 +8,13 @@ import type { AuthContext } from "../common/auth";
 import { safeEqualText } from "../common/crypto";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
+import { listEmailTemplates } from "../jobs/email-catalog";
 import { renderEmail } from "../jobs/email-templates";
 import { lookupMailAuth } from "../jobs/mail-auth";
 import { senderIdentity, transactionalHeaders } from "../jobs/mail-route";
 import { OutboxProcessor } from "../jobs/jobs.service";
 import { PrismaService, TenantService } from "../prisma/prisma.service";
-import { effectiveSettings, nextStored, parseStored, publicSettings, settingsBody } from "./org-settings";
+import { effectiveSettings, emailTemplatesBody, nextEmailTemplates, nextStored, parseStored, publicSettings, settingsBody } from "./org-settings";
 
 @Injectable()
 export class PlatformService {
@@ -323,6 +324,38 @@ export class PlatformService {
       return updated;
     });
     return { data: await this.presentOrganization(organization) };
+  }
+
+  async emailTemplates(user: AuthContext) {
+    const organization = await this.tenant.transaction(user.organizationId, (tx) =>
+      tx.organization.findUnique({ where: { id: user.organizationId }, select: { settings: true } }),
+    );
+    if (!organization) throw new NotFoundException();
+    return { data: { templates: listEmailTemplates(parseStored(organization.settings).emailTemplates) } };
+  }
+
+  async updateEmailTemplates(user: AuthContext, body: unknown) {
+    const input = emailTemplatesBody.parse(body);
+    const organization = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const existing = await tx.organization.findUnique({ where: { id: user.organizationId } });
+      if (!existing) throw new NotFoundException();
+      const settings = nextEmailTemplates(parseStored(existing.settings), input);
+      const updated = await tx.organization.update({
+        where: { id: user.organizationId },
+        data: { settings },
+      });
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "organization.email_templates_updated",
+        resourceType: "organization",
+        resourceId: user.organizationId,
+        newValue: { keys: Object.keys(input.templates) },
+      });
+      return updated;
+    });
+    return { data: { templates: listEmailTemplates(parseStored(organization.settings).emailTemplates) } };
   }
 
   async sendTestEmail(user: AuthContext, body: unknown) {

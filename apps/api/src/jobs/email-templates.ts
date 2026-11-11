@@ -59,9 +59,11 @@ export function renderEmail(input: {
   title: string;
   body: string;
   actionUrl?: string;
+  actionLabel?: string;
   fromAddress?: string;
 }) {
-  const action = input.audience === "admin" && input.template !== "password-reset" ? "Open the admin portal" : actions[input.template] ?? "Open the portal";
+  const action = input.actionLabel
+    || (input.audience === "admin" && input.template !== "password-reset" ? "Open the admin portal" : actions[input.template] ?? "Open the portal");
   const paragraphs = input.body
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())

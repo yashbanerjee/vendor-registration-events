@@ -16,6 +16,7 @@ import { randomToken, sha256 } from "../common/crypto";
 import { decodeCursor, encodeCursor } from "../common/http";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
+import { catalogKeyFor, composeEmailTemplate, type EmailTemplateKey } from "../jobs/email-catalog";
 import { OutboxProcessor, OutboxService } from "../jobs/jobs.service";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
@@ -149,12 +150,11 @@ export class WorkflowService {
     }
     if (assigned > 0) {
       const idempotencyKey = `bulk-invite:${input.exhibitionId}:${input.formVersionId}:${sha256([...input.vendorIds].sort().join(","))}`;
+      const bodyText = `${assigned} vendors were invited. ${invitationPaceText()}${failed.length ? ` ${failed.length} vendors could not be invited.` : ""}`;
       await this.tenant.transaction(user.organizationId, (tx) => this.notifyAdmins(tx, user.organizationId, {
         idempotencyKey,
-        template: "invitation",
-        subject: `${assigned} exhibition invitations were queued`,
-        title: "Invitations queued",
-        text: `${assigned} vendors were invited. ${invitationPaceText()}${failed.length ? ` ${failed.length} vendors could not be invited.` : ""}`,
+        template: "invitations-queued",
+        vars: { assigned, bodyText },
         link: "/admin/vendors",
       }), { timeout: 15_000, maxWait: 5_000 });
     }
@@ -229,7 +229,9 @@ export class WorkflowService {
       vendor,
       assignmentId: assignment.id,
       purpose: "FORM_ASSIGNMENT",
-      subject: `Complete ${version.template.name} for ${exhibition.name}`,
+      kind: "invitation",
+      formName: version.template.name,
+      exhibitionName: exhibition.name,
       intro: `${user.name} assigned ${version.template.name} for ${exhibition.name}.`,
       notifyAdmins: options?.notifyAdmins,
     });
@@ -257,7 +259,9 @@ export class WorkflowService {
         vendor: assignment.vendor,
         assignmentId: assignment.id,
         purpose,
-        subject: purpose === "CORRECTION" ? `Corrections requested for ${assignment.formVersion.template.name}` : `Reminder: ${assignment.formVersion.template.name}`,
+        kind: purpose === "CORRECTION" ? "correction" : "reminder",
+        formName: assignment.formVersion.template.name,
+        exhibitionName: assignment.exhibition.name,
         intro: purpose === "CORRECTION" ? "Some answers need to be corrected." : "This is a reminder to complete your assigned form.",
       });
       await this.audit.record(tx, {
@@ -312,7 +316,9 @@ export class WorkflowService {
           vendor: assignment.vendor,
           assignmentId: taken.id,
           purpose: "FORM_ASSIGNMENT",
-          subject: `Complete ${version.template.name} for ${assignment.exhibition.name}`,
+          kind: "invitation-changed",
+          formName: version.template.name,
+          exhibitionName: assignment.exhibition.name,
           intro: `${user.name} changed the assigned form to ${version.template.name} for ${assignment.exhibition.name}.`,
         });
         return taken.id;
@@ -339,7 +345,9 @@ export class WorkflowService {
         vendor: assignment.vendor,
         assignmentId: assignment.id,
         purpose: "FORM_ASSIGNMENT",
-        subject: `Complete ${version.template.name} for ${assignment.exhibition.name}`,
+        kind: "invitation-changed",
+        formName: version.template.name,
+        exhibitionName: assignment.exhibition.name,
         intro: `${user.name} changed the assigned form to ${version.template.name} for ${assignment.exhibition.name}. The previous answers are no longer the form to complete.`,
       });
       await this.audit.record(tx, {
@@ -456,14 +464,20 @@ export class WorkflowService {
       if (updated.count !== 1) throw new ConflictException("This record was updated by someone else. Reload and try again.");
       await this.notifyReviewers(tx, user.organizationId, {
         idempotencyKey: `submission:${revision.id}`,
-        subject: correcting ? `Resubmission from ${assignment.vendor.companyName}` : `Submission from ${assignment.vendor.companyName}`,
-        text: `${assignment.vendor.companyName} ${correcting ? "resubmitted" : "submitted"} ${assignment.formVersion.template.name} for ${assignment.exhibition.name}.`,
         link: `/admin/reviews/${assignment.id}`,
+        assignmentId: assignment.id,
         vendorEmail: assignment.vendor.email,
         vendorUserId: assignment.vendor.users[0]?.id,
-        vendorText: correcting
-          ? `Your corrections for ${assignment.formVersion.template.name} were received and are waiting for review.`
-          : `We received your submission for ${assignment.formVersion.template.name}. It is waiting for review.`,
+        vars: {
+          companyName: assignment.vendor.companyName,
+          formName: assignment.formVersion.template.name,
+          exhibitionName: assignment.exhibition.name,
+          subjectLine: correcting ? `Resubmission from ${assignment.vendor.companyName}` : `Submission from ${assignment.vendor.companyName}`,
+          bodyText: `${assignment.vendor.companyName} ${correcting ? "resubmitted" : "submitted"} ${assignment.formVersion.template.name} for ${assignment.exhibition.name}.`,
+          vendorBodyText: correcting
+            ? `Your corrections for ${assignment.formVersion.template.name} were received and are waiting for review.`
+            : `We received your submission for ${assignment.formVersion.template.name}. It is waiting for review.`,
+        },
       });
       await this.audit.record(tx, {
         organizationId: user.organizationId,
@@ -526,7 +540,10 @@ export class WorkflowService {
         vendor: assignment.vendor,
         assignmentId: assignment.id,
         purpose: "CORRECTION",
-        subject: `Update ${input.fields.length} field${input.fields.length === 1 ? "" : "s"} on ${assignment.formVersion.template.name}`,
+        kind: "correction",
+        formName: assignment.formVersion.template.name,
+        exhibitionName: assignment.exhibition.name,
+        fieldCount: input.fields.length,
         intro: `Please update only these fields. The rest of your submission stays locked.\n\n${labels}`,
         notifyAdmins: false,
       });
@@ -568,6 +585,12 @@ export class WorkflowService {
       if (updated.count !== 1) throw new ConflictException("This record was updated by someone else. Reload and try again.");
       const idempotencyKey = `approval:${revisionId}`;
       const account = assignment.vendor.users[0];
+      const approvalVars = {
+        companyName: assignment.vendor.companyName,
+        formName: assignment.formVersion.template.name,
+        exhibitionName: assignment.exhibition.name,
+      };
+      const approvedCopy = await this.mailCopy(tx, user.organizationId, "approved", approvalVars);
       await this.outbox.enqueue(tx, {
         organizationId: user.organizationId,
         type: "email.approved",
@@ -576,9 +599,11 @@ export class WorkflowService {
           to: assignment.vendor.email,
           userId: account?.id,
           template: "approved",
-          subject: `${assignment.formVersion.template.name} was approved`,
-          title: "Submission approved",
-          text: `Your submission for ${assignment.formVersion.template.name} at ${assignment.exhibition.name} was approved. The approved answers are now locked.`,
+          subject: approvedCopy.subject,
+          title: approvedCopy.title,
+          text: approvedCopy.body,
+          actionLabel: approvedCopy.actionLabel,
+          vars: approvalVars,
           link: `/vendor/assignments/${assignment.id}`,
           audience: "vendor",
           idempotencyKey,
@@ -587,9 +612,7 @@ export class WorkflowService {
       await this.notifyAdmins(tx, user.organizationId, {
         idempotencyKey,
         template: "approved",
-        subject: `${assignment.vendor.companyName} was approved`,
-        title: "Submission approved",
-        text: `${assignment.vendor.companyName} was approved for ${assignment.formVersion.template.name} at ${assignment.exhibition.name}.`,
+        vars: approvalVars,
         link: `/admin/reviews/${assignment.id}`,
       });
       await this.audit.record(tx, {
@@ -618,6 +641,13 @@ export class WorkflowService {
       });
       if (updated.count !== 1) throw new ConflictException("This record was updated by someone else. Reload and try again.");
       const rejectionKey = `rejection:${id}:${input.lockVersion}`;
+      const rejectionVars = {
+        companyName: assignment.vendor.companyName,
+        formName: assignment.formVersion.template.name,
+        exhibitionName: assignment.exhibition.name,
+        reason: input.reason,
+      };
+      const rejectedCopy = await this.mailCopy(tx, user.organizationId, "rejected", rejectionVars);
       await this.outbox.enqueue(tx, {
         organizationId: user.organizationId,
         type: "email.rejected",
@@ -627,9 +657,11 @@ export class WorkflowService {
           userId: assignment.vendor.users[0]?.id,
           template: "rejected",
           audience: "vendor",
-          subject: `${assignment.formVersion.template.name} was not approved`,
-          title: "Submission not approved",
-          text: `Your submission for ${assignment.formVersion.template.name} at ${assignment.exhibition.name} was not approved.\n\n${input.reason}`,
+          subject: rejectedCopy.subject,
+          title: rejectedCopy.title,
+          text: rejectedCopy.body,
+          actionLabel: rejectedCopy.actionLabel,
+          vars: rejectionVars,
           link: `/vendor/assignments/${assignment.id}`,
           idempotencyKey: rejectionKey,
         },
@@ -637,9 +669,7 @@ export class WorkflowService {
       await this.notifyAdmins(tx, user.organizationId, {
         idempotencyKey: rejectionKey,
         template: "rejected",
-        subject: `${assignment.vendor.companyName} was not approved`,
-        title: "Submission not approved",
-        text: `${assignment.vendor.companyName} was not approved for ${assignment.formVersion.template.name}.\n\n${input.reason}`,
+        vars: rejectionVars,
         link: `/admin/reviews/${assignment.id}`,
       });
       await this.audit.record(tx, {
@@ -824,6 +854,16 @@ export class WorkflowService {
     return { transferred: vendors.length, sent, sending, failed, failedVendors };
   }
 
+  private async mailCopy(
+    tx: Tx,
+    organizationId: string,
+    key: EmailTemplateKey,
+    vars: Record<string, string | number | undefined | null>,
+  ) {
+    const organization = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
+    return composeEmailTemplate(key, vars, parseStored(organization?.settings).emailTemplates);
+  }
+
   private async issueInvitation(
     tx: Tx,
     user: AuthContext,
@@ -831,8 +871,11 @@ export class WorkflowService {
       vendor: { id: string; email: string; companyName: string; users?: { id: string }[] };
       assignmentId: string;
       purpose: "FORM_ASSIGNMENT" | "CORRECTION";
-      subject: string;
+      kind: "invitation" | "invitation-changed" | "reminder" | "correction";
+      formName: string;
+      exhibitionName: string;
       intro: string;
+      fieldCount?: number;
       notifyAdmins?: boolean;
     },
   ) {
@@ -841,7 +884,8 @@ export class WorkflowService {
       data: { revokedAt: new Date() },
     });
     const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { settings: true } });
-    const invitationHours = effectiveSettings(parseStored(organization?.settings)).invitationTtlHours;
+    const stored = parseStored(organization?.settings);
+    const invitationHours = effectiveSettings(stored).invitationTtlHours;
     const token = randomToken();
     const invitation = await tx.invitation.create({
       data: {
@@ -857,17 +901,34 @@ export class WorkflowService {
     });
     const link = `${env().WEB_ORIGIN}/invite/${token}`;
     const idempotencyKey = `invitation:${invitation.id}`;
+    const fieldCount = input.fieldCount ?? 0;
+    const vars = {
+      companyName: input.vendor.companyName,
+      formName: input.formName,
+      exhibitionName: input.exhibitionName,
+      intro: input.intro,
+      link,
+      invitationHours,
+      actorName: user.name,
+      fieldCount,
+      fieldCountPlural: fieldCount === 1 ? "" : "s",
+    };
+    const templateKey: EmailTemplateKey = input.kind;
+    const copy = composeEmailTemplate(templateKey, vars, stored.emailTemplates);
+    const outboxTemplate = input.purpose === "CORRECTION" ? "correction" : input.kind === "reminder" ? "reminder" : "invitation";
     await this.outbox.enqueue(tx, {
       organizationId: user.organizationId,
-      type: input.purpose === "CORRECTION" ? "email.correction" : "email.invitation",
+      type: `email.${outboxTemplate}`,
       idempotencyKey,
       payload: {
         to: input.vendor.email,
         userId: input.vendor.users?.[0]?.id,
-        template: input.purpose === "CORRECTION" ? "correction" : "invitation",
-        subject: input.subject,
-        title: input.subject,
-        text: `${input.intro}\n\nThe form is here:\n${link}\n\nThis invitation expires in ${invitationHours} hours.`,
+        template: templateKey,
+        subject: copy.subject,
+        title: copy.title,
+        text: copy.body,
+        actionLabel: copy.actionLabel,
+        vars,
         link: `/invite/${token}`,
         actionUrl: link,
         audience: "vendor",
@@ -878,9 +939,10 @@ export class WorkflowService {
     await this.notifyAdmins(tx, user.organizationId, {
       idempotencyKey,
       template: input.purpose === "CORRECTION" ? "correction" : "invitation",
-      subject: input.purpose === "CORRECTION" ? `Corrections sent to ${input.vendor.companyName}` : `Invitation sent to ${input.vendor.companyName}`,
-      title: input.purpose === "CORRECTION" ? "Corrections sent" : "Invitation sent",
-      text: `${input.vendor.companyName} (${input.vendor.email}) received this request. The invitation link was sent only to the company.`,
+      vars: {
+        companyName: input.vendor.companyName,
+        companyEmail: input.vendor.email,
+      },
       link: `/admin/reviews`,
     });
   }
@@ -888,8 +950,17 @@ export class WorkflowService {
   private async notifyAdmins(
     tx: Tx,
     organizationId: string,
-    input: { idempotencyKey: string; template: string; subject: string; title: string; text: string; link: string },
+    input: {
+      idempotencyKey: string;
+      template: string;
+      vars: Record<string, string | number | undefined | null>;
+      link: string;
+    },
   ) {
+    const organization = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
+    const overrides = parseStored(organization?.settings).emailTemplates;
+    const catalogKey = catalogKeyFor(input.template, "admin") ?? "invitation-admin";
+    const copy = composeEmailTemplate(catalogKey, input.vars, overrides);
     const admins = await tx.user.findMany({
       where: { organizationId, status: "ACTIVE", vendorId: null, roles: { some: { role: { name: "ORG_ADMIN" } } } },
     });
@@ -904,9 +975,11 @@ export class WorkflowService {
           userId: admin.id,
           template: input.template,
           audience: "admin",
-          subject: input.subject,
-          title: input.title,
-          text: input.text,
+          subject: copy.subject,
+          title: copy.title,
+          text: copy.body,
+          actionLabel: copy.actionLabel,
+          vars: input.vars,
           link: input.link,
           idempotencyKey: key,
         },
@@ -919,14 +992,25 @@ export class WorkflowService {
     organizationId: string,
     input: {
       idempotencyKey: string;
-      subject: string;
-      text: string;
       link: string;
+      assignmentId: string;
       vendorEmail: string;
       vendorUserId?: string;
-      vendorText: string;
+      vars: Record<string, string | number | undefined | null>;
     },
   ) {
+    const organization = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
+    const overrides = parseStored(organization?.settings).emailTemplates;
+    const vendorVars = {
+      ...input.vars,
+      subjectLine: input.vars.subjectLine,
+      bodyText: input.vars.vendorBodyText ?? input.vars.bodyText,
+    };
+    const vendorCopy = composeEmailTemplate("submission-ack", vendorVars, overrides);
+    const adminCopy = composeEmailTemplate("submission-admin", {
+      ...input.vars,
+      bodyText: input.vars.bodyText,
+    }, overrides);
     const vendorKey = `${input.idempotencyKey}:vendor`;
     await this.outbox.enqueue(tx, {
       organizationId,
@@ -936,10 +1020,12 @@ export class WorkflowService {
         to: input.vendorEmail,
         userId: input.vendorUserId,
         template: "submission-ack",
-        subject: input.subject,
-        title: input.subject,
-        text: input.vendorText,
-        link: `/vendor/assignments/${input.link.split("/").pop()}`,
+        subject: vendorCopy.subject,
+        title: vendorCopy.title,
+        text: vendorCopy.body,
+        actionLabel: vendorCopy.actionLabel,
+        vars: vendorVars,
+        link: `/vendor/assignments/${input.assignmentId}`,
         audience: "vendor",
         idempotencyKey: vendorKey,
       },
@@ -961,9 +1047,11 @@ export class WorkflowService {
           to: reviewer.email,
           userId: reviewer.id,
           template: "submission-ack",
-          subject: input.subject,
-          title: input.subject,
-          text: input.text,
+          subject: adminCopy.subject,
+          title: adminCopy.title,
+          text: adminCopy.body,
+          actionLabel: adminCopy.actionLabel,
+          vars: input.vars,
           link: input.link,
           audience: "admin",
           idempotencyKey: key,

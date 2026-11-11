@@ -13,6 +13,7 @@ import { z } from "zod";
 import type { AuthContext } from "../common/auth";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
+import { composeEmailTemplate } from "../jobs/email-catalog";
 import { OutboxService } from "../jobs/jobs.service";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService } from "../prisma/prisma.service";
@@ -147,6 +148,8 @@ export class ImportsService {
       const seenReferences = new Set<string>();
       const vendorRole = await tx.role.findUnique({ where: { name: "VENDOR" } });
       if (!vendorRole) throw new ConflictException("Vendor access is not configured.");
+      const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { settings: true } });
+      const emailTemplates = parseStored(organization?.settings).emailTemplates;
       let createdCount = 0;
       let skippedCount = 0;
       let errorCount = 0;
@@ -264,6 +267,13 @@ export class ImportsService {
             roles: { create: { roleId: vendorRole.id } },
           },
         });
+        const vars = {
+          portal,
+          email,
+          password: item.password,
+          companyName: parsed.data.companyName,
+        };
+        const copy = composeEmailTemplate("credentials", vars, emailTemplates);
         await this.outbox.enqueue(tx, {
           organizationId: user.organizationId,
           type: "email.credentials",
@@ -273,9 +283,11 @@ export class ImportsService {
             userId: account.id,
             template: "credentials",
             audience: "vendor",
-            subject: "Your iktva login",
-            title: "Your account is ready",
-            text: `Use these details to sign in. Change the temporary password before you open an exhibition form.\n\nPortal: ${portal}\nEmail: ${email}\nTemporary password: ${item.password}`,
+            subject: copy.subject,
+            title: copy.title,
+            text: copy.body,
+            actionLabel: copy.actionLabel,
+            vars,
             link: "/login",
             actionUrl: portal,
             idempotencyKey: `credentials:${vendor.id}`,

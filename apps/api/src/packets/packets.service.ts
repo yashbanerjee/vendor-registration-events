@@ -5,6 +5,7 @@ import type { AuthContext } from "../common/auth";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
 import { mimeForFilename, scanBuffer } from "../documents/scan";
+import { composeEmailTemplate, type EmailTemplateKey } from "../jobs/email-catalog";
 import { OutboxProcessor, OutboxService } from "../jobs/jobs.service";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
@@ -49,9 +50,8 @@ export class PacketsService {
         newValue: { name: label, exhibitionId },
       });
       await this.mailVendors(tx, user.organizationId, exhibitionId, {
-        subject: `New form for ${exhibition.name}`,
-        title: `New form for ${exhibition.name}`,
-        text: `${label} was added for ${exhibition.name}. Sign in and download it from your dashboard. Fill it in, then upload the completed PDF. You can also attach any extra documents with a name.`,
+        template: "packet",
+        vars: { exhibitionName: exhibition.name, formName: label },
       });
       return form;
     });
@@ -86,14 +86,13 @@ export class PacketsService {
         });
       }
       const names = forms.map((form) => form.name).join(", ");
-      const text = names
+      const bodyText = names
         ? `You are invited to ${exhibition.name}. Download these forms from your dashboard, fill them in, and upload the completed PDFs: ${names}. You can also attach extra documents with a name.`
         : `You are invited to ${exhibition.name}. Sign in to your dashboard. PDF forms for this exhibition will appear there.`;
       for (const vendor of fresh) {
         await this.mailOne(tx, user.organizationId, vendor, {
-          subject: `Forms for ${exhibition.name}`,
-          title: `Forms for ${exhibition.name}`,
-          text,
+          template: "packet-assign",
+          vars: { exhibitionName: exhibition.name, formNames: names, bodyText },
           idempotencyKey: `packet-assign:${exhibitionId}:${vendor.id}:${randomUUID()}`,
         });
       }
@@ -347,9 +346,13 @@ export class PacketsService {
         data: { status: "REUPLOAD", adminNote: input.note, requestedAt },
       });
       await this.mailOne(tx, user.organizationId, row.vendor, {
-        subject: `Please re-upload ${row.form.name}`,
-        title: `Please re-upload ${row.form.name}`,
-        text: `${row.form.name} for ${row.form.exhibition.name} needs a new upload.\n\n${input.note}\n\nSign in, replace the file, and submit it again.`,
+        template: "packet-reupload",
+        vars: {
+          itemName: row.form.name,
+          exhibitionName: row.form.exhibition.name,
+          note: input.note,
+          bodyText: `${row.form.name} for ${row.form.exhibition.name} needs a new upload.\n\n${input.note}\n\nSign in, replace the file, and submit it again.`,
+        },
         idempotencyKey: `packet-reupload:${row.id}:${requestedAt.getTime()}`,
       });
       await this.audit.record(tx, {
@@ -386,9 +389,13 @@ export class PacketsService {
         data: { status: "REUPLOAD" },
       });
       await this.mailOne(tx, user.organizationId, file.formReturn.vendor, {
-        subject: `Please re-upload ${file.name}`,
-        title: `Please re-upload ${file.name}`,
-        text: `${file.name} on ${file.formReturn.form.name} for ${file.formReturn.form.exhibition.name} needs a new upload.\n\n${input.note}\n\nSign in, replace that document, and submit the form again.`,
+        template: "packet-reupload",
+        vars: {
+          itemName: file.name,
+          exhibitionName: file.formReturn.form.exhibition.name,
+          note: input.note,
+          bodyText: `${file.name} on ${file.formReturn.form.name} for ${file.formReturn.form.exhibition.name} needs a new upload.\n\n${input.note}\n\nSign in, replace that document, and submit the form again.`,
+        },
         idempotencyKey: `packet-file-reupload:${file.id}:${requestedAt.getTime()}`,
       });
       await this.audit.record(tx, {
@@ -453,13 +460,21 @@ export class PacketsService {
     return { bytes, filename: filename.replace(/["\r\n]/g, ""), mimeType: mimeType || "application/pdf" };
   }
 
-  private async mailVendors(tx: Tx, organizationId: string, exhibitionId: string, message: { subject: string; title: string; text: string }) {
+  private async mailVendors(
+    tx: Tx,
+    organizationId: string,
+    exhibitionId: string,
+    message: { template: EmailTemplateKey; vars: Record<string, string | number | undefined | null> },
+  ) {
     const links = await tx.vendorExhibition.findMany({
       where: { organizationId, exhibitionId, vendor: { archivedAt: null } },
       select: { vendor: { select: { id: true, email: true, users: { select: { id: true }, take: 1 } } } },
     });
     for (const link of links) {
-      await this.mailOne(tx, organizationId, link.vendor, { ...message, idempotencyKey: `packet-added:${exhibitionId}:${link.vendor.id}:${randomUUID()}` });
+      await this.mailOne(tx, organizationId, link.vendor, {
+        ...message,
+        idempotencyKey: `packet-added:${exhibitionId}:${link.vendor.id}:${randomUUID()}`,
+      });
     }
   }
 
@@ -467,8 +482,14 @@ export class PacketsService {
     tx: Tx,
     organizationId: string,
     vendor: { email: string; users?: { id: string }[] },
-    message: { subject: string; title: string; text: string; idempotencyKey: string },
+    message: {
+      template: EmailTemplateKey;
+      vars: Record<string, string | number | undefined | null>;
+      idempotencyKey: string;
+    },
   ) {
+    const organization = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
+    const copy = composeEmailTemplate(message.template, message.vars, parseStored(organization?.settings).emailTemplates);
     const link = `${env().WEB_ORIGIN.replace(/\/$/, "")}/vendor`;
     await this.outbox.enqueue(tx, {
       organizationId,
@@ -477,11 +498,13 @@ export class PacketsService {
       payload: {
         to: vendor.email,
         userId: vendor.users?.[0]?.id,
-        template: "packet",
+        template: message.template,
         audience: "vendor",
-        subject: message.subject,
-        title: message.title,
-        text: message.text,
+        subject: copy.subject,
+        title: copy.title,
+        text: copy.body,
+        actionLabel: copy.actionLabel,
+        vars: message.vars,
         link: "/vendor",
         actionUrl: link,
         idempotencyKey: message.idempotencyKey,
