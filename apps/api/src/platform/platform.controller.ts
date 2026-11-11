@@ -71,6 +71,17 @@ export class PlatformController {
     return this.platform.retryJob(request.user!, id);
   }
 
+  @Get("client-errors")
+  @RequirePermissions(PERMISSIONS.jobsRead)
+  clientErrors(@Req() request: AuthedRequest) {
+    return this.platform.clientErrors(request.user!);
+  }
+
+  @Post("client-errors")
+  reportClientError(@Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.platform.reportClientError(request.user!, body, request.headers["user-agent"]);
+  }
+
   @Get("organization")
   organization(@Req() request: AuthedRequest) {
     return this.platform.organization(request.user!);

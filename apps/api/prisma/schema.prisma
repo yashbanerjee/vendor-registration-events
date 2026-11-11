@@ -136,6 +136,7 @@ model Organization {
   exhibitionForms ExhibitionForm[]
   exhibitionFormReturns ExhibitionFormReturn[]
   exhibitionFormFiles ExhibitionFormFile[]
+  clientErrors ClientErrorEvent[]
 
   @@map("organizations")
 }
@@ -696,6 +697,33 @@ model Notification {
 
   @@index([userId, readAt])
   @@map("notifications")
+}
+
+model ClientErrorEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  vendorId       String?  @map("vendor_id") @db.Uuid
+  userEmail      String   @default("") @map("user_email")
+  userName       String   @default("") @map("user_name")
+  companyName    String   @default("") @map("company_name")
+  source         String
+  method         String   @default("")
+  path           String
+  statusCode     Int?     @map("status_code")
+  code           String   @default("")
+  message        String
+  details        Json?
+  correlationId  String   @default("") @map("correlation_id")
+  userAgent      String   @default("") @map("user_agent")
+  alertedAt      DateTime? @map("alerted_at") @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, path, createdAt])
+  @@map("client_error_events")
 }
 
 model EmailMessage {

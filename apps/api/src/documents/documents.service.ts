@@ -69,7 +69,12 @@ export class DocumentsService {
           }
         }
       }
-      await this.storage.put(user.organizationId, storageKey, file.buffer, mimeType);
+      try {
+        await this.storage.put(user.organizationId, storageKey, file.buffer, mimeType);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "Storage failed.";
+        throw new ConflictException(`The file could not be stored. ${reason}`);
+      }
       const document = await tx.document.create({
         data: {
           id: documentId,

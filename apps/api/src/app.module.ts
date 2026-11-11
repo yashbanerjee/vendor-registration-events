@@ -12,6 +12,7 @@ import { DocumentsModule } from "./documents/documents.module";
 import { PacketsModule } from "./packets/packets.module";
 import { ImportsModule } from "./imports/imports.module";
 import { JobsModule } from "./jobs/jobs.module";
+import { ErrorsModule } from "./platform/errors.module";
 import { PlatformModule } from "./platform/platform.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { StorageModule } from "./storage/storage.module";
@@ -48,6 +49,7 @@ import { WorkflowModule } from "./workflow/workflow.module";
     DocumentsModule,
     PacketsModule,
     ImportsModule,
+    ErrorsModule,
     PlatformModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],

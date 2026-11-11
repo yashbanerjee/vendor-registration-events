@@ -54,7 +54,8 @@ BEGIN
     'outbox_events',
     'audit_logs',
     'import_jobs',
-    'import_job_rows'
+    'import_job_rows',
+    'client_error_events'
   ]
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', table_name);

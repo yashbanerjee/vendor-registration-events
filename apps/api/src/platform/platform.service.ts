@@ -14,6 +14,7 @@ import { lookupMailAuth } from "../jobs/mail-auth";
 import { senderIdentity, transactionalHeaders } from "../jobs/mail-route";
 import { OutboxProcessor } from "../jobs/jobs.service";
 import { PrismaService, TenantService } from "../prisma/prisma.service";
+import { clientErrorBody, ErrorReportsService } from "./error-reports.service";
 import { effectiveSettings, emailTemplatesBody, nextEmailTemplates, nextStored, parseStored, publicSettings, settingsBody } from "./org-settings";
 
 @Injectable()
@@ -23,6 +24,7 @@ export class PlatformService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(OutboxProcessor) private readonly processor: OutboxProcessor,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(ErrorReportsService) private readonly errors: ErrorReportsService,
   ) {}
 
   async dashboard(user: AuthContext) {
@@ -282,6 +284,48 @@ export class PlatformService {
     const updated = await this.processor.retry(user.organizationId, id);
     if (!updated) throw new NotFoundException("That failed job was not found.");
     return { data: { id: updated.id, status: updated.status } };
+  }
+
+  async clientErrors(user: AuthContext) {
+    const rows = await this.errors.list(user.organizationId);
+    return {
+      data: rows.map((row) => ({
+        id: row.id,
+        source: row.source,
+        method: row.method,
+        path: row.path,
+        statusCode: row.statusCode,
+        code: row.code,
+        message: row.message,
+        details: row.details,
+        userEmail: row.userEmail,
+        userName: row.userName,
+        companyName: row.companyName,
+        vendorId: row.vendorId,
+        correlationId: row.correlationId,
+        userAgent: row.userAgent,
+        alertedAt: row.alertedAt?.toISOString() ?? null,
+        createdAt: row.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  async reportClientError(user: AuthContext, body: unknown, userAgent?: string) {
+    const input = clientErrorBody.parse(body);
+    const saved = await this.errors.record({
+      organizationId: user.organizationId,
+      user,
+      source: /documents|imports|packets|upload/i.test(input.path) ? "upload" : "client",
+      method: input.method,
+      path: input.path,
+      statusCode: input.statusCode,
+      code: input.code,
+      message: input.message,
+      details: input.details,
+      correlationId: input.correlationId,
+      userAgent: input.userAgent || userAgent,
+    });
+    return { data: { id: saved?.id ?? null } };
   }
 
   async organization(user: AuthContext) {

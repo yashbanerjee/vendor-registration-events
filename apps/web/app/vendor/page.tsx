@@ -2,11 +2,12 @@
 
 import { fieldAnswers } from "@vmp/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { api } from "@/lib/api";
 import { PacketCard, type Packet } from "@/components/vendor-packets";
-import { VendorAssignmentForm, type VendorAssignment } from "@/components/vendor-assignment-form";
+import type { VendorAssignment } from "@/components/vendor-assignment-form";
 import { Button, EmptyState, ErrorNote, Notice, PageHeader, StatusBadge } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 
@@ -28,23 +29,6 @@ function MasterForm() {
   const profile = forms[0];
   const loading = assignments.isLoading || packets.isLoading;
   const failed = assignments.isError || packets.isError;
-  const [openId, setOpenId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (loading) return;
-    const id = window.location.hash.replace(/^#assignment-/, "");
-    if (forms.some((form) => form.id === id)) setOpenId(id);
-  }, [loading, forms]);
-
-  useEffect(() => {
-    if (loading || !openId) return;
-    document.getElementById(`assignment-${openId}`)?.scrollIntoView({ block: "start" });
-  }, [loading, openId, forms.length, pdfs.length]);
-
-  function openForm(id: string) {
-    setOpenId(id);
-    window.history.replaceState(null, "", `#assignment-${id}`);
-  }
 
   return (
     <div className="grid gap-4">
@@ -68,7 +52,7 @@ function MasterForm() {
         <EmptyState title="No form yet" body="When an organizer assigns your registration form, the fields will appear here." />
       ) : null}
       {forms.map((assignment) => (
-        <FormCard key={assignment.id} assignment={assignment} open={openId === assignment.id} onOpen={() => openForm(assignment.id)} />
+        <FormCard key={assignment.id} assignment={assignment} />
       ))}
       {pdfs.length > 0 ? (
         <section className="grid gap-4">
@@ -98,7 +82,7 @@ function Detail({ label, value }: { label: string; value: string }) {
 
 const OPEN_STATUSES = new Set(["INVITED", "IN_PROGRESS", "CORRECTION_REQUESTED"]);
 
-function FormCard({ assignment, open, onOpen }: { assignment: VendorAssignment; open: boolean; onOpen: () => void }) {
+function FormCard({ assignment }: { assignment: VendorAssignment }) {
   const answers = fieldAnswers(assignment.form.schema, assignment.values ?? {});
   const total = answers.length;
   const completed = answers.filter((answer) => answer.filled).length;
@@ -139,13 +123,10 @@ function FormCard({ assignment, open, onOpen }: { assignment: VendorAssignment; 
       {assignment.status === "APPROVED" ? <p className="mt-3 text-sm text-muted">Accepted. This form cannot be changed.</p> : null}
       {assignment.status === "REJECTED" ? <p className="mt-3 text-sm text-muted">Not accepted.</p> : null}
       <div className="mt-4">
-        <Button className="w-full sm:w-auto" variant={canContinue ? "primary" : "secondary"} onClick={onOpen}>{canContinue ? "Continue" : "View"}</Button>
+        <Button className="w-full sm:w-auto" variant={canContinue ? "primary" : "secondary"} asChild>
+          <Link href={`/vendor/assignments/${assignment.id}`}>{canContinue ? "Continue" : "View"}</Link>
+        </Button>
       </div>
-      {open ? (
-        <div className="mt-4 border-t border-border pt-4">
-          <VendorAssignmentForm assignment={assignment} compact />
-        </div>
-      ) : null}
     </section>
   );
 }

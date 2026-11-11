@@ -29,7 +29,15 @@ export type VendorAssignment = {
   correction: { fields: { fieldId: string; note: string }[] } | null;
 };
 
-export function VendorAssignmentForm({ assignment, compact = false }: { assignment: VendorAssignment; compact?: boolean }) {
+export function VendorAssignmentForm({
+  assignment,
+  compact = false,
+  onSubmitted,
+}: {
+  assignment: VendorAssignment;
+  compact?: boolean;
+  onSubmitted?: () => void;
+}) {
   const client = useQueryClient();
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [error, setError] = useState("");
@@ -67,9 +75,14 @@ export function VendorAssignmentForm({ assignment, compact = false }: { assignme
     onSuccess: async (result, mode) => {
       setError("");
       setFieldErrors([]);
-      setMessage(mode === "submit" ? "Sent. The organizer will look at it." : "Saved. The status is now in progress.");
       client.setQueryData<{ data: VendorAssignment[] }>(["my-assignments"], (current) => current ? { ...current, data: current.data.map((item) => item.id === result.data.id ? result.data : item) } : current);
       client.setQueryData(["assignment", assignment.id], result);
+      if (mode === "submit") {
+        setMessage("Sent. The organizer will look at it.");
+        onSubmitted?.();
+        return;
+      }
+      setMessage("Saved. The status is now in progress.");
     },
     onError: (caught) => {
       const showFieldErrors = (issues: { fieldId: string; message: string }[]) => {

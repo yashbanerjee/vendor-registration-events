@@ -102,7 +102,7 @@ export class StorageService implements OnModuleInit {
 
   private requireBucket(config: StorageConfig) {
     if (!config.storageBucket || !config.storageAccessKey || !config.storageSecret) {
-      throw new Error("Railway storage settings are incomplete.");
+      throw new Error("File storage is not configured. Set Railway storage in Admin > Settings or use local storage in development.");
     }
   }
 

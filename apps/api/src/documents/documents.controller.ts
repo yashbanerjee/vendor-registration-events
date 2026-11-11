@@ -2,6 +2,7 @@ import { Body, Controller, ForbiddenException, Get, Inject, Param, Post, Query, 
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
+import { memoryStorage } from "multer";
 import { PERMISSIONS } from "@vmp/shared";
 import { RequirePermissions } from "../common/auth";
 import type { AuthedRequest } from "../common/guards";
@@ -25,7 +26,7 @@ export class DocumentsController {
   }
 
   @Post()
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 20_971_520 } }))
+  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 20_971_520 } }))
   upload(@Req() request: AuthedRequest, @UploadedFile() file: { buffer: Buffer; originalname: string; mimetype: string; size: number }, @Body() body: unknown) {
     const user = request.user!;
     if (!user.vendorId && !user.permissions.includes(PERMISSIONS.documentsWrite)) {
