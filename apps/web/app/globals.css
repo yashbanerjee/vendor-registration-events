@@ -188,6 +188,10 @@ table.data th { text-align: left; font-size: 12px; letter-spacing: 0.02em; color
 table.data th, table.data td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 table.data tr:last-child td { border-bottom: 0; }
 table.data tbody tr:hover { background: color-mix(in srgb, var(--surface-secondary) 65%, transparent); }
+table.documents { table-layout: fixed; width: 100%; }
+table.documents th,
+table.documents td { overflow: hidden; vertical-align: top; }
+table.documents td > * { max-width: 100%; }
 
 @media (max-width: 767px) {
   .table-wrap:has(table.documents) { overflow: visible; border: 0; background: transparent; }

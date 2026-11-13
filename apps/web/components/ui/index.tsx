@@ -1,35 +1,19 @@
 "use client";
 
-import { Slot } from "@radix-ui/react-slot";
 import * as Dialog from "@radix-ui/react-dialog";
-import { cva, type VariantProps } from "class-variance-authority";
 import { Check, Loader2, X } from "lucide-react";
 import { usePublishFlag } from "@/components/flags";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge as ShadcnBadge } from "@/components/ui/badge";
 import { cn, formatLabel } from "@/lib/utils";
 
-const buttonStyles = cva(
-  "inline-flex items-center justify-center gap-2 rounded-md text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
-  {
-    variants: {
-      variant: {
-        primary: "bg-brand text-[var(--brand-foreground)] hover:opacity-90",
-        secondary: "border border-border bg-surface text-foreground hover:bg-secondary",
-        ghost: "text-foreground hover:bg-secondary",
-        danger: "bg-danger text-white hover:opacity-90",
-      },
-        size: {
-        sm: "h-8 px-2.5",
-        md: "h-10 px-3",
-      },
-    },
-    defaultVariants: { variant: "secondary", size: "md" },
-  },
-);
-
-export function Button({ className, variant, size, asChild, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof buttonStyles> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot : "button";
-  return <Comp className={cn(buttonStyles({ variant, size }), className)} {...props} />;
-}
+export { Button } from "@/components/ui/button";
+export { Badge as ShadcnBadge, badgeVariants } from "@/components/ui/badge";
+export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption } from "@/components/ui/table";
+export { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+export { Input } from "@/components/ui/input";
+export { Label } from "@/components/ui/label";
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -45,14 +29,7 @@ export const inputClass = "h-10 w-full min-w-0 rounded-md border border-border b
 export const textareaClass = "min-h-28 w-full min-w-0 resize-y rounded-md border border-border bg-surface px-3 py-2.5 text-sm leading-5 text-foreground placeholder:text-muted disabled:cursor-not-allowed disabled:bg-secondary disabled:text-foreground max-sm:text-base";
 
 export function Badge({ tone, children }: { tone: "success" | "warning" | "danger" | "info" | "neutral"; children: React.ReactNode }) {
-  const styles = {
-    success: "bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)]",
-    warning: "bg-[var(--badge-warning-bg)] text-[var(--badge-warning-fg)]",
-    danger: "bg-[var(--badge-danger-bg)] text-[var(--badge-danger-fg)]",
-    info: "bg-[var(--badge-info-bg)] text-[var(--badge-info-fg)]",
-    neutral: "bg-[var(--badge-neutral-bg)] text-[var(--badge-neutral-fg)]",
-  };
-  return <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide", styles[tone])}>{children}</span>;
+  return <ShadcnBadge variant={tone}>{children}</ShadcnBadge>;
 }
 
 export function UploadStatus({ pending }: { pending: boolean }) {
@@ -88,7 +65,7 @@ export function Modal({ open, title, onClose, wide, children }: { open: boolean;
         <Dialog.Overlay className="fixed inset-0 z-40 bg-[#111111]/50 backdrop-blur-md" />
         <Dialog.Content className={cn("fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-4rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-[0_8px_16px_rgba(28,30,22,0.25),0_0_1px_rgba(28,30,22,0.31)]", wide ? "w-[min(960px,calc(100%-2rem))]" : "w-[min(560px,calc(100%-2rem))]")}>
           <div className="mb-4 flex items-start justify-between gap-4">
-            <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
+            <Dialog.Title className="min-w-0 flex-1 truncate text-lg font-semibold" title={title}>{title}</Dialog.Title>
             <Dialog.Close className="rounded p-1 hover:bg-secondary" aria-label="Close">
               <X size={16} />
             </Dialog.Close>
@@ -112,7 +89,12 @@ export function EmptyState({ title, body, action }: { title: string; body: strin
 
 export function ErrorNote({ message }: { message?: string }) {
   usePublishFlag(message, "error");
-  return null;
+  if (!message) return null;
+  return (
+    <Alert variant="destructive">
+      <AlertDescription>{message}</AlertDescription>
+    </Alert>
+  );
 }
 
 export function Notice({ message, appearance = "success" }: { message?: string; appearance?: "success" | "information" | "warning" }) {

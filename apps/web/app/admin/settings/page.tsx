@@ -24,6 +24,7 @@ type Settings = {
   storageAccessKey: string;
   storagePathStyle: boolean;
   storageSecretSet: boolean;
+  emailSendEnabled: boolean;
 };
 
 type MailAuth = {
@@ -63,6 +64,7 @@ const empty: Settings & { name: string } = {
   storageAccessKey: "",
   storagePathStyle: false,
   storageSecretSet: false,
+  emailSendEnabled: true,
 };
 
 export default function SettingsPage() {
@@ -81,11 +83,27 @@ export default function SettingsPage() {
   const [testTo, setTestTo] = useState("");
   const [testNote, setTestNote] = useState("");
   const [testError, setTestError] = useState("");
+  const [heldCount, setHeldCount] = useState(0);
 
   useEffect(() => {
     if (!organization.data) return;
-    setForm({ name: organization.data.data.name, ...organization.data.data.settings });
+    setForm({
+      name: organization.data.data.name,
+      ...organization.data.data.settings,
+      emailSendEnabled: organization.data.data.settings.emailSendEnabled ?? true,
+    });
   }, [organization.data]);
+
+  const emailSending = useQuery({
+    queryKey: ["email-sending"],
+    queryFn: () => api<{ data: { emailSendEnabled: boolean; held: number } }>("/organization/email-sending"),
+  });
+
+  useEffect(() => {
+    if (!emailSending.data) return;
+    setHeldCount(emailSending.data.data.held);
+    setForm((current) => ({ ...current, emailSendEnabled: emailSending.data.data.emailSendEnabled }));
+  }, [emailSending.data]);
 
   useEffect(() => setTheme(readTheme()), []);
 
@@ -138,6 +156,30 @@ export default function SettingsPage() {
       setTestNote("");
       setTestError(caught instanceof ApiError ? caught.message : "The test email could not be sent.");
     },
+  });
+
+  const toggleEmailSending = useMutation({
+    mutationFn: (enabled: boolean) =>
+      api<{ data: { emailSendEnabled: boolean; released: number; held: number } }>("/organization/email-sending", {
+        method: "PATCH",
+        body: JSON.stringify({ enabled }),
+      }),
+    onSuccess: async (result) => {
+      setForm((current) => ({ ...current, emailSendEnabled: result.data.emailSendEnabled }));
+      setHeldCount(result.data.held);
+      setMessage(
+        result.data.emailSendEnabled
+          ? result.data.released
+            ? `Email sending is on. ${result.data.released} held message(s) will go out at up to 15 per minute.`
+            : "Email sending is on."
+          : `Email sending is off.${result.data.held ? ` ${result.data.held} message(s) are held until you turn it on.` : ""}`,
+      );
+      setError("");
+      await client.invalidateQueries({ queryKey: ["email-sending"] });
+      await client.invalidateQueries({ queryKey: ["organization"] });
+      await client.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not update email sending."),
   });
 
   const setup = useMutation({
@@ -193,9 +235,28 @@ export default function SettingsPage() {
           </Card>
           <Card
             title="Email"
-            description="Messages to vendors and administrators use these sender and SMTP details. A large batch waits in the queue and goes out one every 5 seconds so a mailbox limit of about 15 per minute is not exceeded."
+            description="Messages to vendors and administrators use these sender and SMTP details. Batches leave the queue at up to 15 messages per minute."
             extra={form.smtpPasswordSet ? <Badge tone="success">Password saved</Badge> : <Badge tone="neutral">No password saved</Badge>}
           >
+            <div className="grid gap-3 rounded-md border border-border bg-secondary p-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Send emails</h3>
+                  <p className="mt-1 text-xs text-muted">
+                    When off, vendor registration and other portal emails stay held. Turning on releases held messages at 15 per minute.
+                  </p>
+                  {heldCount > 0 ? <p className="mt-2 text-xs font-medium text-[var(--badge-warning-fg)]">{heldCount} message(s) waiting to send.</p> : null}
+                </div>
+                <Button
+                  type="button"
+                  variant={form.emailSendEnabled ? "primary" : "secondary"}
+                  disabled={toggleEmailSending.isPending}
+                  onClick={() => toggleEmailSending.mutate(!form.emailSendEnabled)}
+                >
+                  {toggleEmailSending.isPending ? "Updating…" : form.emailSendEnabled ? "On" : "Off"}
+                </Button>
+              </div>
+            </div>
             <MailAuthNote auth={organization.data?.data.mailAuth ?? null} />
             <div className="grid items-start gap-3 sm:grid-cols-2">
               <Field label="From name">

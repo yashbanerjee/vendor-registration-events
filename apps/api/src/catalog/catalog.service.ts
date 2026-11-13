@@ -814,7 +814,12 @@ export class CatalogService {
     const saved = await this.tenant.transaction(user.organizationId, async (tx) => {
       const form = await tx.formTemplate.findFirst({ where: { id: templateId, organizationId: user.organizationId, archivedAt: null } });
       if (!form) throw new NotFoundException();
-      await this.storage.put(user.organizationId, storageKey, file.buffer, mimeType);
+      try {
+        await this.storage.put(user.organizationId, storageKey, file.buffer, mimeType);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "Storage failed.";
+        throw new ConflictException(`The file could not be stored. ${reason}`);
+      }
       const asset = await tx.formAsset.create({
         data: {
           id: assetId,

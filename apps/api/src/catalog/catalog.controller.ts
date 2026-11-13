@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Put, Query, Req, Res, StreamableFile, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import { ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 import { PERMISSIONS } from "@vmp/shared";
@@ -141,7 +142,7 @@ export class CatalogController {
 
   @Post("forms/:id/assets")
   @RequirePermissions(PERMISSIONS.formsWrite)
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 20_971_520 } }))
+  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 20_971_520 } }))
   uploadAsset(
     @Req() request: AuthedRequest,
     @Param("id") id: string,

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ApiError, api } from "@/lib/api";
+import { api } from "@/lib/api";
+import { friendlyErrorMessage } from "@/lib/errors";
 import { BrandMark } from "@/components/brand-mark";
 import { Button, ErrorNote, Field, inputClass } from "@/components/ui";
 import { useSession } from "@/components/providers";
@@ -38,7 +39,7 @@ export default function LoginPage() {
       if (me.data.mustChangePassword) router.push("/change-password");
       else router.push(me.data.vendorId ? "/vendor" : "/admin");
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Sign-in failed.");
+      setError(friendlyErrorMessage(caught, "Sign-in failed. Please check your details and try again."));
     }
   }
 

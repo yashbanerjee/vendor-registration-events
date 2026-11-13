@@ -3,9 +3,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, FileUp, Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
-import { ApiError, api, download } from "@/lib/api";
+import { api, download } from "@/lib/api";
+import { friendlyErrorMessage } from "@/lib/errors";
 import { RemoteFileLink } from "@/components/file-preview";
-import { Button, ErrorNote, Field, StatusBadge, UploadStatus, UploadTick, inputClass } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ErrorNote, Field, StatusBadge, UploadStatus, UploadTick, inputClass } from "@/components/ui";
 
 type PacketFile = { id: string; name: string; filename: string; status: string; adminNote: string };
 export type Packet = {
@@ -37,7 +40,7 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
       if (result && typeof result === "object" && "data" in result) client.setQueryData(["my-pdf-forms"], result);
       await onChange();
     },
-    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not save that file."),
+    onError: (caught) => setError(friendlyErrorMessage(caught, "Could not save that file. Please try again.")),
   });
   const busy = run.isPending ? run.variables?.kind ?? "" : "";
   const step = locked ? 4 : form.files.length ? 3 : form.filledName ? 2 : 0;
@@ -59,29 +62,33 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
   }
 
   return (
-    <div className="rounded-xl border border-border bg-secondary p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold">{form.name}</h3>
+    <Card className="overflow-hidden bg-secondary">
+      <CardHeader className="flex-row flex-wrap items-start justify-between gap-3 space-y-0">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <CardTitle className="min-w-0 truncate" title={form.name}>{form.name}</CardTitle>
             <StatusBadge status={form.status === "AWAITING" && form.filledName ? "READY" : form.status} />
           </div>
-          {form.exhibition.name ? <p className="mt-1 text-sm text-muted">{form.exhibition.name}</p> : null}
+          {form.exhibition.name ? <CardDescription>{form.exhibition.name}</CardDescription> : null}
           <ol className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
             {["Get the form", "Upload it", "Add papers", "Send"].map((label, index) => (
               <li key={label} className={`rounded-full px-2.5 py-1 ${index < step ? "bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)]" : "bg-surface text-muted ring-1 ring-border"}`}>{index + 1} {label}</li>
             ))}
           </ol>
         </div>
-        <Button size="sm" onClick={() => void download(`/pdf-forms/${form.id}/file?disposition=attachment`, form.filename).catch((caught) => setError(caught instanceof Error ? caught.message : "The download failed."))}>
+        <Button size="sm" variant="outline" className="shrink-0" onClick={() => void download(`/pdf-forms/${form.id}/file?disposition=attachment`, form.filename).catch((caught) => setError(friendlyErrorMessage(caught, "The download failed. Please try again.")))}>
           <Download size={14} aria-hidden />
           Download form
         </Button>
-      </div>
+      </CardHeader>
+      <CardContent>
       {form.filledName && form.returnId ? (
-        <p className="mt-3 flex items-center gap-2 text-sm text-muted"><UploadTick /><span>Filled copy: <RemoteFileLink path={`/pdf-returns/${form.returnId}/file`} filename={form.filledName} /></span></p>
+        <p className="mb-3 flex min-w-0 items-center gap-2 text-sm text-muted">
+          <UploadTick />
+          <span className="min-w-0 truncate">Filled copy: <RemoteFileLink path={`/pdf-returns/${form.returnId}/file`} filename={form.filledName} /></span>
+        </p>
       ) : null}
-      {form.adminNote ? <p className="mt-3 rounded-md bg-[var(--badge-warning-bg)] px-3 py-2 text-sm">Replace this form. {form.adminNote}</p> : null}
+      {form.adminNote ? <p className="mb-3 rounded-md bg-[var(--badge-warning-bg)] px-3 py-2 text-sm">Replace this form. {form.adminNote}</p> : null}
       <ErrorNote message={error} />
       {!locked ? (
         <div className="mt-4 grid gap-4">
@@ -89,7 +96,7 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
             <input type="file" accept="application/pdf,.pdf" disabled={run.isPending} onChange={(event) => uploadFilled(event.target.files?.[0] ?? null)} />
             <UploadStatus pending={busy === "filled"} />
           </Field>
-          <form className="grid items-start gap-3 rounded-md border border-border bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" onSubmit={uploadDocument}>
+          <form className="grid min-w-0 items-start gap-3 rounded-md border border-border bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" onSubmit={uploadDocument}>
             <Field label="Document name"><input className={inputClass} value={docName} onChange={(event) => setDocName(event.target.value)} placeholder="Trade license" /></Field>
             <Field label="File">
               <input ref={docRef} type="file" disabled={run.isPending} onChange={(event) => setDocFile(event.target.files?.[0] ?? null)} />
@@ -104,16 +111,18 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
       {form.files.length ? (
         <ul className="mt-3 grid gap-2">
           {form.files.map((file) => (
-            <li key={file.id} className="rounded-md bg-secondary px-3 py-2 text-sm">
-              <div className="flex flex-wrap items-center gap-2">
+            <li key={file.id} className="min-w-0 rounded-md bg-surface px-3 py-2 text-sm">
+              <div className="flex min-w-0 items-center gap-2">
                 <UploadTick />
-                <span className="font-medium">{file.name}</span>
+                <span className="min-w-0 shrink truncate font-medium" title={file.name}>{file.name}</span>
                 <StatusBadge status={file.status === "AWAITING" ? "READY" : file.status} />
-                <RemoteFileLink path={`/pdf-files/${file.id}/file`} filename={file.filename} />
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <RemoteFileLink path={`/pdf-files/${file.id}/file`} filename={file.filename} />
+                </div>
               </div>
-              {file.adminNote ? <p className="mt-1">Replace this document. {file.adminNote}</p> : null}
+              {file.adminNote ? <p className="mt-1 break-words">Replace this document. {file.adminNote}</p> : null}
               {file.status === "REUPLOAD" || file.status === "READY" ? (
-                <div className="mt-2 grid gap-1">
+                <div className="mt-2 grid min-w-0 gap-1 overflow-hidden">
                   <input type="file" disabled={run.isPending} aria-label={`Replace ${file.name}`} onChange={(event) => {
                     const next = event.target.files?.[0];
                     event.target.value = "";
@@ -134,6 +143,7 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
           <Button variant="primary" disabled={run.isPending || !form.filledName} onClick={() => run.mutate({ kind: "submit", task: () => api(`/my/pdf-forms/${form.id}/submit`, { method: "POST" }) })}>{busy === "submit" ? "Sending…" : "Send"}</Button>
         </div>
       ) : <p className="mt-3 text-sm text-muted">Sent. You can upload again only if the organizer asks for a new copy.</p>}
-    </div>
+      </CardContent>
+    </Card>
   );
 }

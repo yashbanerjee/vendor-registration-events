@@ -1,3 +1,5 @@
+import { friendlyErrorMessage } from "@/lib/errors";
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -9,6 +11,11 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+}
+
+function toApiError(message: string, status: number, code?: string, details?: unknown, correlationId?: string) {
+  const draft = new ApiError(message, status, code, details, correlationId);
+  return new ApiError(friendlyErrorMessage(draft, "Something went wrong. Please try again."), status, code, details, correlationId);
 }
 
 function csrfToken() {
@@ -58,7 +65,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : "Network request failed.";
     reportClientError({ path, method, statusCode: 0, code: "NETWORK", message });
-    throw new ApiError(message, 0, "NETWORK");
+    throw toApiError(message, 0, "NETWORK");
   }
   const text = await response.text();
   type ApiPayload = { data?: T; error?: { message?: string; code?: string; details?: unknown; correlationId?: string }; nextCursor?: string | null };
@@ -67,8 +74,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     try {
       payload = JSON.parse(text) as ApiPayload;
     } catch {
-      const message = text.trim().startsWith("<")
-        ? "The server returned an unexpected page instead of a response."
+      const message = text.trim().startsWith("<") || /^Internal Server Error/i.test(text)
+        ? "The server had a problem with this request."
         : text.slice(0, 240) || "The server returned an invalid response.";
       reportClientError({
         path,
@@ -78,7 +85,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
         message,
         details: { bodyPreview: text.slice(0, 500) },
       });
-      throw new ApiError(message, response.status, "INVALID_JSON");
+      throw toApiError(message, response.status, "INVALID_JSON");
     }
   }
   if (!response.ok) {
@@ -94,7 +101,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
         correlationId: payload?.error?.correlationId,
       });
     }
-    throw new ApiError(message, response.status, payload?.error?.code, payload?.error?.details, payload?.error?.correlationId);
+    throw toApiError(message, response.status, payload?.error?.code, payload?.error?.details, payload?.error?.correlationId);
   }
   return payload as T;
 }
@@ -120,7 +127,7 @@ export async function download(path: string, filename: string) {
       message = text.slice(0, 240) || message;
       reportClientError({ path, method: "GET", statusCode: response.status, code: "INVALID_JSON", message, details: { bodyPreview: text.slice(0, 500) } });
     }
-    throw new ApiError(message, response.status, code, details);
+    throw toApiError(message, response.status, code, details);
   }
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);

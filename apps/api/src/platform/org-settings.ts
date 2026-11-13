@@ -31,6 +31,7 @@ const storedSchema = z.object({
   storageAccessKey: z.string().optional(),
   storageSecretEnc: z.string().optional(),
   storagePathStyle: z.boolean().optional(),
+  emailSendEnabled: z.boolean().optional(),
   emailTemplates: z.record(z.enum(emailTemplateKeys), emailTemplateCopySchema).optional(),
 });
 
@@ -57,6 +58,7 @@ export const settingsBody = z.object({
   storageSecret: z.string().max(500).optional().default(""),
   clearStorageSecret: z.boolean().optional().default(false),
   storagePathStyle: z.boolean().default(false),
+  emailSendEnabled: z.boolean().optional(),
 });
 
 export function parseStored(value: Prisma.JsonValue | null | undefined): StoredSettings {
@@ -128,6 +130,7 @@ export function effectiveSettings(stored: StoredSettings) {
     storageSecret,
     storageSecretSet: Boolean(stored.storageSecretEnc),
     storagePathStyle: stored.storagePathStyle ?? (railway.endpoint ? railway.pathStyle : false),
+    emailSendEnabled: stored.emailSendEnabled ?? true,
     emailTemplates: (stored.emailTemplates ?? {}) as EmailTemplateOverrides,
   };
 }
@@ -152,6 +155,7 @@ export function publicSettings(stored: StoredSettings) {
     storageAccessKey: settings.storageAccessKey,
     storagePathStyle: settings.storagePathStyle,
     storageSecretSet: settings.storageSecretSet,
+    emailSendEnabled: settings.emailSendEnabled,
   };
 }
 
@@ -207,6 +211,22 @@ export function nextStored(current: StoredSettings, input: z.infer<typeof settin
     storageAccessKey: input.storageAccessKey || railway.accessKey,
     storageSecretEnc,
     storagePathStyle: input.storagePathStyle,
+    emailSendEnabled: input.emailSendEnabled ?? current.emailSendEnabled ?? true,
     emailTemplates: current.emailTemplates ?? {},
+  };
+}
+
+export const emailSendingBody = z.object({
+  enabled: z.boolean(),
+});
+
+export const EMAIL_HOLD_UNTIL = new Date("2099-01-01T00:00:00.000Z");
+export const EMAIL_PER_MINUTE = 15;
+export const EMAIL_SEND_INTERVAL_MS = Math.ceil(60_000 / EMAIL_PER_MINUTE);
+
+export function nextEmailSending(current: StoredSettings, enabled: boolean): Prisma.InputJsonValue {
+  return {
+    ...current,
+    emailSendEnabled: enabled,
   };
 }

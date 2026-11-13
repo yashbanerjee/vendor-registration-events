@@ -15,7 +15,7 @@ import { senderIdentity, transactionalHeaders } from "../jobs/mail-route";
 import { OutboxProcessor } from "../jobs/jobs.service";
 import { PrismaService, TenantService } from "../prisma/prisma.service";
 import { clientErrorBody, ErrorReportsService } from "./error-reports.service";
-import { effectiveSettings, emailTemplatesBody, nextEmailTemplates, nextStored, parseStored, publicSettings, settingsBody } from "./org-settings";
+import { effectiveSettings, emailSendingBody, emailTemplatesBody, nextEmailSending, nextEmailTemplates, nextStored, parseStored, publicSettings, settingsBody } from "./org-settings";
 
 @Injectable()
 export class PlatformService {
@@ -368,6 +368,54 @@ export class PlatformService {
       return updated;
     });
     return { data: await this.presentOrganization(organization) };
+  }
+
+  async updateEmailSending(user: AuthContext, body: unknown) {
+    const input = emailSendingBody.parse(body);
+    const result = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const existing = await tx.organization.findUnique({ where: { id: user.organizationId } });
+      if (!existing) throw new NotFoundException();
+      const current = parseStored(existing.settings);
+      const wasEnabled = current.emailSendEnabled ?? true;
+      const settings = nextEmailSending(current, input.enabled);
+      const updated = await tx.organization.update({
+        where: { id: user.organizationId },
+        data: { settings },
+      });
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: input.enabled ? "organization.email_sending_enabled" : "organization.email_sending_disabled",
+        resourceType: "organization",
+        resourceId: user.organizationId,
+        newValue: { emailSendEnabled: input.enabled },
+      });
+      return { updated, wasEnabled };
+    });
+    let released = 0;
+    if (input.enabled && !result.wasEnabled) {
+      released = (await this.processor.releaseHeldEmails(user.organizationId)).released;
+    }
+    const held = await this.processor.countHeldEmails(user.organizationId);
+    return {
+      data: {
+        emailSendEnabled: input.enabled,
+        released,
+        held,
+        organization: await this.presentOrganization(result.updated),
+      },
+    };
+  }
+
+  async emailSendingStatus(user: AuthContext) {
+    const organization = await this.tenant.transaction(user.organizationId, (tx) =>
+      tx.organization.findUnique({ where: { id: user.organizationId }, select: { settings: true } }),
+    );
+    if (!organization) throw new NotFoundException();
+    const settings = effectiveSettings(parseStored(organization.settings));
+    const held = await this.processor.countHeldEmails(user.organizationId);
+    return { data: { emailSendEnabled: settings.emailSendEnabled, held } };
   }
 
   async emailTemplates(user: AuthContext) {

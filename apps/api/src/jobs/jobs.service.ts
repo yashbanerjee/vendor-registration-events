@@ -6,7 +6,7 @@ import { env } from "../config/env";
 import { decryptString, encryptString } from "../common/crypto";
 import { AuditService } from "../audit/audit.service";
 import { scanBuffer } from "../documents/scan";
-import { effectiveSettings, parseStored } from "../platform/org-settings";
+import { EMAIL_HOLD_UNTIL, EMAIL_SEND_INTERVAL_MS, effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
 import { catalogKeyFor, composeEmailTemplate } from "./email-catalog";
 import { publicActionUrl, renderEmail, type EmailAudience } from "./email-templates";
@@ -20,7 +20,13 @@ export type OutboxPayload = Record<string, unknown>;
 export class OutboxService {
   constructor(@Inject(TenantService) private readonly tenant: TenantService) {}
 
-  async enqueue(tx: Tx, input: { organizationId: string; type: string; idempotencyKey: string; payload: OutboxPayload }) {
+  async enqueue(tx: Tx, input: {
+    organizationId: string;
+    type: string;
+    idempotencyKey: string;
+    payload: OutboxPayload;
+    availableAt?: Date;
+  }) {
     const existing = await tx.outboxEvent.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
     if (existing) return existing;
     return tx.outboxEvent.create({
@@ -29,6 +35,7 @@ export class OutboxService {
         type: input.type,
         idempotencyKey: input.idempotencyKey,
         payloadEnc: encryptString(JSON.stringify(input.payload)),
+        availableAt: input.availableAt ?? new Date(),
       },
     });
   }
@@ -177,7 +184,50 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
   private configuredInterval() {
     const config = env();
     if (config.NODE_ENV === "test") return 0;
-    return config.SMTP_MIN_INTERVAL_MS;
+    return Math.max(config.SMTP_MIN_INTERVAL_MS, EMAIL_SEND_INTERVAL_MS);
+  }
+
+  async releaseHeldEmails(organizationId: string) {
+    const held = await this.tenant.transaction(organizationId, (tx) =>
+      tx.outboxEvent.findMany({
+        where: {
+          organizationId,
+          status: "PENDING",
+          type: { startsWith: "email." },
+          availableAt: { gte: EMAIL_HOLD_UNTIL },
+        },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      }),
+    );
+    if (!held.length) return { released: 0 };
+    const interval = this.configuredInterval() || EMAIL_SEND_INTERVAL_MS;
+    const start = Date.now();
+    await this.tenant.transaction(organizationId, async (tx) => {
+      for (const [index, row] of held.entries()) {
+        await tx.outboxEvent.update({
+          where: { id: row.id },
+          data: { availableAt: new Date(start + index * interval), lastError: "" },
+        });
+      }
+    });
+    this.paceNextAt = Math.max(this.paceNextAt, start);
+    this.paceLoaded = true;
+    if (env().JOBS_MODE === "inline") await this.flush(20);
+    return { released: held.length };
+  }
+
+  async countHeldEmails(organizationId: string) {
+    return this.tenant.transaction(organizationId, (tx) =>
+      tx.outboxEvent.count({
+        where: {
+          organizationId,
+          status: "PENDING",
+          type: { startsWith: "email." },
+          availableAt: { gte: EMAIL_HOLD_UNTIL },
+        },
+      }),
+    );
   }
 
   private async ensurePace() {
@@ -192,7 +242,7 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
     `);
     const publishedAt = rows[0]?.publishedAt;
     if (!publishedAt) return;
-    const nextAt = new Date(publishedAt).getTime() + env().SMTP_MIN_INTERVAL_MS;
+    const nextAt = new Date(publishedAt).getTime() + this.configuredInterval();
     if (nextAt > this.paceNextAt) this.paceNextAt = nextAt;
   }
 
@@ -201,6 +251,10 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
     while (sent < limit) {
       const claimed = await this.claim(true);
       if (!claimed) return;
+      if (!(await this.emailSendingAllowed(claimed.organizationId, claimed.type))) {
+        await this.deferMail(claimed.id, EMAIL_HOLD_UNTIL.getTime());
+        continue;
+      }
       const interval = await this.intervalFor(claimed.organizationId);
       const decision = beginMailSend({ nextAt: this.paceNextAt }, Date.now(), interval);
       this.paceNextAt = decision.pace.nextAt;
@@ -222,8 +276,17 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
 
   private logMailQueue(waiting: number) {
     if (waiting <= 0) return;
-    const seconds = Math.max(1, Math.round(env().SMTP_MIN_INTERVAL_MS / 1000));
-    this.logger.log(`Queued ${waiting} email(s). One message is sent every ${seconds} seconds so the mailbox limit is not exceeded.`);
+    const seconds = Math.max(1, Math.round(this.configuredInterval() / 1000));
+    this.logger.log(`Queued ${waiting} email(s). One message is sent every ${seconds} seconds (max 15 per minute).`);
+  }
+
+  private async emailSendingAllowed(organizationId: string, type: string) {
+    if (!type.startsWith("email.")) return true;
+    if (type === "email.test" || type === "email.error-alert") return true;
+    const organization = await this.tenant.transaction(organizationId, (tx) =>
+      tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } }),
+    );
+    return effectiveSettings(parseStored(organization?.settings)).emailSendEnabled;
   }
 
   private async intervalFor(organizationId: string) {

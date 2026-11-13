@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { BrandMark } from "./brand-mark";
 import { useSession } from "./providers";
-import { Button } from "./ui";
+import { Button } from "@/components/ui/button";
 
 export function VendorFormShell({ children }: { children: React.ReactNode }) {
   const { session, loading } = useSession();

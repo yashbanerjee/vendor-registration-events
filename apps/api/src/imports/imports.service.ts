@@ -15,7 +15,7 @@ import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
 import { composeEmailTemplate } from "../jobs/email-catalog";
 import { OutboxService } from "../jobs/jobs.service";
-import { effectiveSettings, parseStored } from "../platform/org-settings";
+import { EMAIL_HOLD_UNTIL, effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService } from "../prisma/prisma.service";
 import { assignVendorCategoryNames } from "../catalog/categories";
 
@@ -274,10 +274,12 @@ export class ImportsService {
           companyName: parsed.data.companyName,
         };
         const copy = composeEmailTemplate("credentials", vars, emailTemplates);
+        const mailSettings = effectiveSettings(parseStored(organization?.settings));
         await this.outbox.enqueue(tx, {
           organizationId: user.organizationId,
           type: "email.credentials",
           idempotencyKey: `credentials:${vendor.id}`,
+          availableAt: mailSettings.emailSendEnabled ? new Date() : EMAIL_HOLD_UNTIL,
           payload: {
             to: email,
             userId: account.id,

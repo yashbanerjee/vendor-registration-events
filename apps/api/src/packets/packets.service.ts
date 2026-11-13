@@ -445,7 +445,12 @@ export class PacketsService {
     const scan = await scanBuffer(file.buffer, filename, mimeType, { host: env().CLAMAV_HOST, port: env().CLAMAV_PORT });
     if (!scan.clean) throw new ConflictException(scan.details || "This file was rejected.");
     const storageKey = `${options.keyPrefix}/${randomUUID()}`;
-    await this.storage.put(user.organizationId, storageKey, file.buffer, mimeType);
+    try {
+      await this.storage.put(user.organizationId, storageKey, file.buffer, mimeType);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Storage failed.";
+      throw new ConflictException(`The file could not be stored. ${reason}`);
+    }
     return {
       storageKey,
       filename,

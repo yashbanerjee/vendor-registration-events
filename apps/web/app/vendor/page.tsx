@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { api } from "@/lib/api";
+import { friendlyErrorMessage } from "@/lib/errors";
 import { PacketCard, type Packet } from "@/components/vendor-packets";
 import type { VendorAssignment } from "@/components/vendor-assignment-form";
 import { Button, EmptyState, ErrorNote, Notice, PageHeader, StatusBadge } from "@/components/ui";
@@ -34,7 +35,13 @@ function MasterForm() {
     <div className="grid gap-4">
       <PageHeader title="Your form" description="Each form shows how many questions are finished. Press Continue to fill one in, then Send when it is ready." />
       <Notice message={submitted ? "Your form was submitted." : ""} />
-      <ErrorNote message={!loading && failed ? "Could not load your form." : ""} />
+      <ErrorNote
+        message={
+          !loading && failed
+            ? friendlyErrorMessage(assignments.error ?? packets.error, "Could not load your form. Please refresh the page and try again.")
+            : ""
+        }
+      />
       {loading ? <p className="text-sm text-muted">Loading your form…</p> : null}
       {profile ? (
         <section className="rounded-lg border border-border bg-surface p-4">

@@ -5,8 +5,12 @@ import { useEffect, useState } from "react";
 import { FormValidationError, validateSubmission, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { FormRenderer } from "@/components/form-renderer";
 import { ApiError, api } from "@/lib/api";
+import { friendlyErrorMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/utils";
-import { Button, ErrorNote, Notice, StatusBadge } from "@/components/ui";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ErrorNote, Notice, StatusBadge } from "@/components/ui";
 
 export type VendorAssignment = {
   id: string;
@@ -105,13 +109,13 @@ export function VendorAssignmentForm({
         });
         if (!issues.length) {
           setFieldErrors([]);
-          setError(caught.message);
+          setError(friendlyErrorMessage(caught, "The form could not be saved. Please try again."));
           return;
         }
         showFieldErrors(issues);
         return;
       }
-      setError(caught instanceof ApiError ? caught.message : "The form could not be saved.");
+      setError(friendlyErrorMessage(caught, "The form could not be saved. Please try again."));
     },
   });
 
@@ -129,30 +133,34 @@ export function VendorAssignmentForm({
   return (
     <section id={`assignment-${assignment.id}`} className="scroll-mt-20 grid gap-4">
       {compact ? null : (
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold">{assignment.form.name}</h2>
-            <p className="mt-1 text-sm text-muted">
-              {assignment.exhibition.name}
-              {assignment.deadline ? ` · Due ${formatDate(assignment.deadline)}` : ""}
-            </p>
-          </div>
-          <StatusBadge status={assignment.status} />
-        </div>
+        <Card>
+          <CardHeader className="flex-row flex-wrap items-start justify-between gap-3 space-y-0">
+            <div className="min-w-0">
+              <CardTitle className="truncate" title={assignment.form.name}>{assignment.form.name}</CardTitle>
+              <CardDescription>
+                {assignment.exhibition.name}
+                {assignment.deadline ? ` · Due ${formatDate(assignment.deadline)}` : ""}
+              </CardDescription>
+            </div>
+            <StatusBadge status={assignment.status} />
+          </CardHeader>
+        </Card>
       )}
       <ErrorNote message={error} />
       <Notice message={message} />
       {assignment.status === "SUBMITTED_PENDING_REVIEW" || assignment.status === "RESUBMITTED_PENDING_REVIEW" ? (
-        <p className="text-sm">Sent. The organizer will look at it.</p>
+        <Alert><AlertDescription>Sent. The organizer will look at it.</AlertDescription></Alert>
       ) : null}
       {assignment.status === "CORRECTION_REQUESTED" ? (
-        <p className="text-sm">Please fix the marked questions, then press Send again.</p>
+        <Alert variant="warning"><AlertDescription>Please fix the marked questions, then press Send again.</AlertDescription></Alert>
       ) : null}
-      {assignment.status === "APPROVED" ? <p className="text-sm">Accepted. This part cannot be changed.</p> : null}
+      {assignment.status === "APPROVED" ? (
+        <Alert variant="success"><AlertDescription>Accepted. This part cannot be changed.</AlertDescription></Alert>
+      ) : null}
       {staged ? (
         <nav aria-label="Form stages" className="grid gap-2 sm:flex sm:flex-wrap">
           {sections.map((section, index) => (
-            <Button key={section.id} size="sm" variant={index === currentStage ? "primary" : "secondary"} aria-current={index === currentStage ? "step" : undefined} className="h-auto min-h-11 w-full whitespace-normal px-3 py-2 text-left sm:h-8 sm:w-auto sm:whitespace-nowrap" onClick={() => setStage(index)}>
+            <Button key={section.id} size="sm" variant={index === currentStage ? "primary" : "outline"} aria-current={index === currentStage ? "step" : undefined} className="h-auto min-h-11 w-full whitespace-normal px-3 py-2 text-left sm:h-8 sm:w-auto sm:whitespace-nowrap" onClick={() => setStage(index)}>
               {index + 1}. {section.title}
             </Button>
           ))}
@@ -172,14 +180,16 @@ export function VendorAssignmentForm({
         onUpload={upload}
       />
       {editable ? (
-        <div className="sticky bottom-0 z-10 -mx-4 grid grid-cols-2 gap-2 border-t border-border bg-surface px-4 py-3 sm:static sm:mx-0 sm:flex sm:flex-wrap sm:items-center sm:border-0 sm:bg-transparent sm:p-0">
-          {staged && currentStage > 0 ? <Button className="w-full sm:w-auto" onClick={() => setStage(currentStage - 1)}>Back</Button> : null}
-          {assignment.status !== "CORRECTION_REQUESTED" ? <Button className="w-full sm:w-auto" onClick={() => save.mutate("draft")} disabled={save.isPending}>Save</Button> : null}
-          {staged && currentStage < sections.length - 1 ? <Button className="w-full sm:w-auto" variant="primary" onClick={() => setStage(currentStage + 1)}>Next</Button> : null}
-          {!staged || currentStage === sections.length - 1 ? (
-            <Button className="w-full sm:w-auto" variant="primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{assignment.status === "CORRECTION_REQUESTED" ? "Send again" : "Send"}</Button>
-          ) : null}
-        </div>
+        <Card className="sticky bottom-0 z-10 -mx-4 rounded-none border-x-0 border-b-0 sm:static sm:mx-0 sm:rounded-lg sm:border">
+          <CardContent className="grid grid-cols-2 gap-2 py-3 sm:flex sm:flex-wrap sm:items-center sm:py-4">
+            {staged && currentStage > 0 ? <Button className="w-full sm:w-auto" variant="outline" onClick={() => setStage(currentStage - 1)}>Back</Button> : null}
+            {assignment.status !== "CORRECTION_REQUESTED" ? <Button className="w-full sm:w-auto" variant="outline" onClick={() => save.mutate("draft")} disabled={save.isPending}>Save</Button> : null}
+            {staged && currentStage < sections.length - 1 ? <Button className="w-full sm:w-auto" variant="primary" onClick={() => setStage(currentStage + 1)}>Next</Button> : null}
+            {!staged || currentStage === sections.length - 1 ? (
+              <Button className="w-full sm:w-auto" variant="primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{assignment.status === "CORRECTION_REQUESTED" ? "Send again" : "Send"}</Button>
+            ) : null}
+          </CardContent>
+        </Card>
       ) : null}
     </section>
   );

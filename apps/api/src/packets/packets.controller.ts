@@ -2,6 +2,7 @@ import { Body, Controller, ForbiddenException, Get, Inject, Param, Post, Query, 
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
+import { memoryStorage } from "multer";
 import { PERMISSIONS } from "@vmp/shared";
 import { RequirePermissions } from "../common/auth";
 import type { AuthedRequest } from "../common/guards";
@@ -10,6 +11,8 @@ import { PacketsService } from "./packets.service";
 
 type Upload = { buffer: Buffer; originalname: string; mimetype: string; size: number };
 
+const uploadInterceptor = FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 20_971_520 } });
+
 @ApiTags("pdf-forms")
 @Controller()
 export class PacketsController {
@@ -17,7 +20,7 @@ export class PacketsController {
 
   @Post("exhibitions/:id/pdf-forms")
   @RequirePermissions(PERMISSIONS.exhibitionsWrite)
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 20_971_520 } }))
+  @UseInterceptors(uploadInterceptor)
   addForm(@Req() request: AuthedRequest, @Param("id") id: string, @UploadedFile() file: Upload, @Body() body: { name?: string }) {
     return this.packets.addForm(request.user!, id, body.name ?? "", file);
   }
@@ -40,13 +43,13 @@ export class PacketsController {
   }
 
   @Post("my/pdf-forms/:id/filled")
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 20_971_520 } }))
+  @UseInterceptors(uploadInterceptor)
   filled(@Req() request: AuthedRequest, @Param("id") id: string, @UploadedFile() file: Upload) {
     return this.packets.uploadFilled(request.user!, id, file);
   }
 
   @Post("my/pdf-forms/:id/documents")
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 20_971_520 } }))
+  @UseInterceptors(uploadInterceptor)
   extra(@Req() request: AuthedRequest, @Param("id") id: string, @UploadedFile() file: Upload, @Body() body: { name?: string }) {
     return this.packets.uploadExtra(request.user!, id, body.name ?? "", file);
   }
@@ -57,7 +60,7 @@ export class PacketsController {
   }
 
   @Post("pdf-files/:id/replace")
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 20_971_520 } }))
+  @UseInterceptors(uploadInterceptor)
   replace(@Req() request: AuthedRequest, @Param("id") id: string, @UploadedFile() file: Upload) {
     return this.packets.replaceExtra(request.user!, id, file);
   }

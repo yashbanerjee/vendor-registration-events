@@ -4,7 +4,12 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { COUNTRIES, isFieldVisible, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { FileLink, InlineFilePreview, RemoteFileLink } from "./file-preview";
 import { isEditable } from "@/lib/locking";
-import { UploadStatus, UploadTick, inputClass, textareaClass } from "./ui";
+import { friendlyErrorMessage } from "@/lib/errors";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { UploadStatus, UploadTick, inputClass, textareaClass } from "@/components/ui";
+import { cn } from "@/lib/utils";
 
 export function FormRenderer({
   schema,
@@ -46,12 +51,12 @@ export function FormRenderer({
           .filter((field) => isFieldVisible(field, values, byId));
         const groups = groupFields(visible, Boolean(documentTable));
         return (
-          <section key={section.id} className="min-w-0 rounded-lg border border-border bg-surface p-4 sm:p-5">
-            <header className="mb-4">
-              <h2 className="text-base font-semibold leading-6">{section.title}</h2>
-              {section.description ? <p className="mt-1 max-w-3xl text-sm leading-5 text-muted">{section.description}</p> : null}
-            </header>
-            <div className="grid gap-3">
+          <Card key={section.id} className="min-w-0 overflow-hidden">
+            <CardHeader>
+              <CardTitle>{section.title}</CardTitle>
+              {section.description ? <CardDescription>{section.description}</CardDescription> : null}
+            </CardHeader>
+            <CardContent className="grid gap-3">
               {groups.map((group) => group.table ? (
                 <DocumentTable
                   key={group.fields[0]?.id}
@@ -76,8 +81,8 @@ export function FormRenderer({
                   <FieldControl id={`${idPrefix ? `${idPrefix}-` : ""}${field.id}`} field={field} value={values[field.id]} note={notes?.find((item) => item.fieldId === field.id)?.note} error={errors?.find((item) => item.fieldId === field.id)?.message} editable={isEditable(field.id, editableFieldIds, disabled)} onChange={onChange} onUpload={onUpload} />
                 </div>
               )))}
-            </div>
-          </section>
+            </CardContent>
+          </Card>
         );
       })}
     </div>
@@ -125,17 +130,17 @@ function DocumentTable({
   onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
 }) {
   return (
-    <div className="table-wrap">
-      <table className="data documents">
-        <thead>
-          <tr>
-            <th className="min-w-40">Document required</th>
-            <th className="min-w-48">Note</th>
-            <th className="min-w-36">Document template</th>
-            <th className="min-w-40">Upload document</th>
-          </tr>
-        </thead>
-        <tbody>
+    <div className="table-wrap overflow-hidden rounded-md border border-border bg-surface">
+      <Table className="documents table-fixed">
+        <TableHeader className="bg-secondary">
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-[26%]">Document required</TableHead>
+            <TableHead className="w-[28%]">Note</TableHead>
+            <TableHead className="w-[23%]">Document template</TableHead>
+            <TableHead className="w-[23%]">Upload document</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {fields.map((field) => {
             const id = `${idPrefix ? `${idPrefix}-` : ""}${field.id}`;
             const note = notes?.find((item) => item.fieldId === field.id)?.note;
@@ -145,41 +150,43 @@ function DocumentTable({
             const describedBy = [note ? `${id}-note` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
             const template = field.type === "reupload" ? field.template : undefined;
             return (
-              <tr
+              <TableRow
                 key={field.id}
                 onClick={() => onSelectField?.(field.id)}
                 data-state={error || note ? "attention" : uploaded ? "uploaded" : undefined}
-                className={error || note ? "bg-[var(--badge-warning-bg)]" : uploaded ? "bg-[var(--badge-success-bg)]" : ""}
+                className={cn(error || note ? "bg-[var(--badge-warning-bg)] hover:bg-[var(--badge-warning-bg)]" : uploaded ? "bg-[var(--badge-success-bg)] hover:bg-[var(--badge-success-bg)]" : "")}
               >
-                <td className="align-top" data-label="Document required">
-                  <span className={`text-sm font-medium ${selectedFieldId === field.id ? "underline" : ""}`}>
+                <TableCell className="align-top" data-label="Document required">
+                  <span className={cn("block min-w-0 break-words text-sm font-medium", selectedFieldId === field.id ? "underline" : "")}>
                     {field.label}
                     {field.required ? <span className="text-danger"> *</span> : null}
                   </span>
                   {!editable ? <span className="mt-1 block text-xs text-muted">Locked</span> : null}
-                </td>
-                <td className="align-top" data-label="Note">
-                  <p className="text-sm text-muted">{field.description || "—"}</p>
-                  {error ? <p id={`${id}-error`} className="mt-1 text-sm text-danger">{error}</p> : null}
-                  {note ? <p id={`${id}-note`} className="mt-1 text-sm text-[var(--badge-warning-fg)]">Correction: {note}</p> : null}
-                </td>
-                <td className="align-top" data-label="Document template">
+                </TableCell>
+                <TableCell className="align-top" data-label="Note">
+                  <p className="min-w-0 break-words text-sm text-muted">{field.description || "—"}</p>
+                  {error ? <p id={`${id}-error`} className="mt-1 break-words text-sm text-danger">{error}</p> : null}
+                  {note ? <p id={`${id}-note`} className="mt-1 break-words text-sm text-[var(--badge-warning-fg)]">Correction: {note}</p> : null}
+                </TableCell>
+                <TableCell className="max-w-0 align-top" data-label="Document template">
                   {template?.assetId && template.filename ? (
-                    <span className="break-all [&_button]:whitespace-normal [&_button]:text-left">
+                    <div className="min-w-0 max-w-full">
                       <RemoteFileLink path={`/form-assets/${template.assetId}/content`} filename={template.filename} />
-                    </span>
+                    </div>
                   ) : (
                     <span className="text-sm text-muted">—</span>
                   )}
-                </td>
-                <td className="align-top" data-label="Upload document">
-                  <FileField id={id} field={field} value={values[field.id]} editable={editable} describedBy={describedBy} dense onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
-                </td>
-              </tr>
+                </TableCell>
+                <TableCell className="max-w-0 align-top" data-label="Upload document">
+                  <div className="min-w-0 max-w-full">
+                    <FileField id={id} field={field} value={values[field.id]} editable={editable} describedBy={describedBy} dense onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
+                  </div>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -403,7 +410,7 @@ function FileField({
       }
       onChange(multiple ? [...files, uploaded] : uploaded);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The file could not be uploaded.");
+      setError(friendlyErrorMessage(caught, "The file could not be uploaded. Please try again."));
     } finally {
       setPending(false);
     }
@@ -411,10 +418,10 @@ function FileField({
 
   const chooseLabel = pending ? "Uploading…" : files.length ? (multiple ? "Add another" : "Replace") : "Upload";
   return (
-    <div className="grid min-w-0 gap-2 break-words">
+    <div className="grid min-w-0 max-w-full gap-2">
       {dense ? (
         files.length ? (
-          <span className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-[var(--badge-success-fg)]">
+          <span className="inline-flex w-fit max-w-full items-center gap-1.5 text-sm font-semibold text-[var(--badge-success-fg)]">
             <UploadTick />
             Uploaded
           </span>
@@ -423,14 +430,14 @@ function FileField({
         )
       ) : null}
       {files.map((file) => (
-        <div key={file.documentId || file.filename} className="flex min-w-0 items-start gap-2">
-          {dense ? null : <span className="mt-1"><UploadTick /></span>}
-          <div className="min-w-0 flex-1">
+        <div key={file.documentId || file.filename} className="flex min-w-0 max-w-full items-start gap-2">
+          {dense ? null : <span className="mt-1 shrink-0"><UploadTick /></span>}
+          <div className="min-w-0 max-w-full flex-1 overflow-hidden">
             {dense ? (
               file.documentId && isStoredDocument(file.documentId) ? (
                 <FileLink documentId={file.documentId} filename={file.filename} />
               ) : (
-                <span className="text-sm">{file.filename}</span>
+                <span className="block truncate text-sm" title={file.filename}>{file.filename}</span>
               )
             ) : localPreview[file.documentId] ? (
               <img src={localPreview[file.documentId]} alt={file.filename} className="max-h-48 w-full rounded-md border border-border bg-white object-contain" />
@@ -441,21 +448,23 @@ function FileField({
                 <FileLink documentId={file.documentId} filename={file.filename} />
               )
             ) : (
-              <span className="text-xs text-muted">{file.filename}</span>
+              <span className="block truncate text-xs text-muted" title={file.filename}>{file.filename}</span>
             )}
           </div>
         </div>
       ))}
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      {error ? <p className="break-words text-sm text-danger">{error}</p> : null}
       {dense ? null : <UploadStatus pending={pending} />}
       {editable ? (
         dense ? (
-          <label className={`inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-secondary sm:h-8 sm:w-fit sm:justify-start ${pending || !onUpload ? "cursor-wait opacity-70" : ""}`}>
-            <input id={id} className="sr-only" type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />
-            {chooseLabel}
-          </label>
+          <Button asChild size="sm" variant="outline" className={cn("h-11 w-full sm:h-8 sm:w-auto", pending || !onUpload ? "pointer-events-none opacity-70" : "")}>
+            <label className="cursor-pointer">
+              <input id={id} className="sr-only" type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />
+              {chooseLabel}
+            </label>
+          </Button>
         ) : (
-          <div className="min-w-0 overflow-hidden">
+          <div className="min-w-0 max-w-full overflow-hidden">
             <input id={id} className="block w-full max-w-full text-sm" type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />
           </div>
         )

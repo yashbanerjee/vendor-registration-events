@@ -7,7 +7,7 @@ export function FileLink({ documentId, filename }: { documentId: string; filenam
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="underline" onClick={() => setOpen(true)}>
+      <button type="button" className="block max-w-full truncate text-left text-sm underline" title={filename} onClick={() => setOpen(true)}>
         {filename}
       </button>
       <FilePreview open={open} documentId={documentId} filename={filename} onClose={() => setOpen(false)} />
@@ -17,8 +17,8 @@ export function FileLink({ documentId, filename }: { documentId: string; filenam
 
 export function InlineFilePreview({ documentId, filename }: { documentId: string; filename: string }) {
   return (
-    <div className="grid gap-2">
-      <p className="text-sm font-medium">{filename}</p>
+    <div className="grid min-w-0 gap-2">
+      <p className="truncate text-sm font-medium" title={filename}>{filename}</p>
       <DocumentView documentId={documentId} filename={filename} tall />
     </div>
   );
@@ -41,7 +41,7 @@ export function RemoteFileLink({ path, filename }: { path: string; filename: str
   const src = `/api/v1${path}${path.includes("?") ? "&" : "?"}disposition=inline`;
   return (
     <>
-      <button type="button" className="font-semibold text-brand underline" onClick={() => setOpen(true)}>
+      <button type="button" className="block max-w-full truncate text-left text-sm font-semibold text-brand underline" title={filename} onClick={() => setOpen(true)}>
         {filename}
       </button>
       <Modal open={open} title={filename} wide onClose={() => setOpen(false)}>
