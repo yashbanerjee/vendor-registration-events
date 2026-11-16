@@ -42,12 +42,89 @@ type DemoVendor = {
 
 /**
  * Client-demo mix (20 companies):
- * - 10 submitted forms
- *   - 4 verified (APPROVED)
- *   - 6 sent back for document re-upload (CORRECTION_REQUESTED)
- * - 10 still in progress / invited for a live pipeline
+ * - 4 waiting for review (Check answers)
+ * - 4 verified (APPROVED)
+ * - 6 sent back for document re-upload (CORRECTION_REQUESTED)
+ * - 3 in progress + 3 invited for a live pipeline
  */
 const vendors: DemoVendor[] = [
+  // 4 waiting for review — appear on Check answers
+  {
+    reference: "VND-LUMEN",
+    companyName: "Lumen & Co. Lighting",
+    contactName: "Huda Al Marzouqi",
+    email: "huda.marzouqi@lumenandco.ae",
+    phone: "+971 2 441 9033",
+    website: "https://www.lumenandco.ae",
+    addressLine1: "Office 506, Al Wahda Tower",
+    city: "Abu Dhabi",
+    region: "Abu Dhabi",
+    postalCode: "109808",
+    categories: ["Lighting"],
+    exhibitionCode: "DOWNTOWN-2026",
+    status: "SUBMITTED_PENDING_REVIEW",
+    daysAgo: 2,
+    deadlineInDays: 6,
+    blurb: "Track, pendant, and facade lighting packages for exhibitor stands across halls A and B.",
+    booth: "B-04",
+  },
+  {
+    reference: "VND-GULFPLATE",
+    companyName: "Gulf Plate Catering LLC",
+    contactName: "Rami Nassar",
+    email: "rami.nassar@gulfplate.ae",
+    phone: "+971 6 574 2201",
+    website: "https://www.gulfplate.ae",
+    addressLine1: "Kitchen 3, Al Nahda Street",
+    city: "Sharjah",
+    region: "Sharjah",
+    postalCode: "61111",
+    categories: ["Catering"],
+    exhibitionCode: "DOWNTOWN-2026",
+    status: "SUBMITTED_PENDING_REVIEW",
+    daysAgo: 1,
+    deadlineInDays: 4,
+    blurb: "Hot and cold hospitality for exhibitor lounges, including halal and vegetarian menus.",
+    booth: "H-18",
+  },
+  {
+    reference: "VND-HORIZON",
+    companyName: "Horizon AV Systems FZCO",
+    contactName: "Daniel Okonkwo",
+    email: "daniel.okonkwo@horizonav.ae",
+    phone: "+971 4 514 6620",
+    website: "https://www.horizonav.ae",
+    addressLine1: "Office 1204, Aspect Tower, Business Bay",
+    city: "Dubai",
+    region: "Dubai",
+    postalCode: "113234",
+    categories: ["Audio visual"],
+    exhibitionCode: "DOWNTOWN-2026",
+    status: "SUBMITTED_PENDING_REVIEW",
+    daysAgo: 1,
+    deadlineInDays: 5,
+    blurb: "LED walls, PA systems, and presentation kits with an on-site technician for product demos.",
+    booth: "B-16",
+  },
+  {
+    reference: "VND-BRIGHTLINE",
+    companyName: "Brightline Signage & Print",
+    contactName: "Noor Al Suwaidi",
+    email: "noor.suwaidi@brightlinesign.ae",
+    phone: "+971 6 742 1184",
+    website: "https://www.brightlinesign.ae",
+    addressLine1: "Unit 8, Ajman Free Zone",
+    city: "Ajman",
+    region: "Ajman",
+    postalCode: "30000",
+    categories: ["Signage and print"],
+    exhibitionCode: "DOWNTOWN-2026",
+    status: "SUBMITTED_PENDING_REVIEW",
+    daysAgo: 2,
+    deadlineInDays: 3,
+    blurb: "Fascia lettering, fabric lightboxes, and floor graphics produced in-house overnight.",
+    booth: "A-07",
+  },
   // 4 verified
   {
     reference: "VND-MARINA",
@@ -93,7 +170,7 @@ const vendors: DemoVendor[] = [
     contactName: "Leila Haddad",
     email: "leila.haddad@qasrflooring.ae",
     phone: "+971 6 555 0192",
-    website: "https://www.qasrflooring.ae",
+    website: "https://www.qasflooring.ae",
     addressLine1: "Warehouse B, Industrial Area 10",
     city: "Sharjah",
     region: "Sharjah",
@@ -126,86 +203,6 @@ const vendors: DemoVendor[] = [
     booth: "S-08",
   },
   // 6 sent for re-document upload
-  {
-    reference: "VND-BRIGHTLINE",
-    companyName: "Brightline Signage & Print",
-    contactName: "Noor Al Suwaidi",
-    email: "noor.suwaidi@brightlinesign.ae",
-    phone: "+971 6 742 1184",
-    website: "https://www.brightlinesign.ae",
-    addressLine1: "Unit 8, Ajman Free Zone",
-    city: "Ajman",
-    region: "Ajman",
-    postalCode: "30000",
-    categories: ["Signage and print"],
-    exhibitionCode: "DOWNTOWN-2026",
-    status: "CORRECTION_REQUESTED",
-    daysAgo: 4,
-    deadlineInDays: 2,
-    blurb: "Fascia lettering, fabric lightboxes, and floor graphics produced in-house.",
-    booth: "A-07",
-    correctionNote: "Please re-upload a clear PDF of your trade license. The previous scan is cropped and the expiry date is unreadable.",
-  },
-  {
-    reference: "VND-LUMEN",
-    companyName: "Lumen & Co. Lighting",
-    contactName: "Huda Al Marzouqi",
-    email: "huda.marzouqi@lumenandco.ae",
-    phone: "+971 2 441 9033",
-    website: "https://www.lumenandco.ae",
-    addressLine1: "Office 506, Al Wahda Tower",
-    city: "Abu Dhabi",
-    region: "Abu Dhabi",
-    postalCode: "109808",
-    categories: ["Lighting"],
-    exhibitionCode: "DOWNTOWN-2026",
-    status: "CORRECTION_REQUESTED",
-    daysAgo: 3,
-    deadlineInDays: 3,
-    blurb: "Track, pendant, and facade lighting packages for exhibitor stands.",
-    booth: "B-04",
-    correctionNote: "Please upload an updated public liability insurance certificate covering the show dates.",
-  },
-  {
-    reference: "VND-GULFPLATE",
-    companyName: "Gulf Plate Catering LLC",
-    contactName: "Rami Nassar",
-    email: "rami.nassar@gulfplate.ae",
-    phone: "+971 6 574 2201",
-    website: "https://www.gulfplate.ae",
-    addressLine1: "Kitchen 3, Al Nahda Street",
-    city: "Sharjah",
-    region: "Sharjah",
-    postalCode: "61111",
-    categories: ["Catering"],
-    exhibitionCode: "DOWNTOWN-2026",
-    status: "CORRECTION_REQUESTED",
-    daysAgo: 2,
-    deadlineInDays: 4,
-    blurb: "Hot and cold hospitality for exhibitor lounges, including halal and vegetarian menus.",
-    booth: "H-18",
-    correctionNote: "Re-upload your municipality food-handler certificates for the named kitchen team.",
-  },
-  {
-    reference: "VND-HORIZON",
-    companyName: "Horizon AV Systems FZCO",
-    contactName: "Daniel Okonkwo",
-    email: "daniel.okonkwo@horizonav.ae",
-    phone: "+971 4 514 6620",
-    website: "https://www.horizonav.ae",
-    addressLine1: "Office 1204, Aspect Tower, Business Bay",
-    city: "Dubai",
-    region: "Dubai",
-    postalCode: "113234",
-    categories: ["Audio visual"],
-    exhibitionCode: "DOWNTOWN-2026",
-    status: "CORRECTION_REQUESTED",
-    daysAgo: 5,
-    deadlineInDays: 1,
-    blurb: "LED walls, PA systems, and presentation kits with an on-site technician.",
-    booth: "B-16",
-    correctionNote: "The trade license PDF is password-protected. Please upload an unlocked copy.",
-  },
   {
     reference: "VND-ATLAS",
     companyName: "Atlas Freight Logistics",
@@ -246,7 +243,6 @@ const vendors: DemoVendor[] = [
     booth: "P-11",
     correctionNote: "Upload a higher-resolution copy of the signed stand drawings for compliance review.",
   },
-  // 5 in progress
   {
     reference: "VND-NIMBUS",
     companyName: "Nimbus Event Security",
@@ -260,11 +256,12 @@ const vendors: DemoVendor[] = [
     postalCode: "20600",
     categories: ["Security"],
     exhibitionCode: "DOWNTOWN-2026",
-    status: "IN_PROGRESS",
+    status: "CORRECTION_REQUESTED",
     daysAgo: 5,
-    deadlineInDays: 7,
+    deadlineInDays: 2,
     blurb: "Event security and overnight stand guarding with SIRA-compliant officers.",
     booth: "S-01",
+    correctionNote: "Please re-upload a clear PDF of your trade license. The previous scan is cropped and the expiry date is unreadable.",
   },
   {
     reference: "VND-BAYAN",
@@ -279,11 +276,12 @@ const vendors: DemoVendor[] = [
     postalCode: "124600",
     categories: ["Stand building", "Furniture"],
     exhibitionCode: "DOWNTOWN-2026",
-    status: "IN_PROGRESS",
+    status: "CORRECTION_REQUESTED",
     daysAgo: 4,
-    deadlineInDays: 5,
+    deadlineInDays: 3,
     blurb: "Host teams and furnished meeting rooms fitted inside the exhibitor stand.",
     booth: "A-19",
+    correctionNote: "Please upload an updated public liability insurance certificate covering the show dates.",
   },
   {
     reference: "VND-SAFFRON",
@@ -298,11 +296,12 @@ const vendors: DemoVendor[] = [
     postalCode: "26111",
     categories: ["Catering"],
     exhibitionCode: "WOC-2027",
-    status: "IN_PROGRESS",
+    status: "CORRECTION_REQUESTED",
     daysAgo: 2,
-    deadlineInDays: 9,
+    deadlineInDays: 4,
     blurb: "Coffee-service counters and tasting menus for exhibitor meeting lounges.",
     booth: "H-06",
+    correctionNote: "Re-upload your municipality food-handler certificates for the named kitchen team.",
   },
   {
     reference: "VND-EMIRATELECT",
@@ -317,12 +316,14 @@ const vendors: DemoVendor[] = [
     postalCode: "72500",
     categories: ["Electrical"],
     exhibitionCode: "WOC-2027",
-    status: "IN_PROGRESS",
+    status: "CORRECTION_REQUESTED",
     daysAgo: 7,
-    deadlineInDays: 6,
+    deadlineInDays: 1,
     blurb: "Temporary power distribution and certified electricians for stand fit-out.",
     booth: "E-14",
+    correctionNote: "The trade license PDF is password-protected. Please upload an unlocked copy.",
   },
+  // 3 in progress
   {
     reference: "VND-OASISFLORAL",
     companyName: "Oasis Floral Design",
@@ -342,7 +343,6 @@ const vendors: DemoVendor[] = [
     blurb: "Fresh and dried arrangements for reception desks and evening receptions.",
     booth: "F-02",
   },
-  // 5 invited
   {
     reference: "VND-DESERTLINE",
     companyName: "Desertline Stand Builders",
@@ -356,9 +356,9 @@ const vendors: DemoVendor[] = [
     postalCode: "282222",
     categories: ["Stand building"],
     exhibitionCode: "DOWNTOWN-2026",
-    status: "INVITED",
-    daysAgo: 1,
-    deadlineInDays: 12,
+    status: "IN_PROGRESS",
+    daysAgo: 2,
+    deadlineInDays: 9,
     blurb: "Shell-scheme upgrades and custom modular stands for mid-size exhibitors.",
     booth: "A-28",
   },
@@ -375,12 +375,13 @@ const vendors: DemoVendor[] = [
     postalCode: "37555",
     categories: ["Audio visual"],
     exhibitionCode: "WOC-2027",
-    status: "INVITED",
-    daysAgo: 2,
-    deadlineInDays: 14,
+    status: "IN_PROGRESS",
+    daysAgo: 4,
+    deadlineInDays: 7,
     blurb: "Stage audio, wireless microphones, and compact LED screens for product demos.",
     booth: "B-22",
   },
+  // 3 invited
   {
     reference: "VND-GOLDENSPOON",
     companyName: "Golden Spoon Culinary",
@@ -489,10 +490,11 @@ function answersFor(fields: FormField[], vendor: DemoVendor, index: number) {
 
 async function main() {
   if (vendors.length !== 20) throw new Error(`Expected 20 demo companies, found ${vendors.length}.`);
+  const pendingReview = vendors.filter((item) => item.status === "SUBMITTED_PENDING_REVIEW").length;
   const approved = vendors.filter((item) => item.status === "APPROVED").length;
   const corrections = vendors.filter((item) => item.status === "CORRECTION_REQUESTED").length;
-  if (approved !== 4 || corrections !== 6) {
-    throw new Error(`Expected 4 approved and 6 correction-requested companies (got ${approved}/${corrections}).`);
+  if (pendingReview !== 4 || approved !== 4 || corrections !== 6) {
+    throw new Error(`Expected 4 pending review, 4 approved, and 6 correction-requested (got ${pendingReview}/${approved}/${corrections}).`);
   }
 
   const summary = await prisma.$transaction(async (tx) => {
@@ -504,6 +506,45 @@ async function main() {
       orderBy: { createdAt: "asc" },
     });
     if (!admin) throw new Error("An organization admin was not found.");
+
+    // Hide deleted / test companies from Check answers.
+    const junkVendors = await tx.vendor.findMany({
+      where: {
+        organizationId: organization.id,
+        OR: [
+          { archivedAt: { not: null } },
+          { status: "ARCHIVED" },
+          { companyName: { equals: "TestYash", mode: "insensitive" } },
+          { companyName: { equals: "Vedha", mode: "insensitive" } },
+          { companyName: { startsWith: "Test", mode: "insensitive" } },
+          { email: { contains: "test", mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, archivedAt: true, status: true, companyName: true },
+    });
+    for (const junk of junkVendors) {
+      await tx.formAssignment.updateMany({
+        where: {
+          organizationId: organization.id,
+          vendorId: junk.id,
+          status: {
+            in: ["SUBMITTED_PENDING_REVIEW", "RESUBMITTED_PENDING_REVIEW", "CORRECTION_REQUESTED", "INVITED", "IN_PROGRESS"],
+          },
+        },
+        data: { status: "REVOKED" },
+      });
+      if (!junk.archivedAt || junk.status !== "ARCHIVED") {
+        await tx.vendor.update({
+          where: { id: junk.id },
+          data: {
+            status: "ARCHIVED",
+            archivedAt: junk.archivedAt ?? new Date(),
+            email: `archived+${junk.id}@invalid.local`,
+            reference: `archived-${junk.id.replaceAll("-", "").slice(0, 12)}`,
+          },
+        });
+      }
+    }
 
     for (const name of categoryNames) {
       const existing = await tx.vendorCategory.findFirst({
@@ -791,6 +832,18 @@ async function main() {
           },
         });
       }
+      if (vendor.status === "SUBMITTED_PENDING_REVIEW") {
+        await tx.notification.create({
+          data: {
+            organizationId: organization.id,
+            userId: admin.id,
+            title: `${vendor.companyName} is waiting for review`,
+            body: `${vendor.contactName} submitted the exhibitor form for ${exhibition.name}.`,
+            link: `/admin/reviews/${assignment.id}`,
+            createdAt: daysFromNow(-Math.max(vendor.daysAgo - 1, 0)),
+          },
+        }).catch(() => undefined);
+      }
       if (vendor.status === "CORRECTION_REQUESTED") {
         await tx.notification.create({
           data: {
@@ -825,6 +878,7 @@ async function main() {
       vendorCount,
       categoryCount,
       exhibitionCount,
+      waitingForReview: byStatus.SUBMITTED_PENDING_REVIEW ?? 0,
       submitted: (byStatus.APPROVED ?? 0) + (byStatus.CORRECTION_REQUESTED ?? 0) + (byStatus.SUBMITTED_PENDING_REVIEW ?? 0) + (byStatus.RESUBMITTED_PENDING_REVIEW ?? 0),
       verified: byStatus.APPROVED ?? 0,
       reuploadRequested: byStatus.CORRECTION_REQUESTED ?? 0,

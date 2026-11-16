@@ -50,7 +50,14 @@ export default function FormsPage() {
                 <td>{formatLabel(form.scope)}</td>
                 <td>{formatLabel(form.status)}</td>
                 <td>{form.versions[0]?.versionNumber ?? "Draft"}</td>
-                <td><Button size="sm" variant="danger" onClick={() => { setError(""); setRemoving(form); }}>Delete</Button></td>
+                <td className="text-right">
+                  <div className="inline-flex gap-2">
+                    <Button size="sm" asChild>
+                      <Link href={`/admin/forms/${form.id}`}>Edit</Link>
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={() => { setError(""); setRemoving(form); }}>Delete</Button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>

@@ -345,6 +345,22 @@ export class CatalogService {
             },
           });
         }
+        await tx.formAssignment.updateMany({
+          where: {
+            organizationId: user.organizationId,
+            vendorId: vendor.id,
+            status: {
+              in: [
+                "INVITED",
+                "IN_PROGRESS",
+                "SUBMITTED_PENDING_REVIEW",
+                "CORRECTION_REQUESTED",
+                "RESUBMITTED_PENDING_REVIEW",
+              ],
+            },
+          },
+          data: { status: "REVOKED" },
+        });
         await tx.vendor.update({
           where: { id: vendor.id },
           data: {
@@ -476,7 +492,7 @@ export class CatalogService {
   async listExhibitions(user: AuthContext) {
     const rows = await this.tenant.transaction(user.organizationId, (tx) =>
       tx.exhibition.findMany({
-        where: { organizationId: user.organizationId },
+        where: { organizationId: user.organizationId, status: { not: "ARCHIVED" } },
         orderBy: { startsAt: "desc" },
         include: { _count: { select: { vendors: true, assignments: true } } },
       }),
@@ -554,7 +570,7 @@ export class CatalogService {
       };
       let exhibition;
       if (id) {
-        const existing = await tx.exhibition.findFirst({ where: { id, organizationId: user.organizationId } });
+        const existing = await tx.exhibition.findFirst({ where: { id, organizationId: user.organizationId, status: { not: "ARCHIVED" } } });
         if (!existing) throw new NotFoundException();
         exhibition = await tx.exhibition.update({ where: { id }, data });
       } else {
@@ -571,6 +587,39 @@ export class CatalogService {
       return exhibition;
     });
     return { data: saved };
+  }
+
+  async archiveExhibitions(user: AuthContext, body: unknown) {
+    const input = z.object({ ids: z.array(z.string().uuid()).min(1).max(50) }).parse(body);
+    const archived = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const exhibitions = await tx.exhibition.findMany({
+        where: { organizationId: user.organizationId, id: { in: input.ids }, status: { not: "ARCHIVED" } },
+      });
+      for (const exhibition of exhibitions) {
+        await tx.formAssignment.updateMany({
+          where: {
+            organizationId: user.organizationId,
+            exhibitionId: exhibition.id,
+            status: {
+              in: ["INVITED", "IN_PROGRESS", "SUBMITTED_PENDING_REVIEW", "CORRECTION_REQUESTED", "RESUBMITTED_PENDING_REVIEW"],
+            },
+          },
+          data: { status: "REVOKED" },
+        });
+        await tx.exhibition.update({ where: { id: exhibition.id }, data: { status: "ARCHIVED" } });
+        await this.audit.record(tx, {
+          organizationId: user.organizationId,
+          actorId: user.id,
+          actorRole: user.roles.join(","),
+          action: "exhibition.archived",
+          resourceType: "exhibition",
+          resourceId: exhibition.id,
+          newValue: { code: exhibition.code, name: exhibition.name },
+        });
+      }
+      return exhibitions.length;
+    });
+    return { data: { archived } };
   }
 
   async listForms(user: AuthContext) {

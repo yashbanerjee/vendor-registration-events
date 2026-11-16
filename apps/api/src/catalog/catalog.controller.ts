@@ -92,6 +92,12 @@ export class CatalogController {
     return this.catalog.saveExhibition(request.user!, body, id);
   }
 
+  @Post("exhibitions/archive")
+  @RequirePermissions(PERMISSIONS.exhibitionsWrite)
+  archiveExhibitions(@Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.catalog.archiveExhibitions(request.user!, body);
+  }
+
   @Get("forms")
   @RequirePermissions(PERMISSIONS.formsRead)
   forms(@Req() request: AuthedRequest) {

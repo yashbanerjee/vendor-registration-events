@@ -17,13 +17,6 @@ type Dashboard = {
   };
 };
 
-const steps = [
-  ["1", "Add an event", "Name the show, the place, and the dates.", "/admin/exhibitions"],
-  ["2", "Add companies", "Put in each company and the person who will fill the form.", "/admin/vendors"],
-  ["3", "Prepare the form", "Write the questions, or upload a PDF on the event.", "/admin/forms"],
-  ["4", "Check what comes back", "Open an answer, accept it, or ask them to fix it.", "/admin/reviews"],
-] as const;
-
 export default function DashboardPage() {
   const query = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dashboard>("/dashboard") });
   const data = query.data?.data;
@@ -32,21 +25,10 @@ export default function DashboardPage() {
   const counts = data?.counts;
   return (
     <div>
-      <PageHeader title="Home" description="Four steps. Start at the top and work down." />
+      <PageHeader title="Home" description="Overview of submissions, deadlines, and review work." />
       {query.isLoading ? <LoadingState label="Loading dashboard…" description="Gathering the latest activity." /> : null}
       <ErrorNote message={query.isError ? "The home page could not be loaded." : ""} />
-      <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {steps.map(([number, title, body, href]) => (
-          <li key={number}>
-            <Link href={href} className="block h-full rounded-lg border border-border bg-surface p-4 hover:bg-secondary">
-              <span className="text-sm font-semibold text-brand">Step {number}</span>
-              <span className="mt-1 block font-semibold">{title}</span>
-              <span className="mt-1 block text-sm text-muted">{body}</span>
-            </Link>
-          </li>
-        ))}
-      </ol>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Count label="Waiting for you" value={counts?.pendingReview} />
         <Count label="Not finished" value={counts?.incomplete} />
         <Count label="Late" value={counts?.overdue} />

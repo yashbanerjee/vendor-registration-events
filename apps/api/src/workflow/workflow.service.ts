@@ -773,6 +773,7 @@ export class WorkflowService {
         where: {
           organizationId: user.organizationId,
           status: { in: ["SUBMITTED_PENDING_REVIEW", "RESUBMITTED_PENDING_REVIEW"] },
+          vendor: { archivedAt: null },
         },
         include: assignmentInclude,
         orderBy: { updatedAt: "asc" },
