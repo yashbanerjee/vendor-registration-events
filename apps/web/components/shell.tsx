@@ -14,7 +14,8 @@ import { Button, LoadingState, Modal, ModalActions } from "./ui";
 
 export type NavItem = { href: string; label: string; icon: React.ReactNode; secondary?: boolean };
 
-const PAGE_CONTAINER = "mx-auto w-full max-w-7xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-4 sm:px-6 lg:px-8";
+// Every page fills the space beside the sidebar at any screen size; the gutters match the top bar's.
+const PAGE_CONTAINER = "w-full px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-4 sm:px-6 lg:px-8";
 
 function SignOutButton({ labelled, onBeforeOpen }: { labelled?: boolean; onBeforeOpen?: () => void }) {
   const router = useRouter();
