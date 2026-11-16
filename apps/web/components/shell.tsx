@@ -1,9 +1,9 @@
 "use client";
 
-import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Search, Sun, UserRound } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Search, Sun, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { applyTheme, readTheme, type ThemeChoice } from "@/lib/theme";
@@ -13,120 +13,6 @@ import { BrandMark } from "./brand-mark";
 import { Button, LoadingState, Modal } from "./ui";
 
 export type NavItem = { href: string; label: string; icon: React.ReactNode; secondary?: boolean };
-
-export function AppShell({ items, home }: { items: NavItem[]; home: string }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { session } = useSession();
-  const [collapsed, setCollapsed] = useState(false);
-  const [query, setQuery] = useState("");
-  const [openSearch, setOpenSearch] = useState(false);
-  const [openNotes, setOpenNotes] = useState(false);
-  const notifications = useQuery({
-    queryKey: ["notifications"],
-    queryFn: () => api<{ data: { id: string; title: string; body: string; readAt: string | null; link: string }[] }>("/notifications"),
-  });
-  const search = useQuery({
-    queryKey: ["search", query],
-    queryFn: () => api<{ data: { type: string; id: string; label: string; hint: string }[] }>(`/search?q=${encodeURIComponent(query)}`),
-    enabled: query.trim().length > 1,
-  });
-
-  useEffect(() => {
-    const stored = localStorage.getItem("sidebar");
-    if (stored === "collapsed") setCollapsed(true);
-  }, []);
-
-  function toggleSidebar() {
-    setCollapsed((current) => {
-      localStorage.setItem("sidebar", current ? "open" : "collapsed");
-      return !current;
-    });
-  }
-
-  const crumbs = pathname.split("/").filter(Boolean);
-
-  return (
-    <div className="min-h-screen md:grid md:grid-cols-[auto_1fr]">
-      <aside className={cn("border-b border-t-4 border-t-brand border-border bg-surface md:h-dvh md:overflow-y-auto md:overscroll-contain md:border-b-0 md:border-r", collapsed ? "md:w-20" : "md:w-60")}>
-        <div className="flex h-14 items-center justify-between px-3">
-          <Link href={home} aria-label="iktva Forum 2027" className="flex items-center text-brand">
-            <BrandMark compact className="h-9 w-9" />
-          </Link>
-          <button className="hidden rounded p-1 hover:bg-secondary md:inline-flex" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={toggleSidebar}>
-            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-          </button>
-        </div>
-        <nav className="flex gap-1 overflow-auto px-2 pb-3 md:block" aria-label="Primary">
-          {items.map((item) => {
-            const active = pathname === item.href || (item.href !== home && pathname.startsWith(item.href));
-            return (
-              <Link key={item.href} href={item.href} className={cn("flex items-center gap-2 rounded-md px-2 py-2 text-sm", active ? "bg-[var(--badge-info-bg)] font-semibold text-[var(--badge-info-fg)]" : "hover:bg-secondary")} aria-current={active ? "page" : undefined}>
-                {item.icon}
-                {!collapsed ? item.label : <span className="sr-only">{item.label}</span>}
-              </Link>
-            );
-          })}
-        </nav>
-      </aside>
-      <div className="min-w-0">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-surface px-4">
-          <Menu className="md:hidden" size={18} aria-hidden />
-          <div className="relative min-w-0 flex-1">
-            <label className="relative block max-w-xl">
-              <span className="sr-only">Search</span>
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" size={16} />
-              <input className="h-10 w-full rounded-md border border-border bg-secondary pl-9 pr-3 text-sm leading-10" placeholder="Search vendors, exhibitions, forms" value={query} onChange={(event) => { setQuery(event.target.value); setOpenSearch(true); }} onFocus={() => setOpenSearch(true)} />
-            </label>
-            {openSearch && query.trim().length > 1 ? (
-              <div className="absolute z-30 mt-1 w-full max-w-xl rounded-md border border-border bg-surface p-1 shadow-panel" role="listbox">
-                {(search.data?.data ?? []).length === 0 ? <p className="px-2 py-2 text-sm text-muted">No matches</p> : null}
-                {search.data?.data.map((item) => (
-                  <button key={`${item.type}-${item.id}`} className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-secondary" onClick={() => { setOpenSearch(false); router.push(item.type === "vendor" ? `/admin/vendors/${item.id}` : item.type === "form" ? `/admin/forms/${item.id}` : "/admin/exhibitions"); }}>
-                    <span className="font-medium">{item.label}</span>
-                    <span className="ml-2 text-muted">{item.hint}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          <ThemeToggle />
-          <div className="relative">
-            <button className="rounded p-2 hover:bg-secondary" aria-label="Notifications" onClick={() => setOpenNotes((value) => !value)}>
-              <Bell size={18} />
-            </button>
-            {openNotes ? (
-              <IsolatedScroll className="absolute right-0 z-30 mt-1 max-h-[min(24rem,calc(100dvh-4.5rem))] w-80 overflow-y-auto overscroll-contain rounded-md border border-border bg-surface p-2 shadow-panel">
-                <p className="px-2 py-1 text-xs font-semibold uppercase text-muted">Notifications</p>
-                {(notifications.data?.data ?? []).length === 0 ? <p className="px-2 py-3 text-sm text-muted">Nothing new.</p> : null}
-                {notifications.data?.data.map((note) => (
-                  <button key={note.id} className="block w-full rounded px-2 py-2 text-left hover:bg-secondary" onClick={async () => { await api(`/notifications/${note.id}/read`, { method: "POST" }); await notifications.refetch(); if (note.link) router.push(note.link); }}>
-                    <span className="block text-sm font-medium">{note.title}</span>
-                    <span className="block text-xs text-muted">{note.body}</span>
-                  </button>
-                ))}
-              </IsolatedScroll>
-            ) : null}
-          </div>
-          <div className="hidden items-center gap-2 text-sm sm:flex">
-            <UserRound size={16} />
-            <span>{session?.name}</span>
-          </div>
-          <SignOutButton />
-        </header>
-        <div className="px-4 py-2 text-xs text-muted">
-          {crumbs.map((crumb, index) => (
-            <span key={`${crumb}-${index}`}>
-              {index > 0 ? " / " : ""}
-              <span className="capitalize">{crumb.replaceAll("-", " ")}</span>
-            </span>
-          ))}
-        </div>
-        <main className="px-4 pb-10">{pathname ? null : null}</main>
-      </div>
-    </div>
-  );
-}
 
 function SignOutButton() {
   const router = useRouter();
@@ -183,17 +69,57 @@ function ThemeToggle() {
 export function ShellFrame({ items, home, children }: { items: NavItem[]; home: string; children: React.ReactNode }) {
   const { session, loading } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
   useEffect(() => {
     if (loading) return;
     if (!session) router.replace("/login");
     else if (session.mustChangePassword) router.replace("/change-password");
   }, [loading, session, router]);
+
+  useEffect(() => {
+    if (localStorage.getItem("sidebar") === "collapsed") setCollapsed(true);
+  }, []);
+
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [drawerOpen]);
+
   if (loading) return <LoadingState label="Loading workspace…" description="Getting your account ready." />;
   if (!session) return null;
+
   return (
-    <div className="min-h-dvh md:grid md:h-dvh md:grid-cols-[auto_1fr] md:overflow-hidden">
-      <ShellNav items={items} home={home} />
-      <ShellMain home={home}>{children}</ShellMain>
+    <div className="flex h-dvh min-h-0 overflow-hidden md:grid md:grid-cols-[auto_1fr]">
+      <ShellNav
+        items={items}
+        home={home}
+        collapsed={collapsed}
+        onCollapsedChange={(next) => {
+          localStorage.setItem("sidebar", next ? "collapsed" : "open");
+          setCollapsed(next);
+        }}
+        drawerOpen={drawerOpen}
+        onDrawerClose={() => setDrawerOpen(false)}
+      />
+      <ShellMain home={home} drawerOpen={drawerOpen} onOpenDrawer={() => setDrawerOpen(true)}>
+        {children}
+      </ShellMain>
     </div>
   );
 }
@@ -218,42 +144,136 @@ function crumbLabel(crumb: string) {
   return names[crumb] ?? `${crumb.charAt(0).toUpperCase()}${crumb.slice(1).replaceAll("-", " ")}`;
 }
 
-function ShellNav({ items, home }: { items: NavItem[]; home: string }) {
+function NavLinks({
+  items,
+  home,
+  collapsed,
+  onNavigate,
+}: {
+  items: NavItem[];
+  home: string;
+  collapsed?: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => {
-    if (localStorage.getItem("sidebar") === "collapsed") setCollapsed(true);
-  }, []);
   return (
-    <aside className={cn("border-b border-t-4 border-t-brand border-border bg-surface md:h-dvh md:overflow-y-auto md:overscroll-contain md:border-b-0 md:border-r", collapsed ? "md:w-20" : "md:w-60")}>
-      <div className="flex h-14 items-center justify-between px-3">
-        <Link href={home} aria-label="iktva Forum 2027" className="flex items-center text-brand">
-          <BrandMark compact className="h-9 w-9" />
-        </Link>
-        <button className="hidden rounded p-1 hover:bg-secondary md:inline-flex" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setCollapsed((current) => { localStorage.setItem("sidebar", current ? "open" : "collapsed"); return !current; })}>
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
-      </div>
-      <nav className="flex gap-1 overflow-auto px-2 pb-3 md:block" aria-label="Primary">
-        {items.map((item, index) => {
-          const active = pathname === item.href || (item.href !== home && pathname.startsWith(`${item.href}/`));
-          const showMore = item.secondary && !items[index - 1]?.secondary;
-          return (
-            <div key={item.href}>
-              {showMore ? <p className={cn("px-2 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wide text-muted", collapsed ? "md:sr-only" : "")}>More</p> : null}
-              <Link href={item.href} aria-current={active ? "page" : undefined} className={cn("flex items-center gap-2 rounded-md px-2 py-2 text-sm", active ? "bg-[var(--badge-info-bg)] font-semibold text-[var(--badge-info-fg)]" : "text-foreground hover:bg-secondary", item.secondary && !active ? "text-muted" : "")}>
-                {item.icon}
-                <span className={collapsed ? "md:sr-only" : ""}>{item.label}</span>
-              </Link>
-            </div>
-          );
-        })}
-      </nav>
-    </aside>
+    <nav className="grid gap-0.5 px-2 pb-4" aria-label="Primary">
+      {items.map((item, index) => {
+        const active = pathname === item.href || (item.href !== home && pathname.startsWith(`${item.href}/`));
+        const showMore = item.secondary && !items[index - 1]?.secondary;
+        return (
+          <div key={item.href}>
+            {showMore ? (
+              <p className={cn("px-2 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wide text-muted", collapsed ? "md:sr-only" : "")}>
+                More
+              </p>
+            ) : null}
+            <Link
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              onClick={onNavigate}
+              className={cn(
+                "flex items-center gap-2 rounded-md px-2 py-2.5 text-sm md:py-2",
+                active ? "bg-[var(--badge-info-bg)] font-semibold text-[var(--badge-info-fg)]" : "text-foreground hover:bg-secondary",
+                item.secondary && !active ? "text-muted" : "",
+              )}
+            >
+              {item.icon}
+              <span className={collapsed ? "md:sr-only" : ""}>{item.label}</span>
+            </Link>
+          </div>
+        );
+      })}
+    </nav>
   );
 }
 
-function ShellMain({ children, home }: { children: React.ReactNode; home: string }) {
+function ShellNav({
+  items,
+  home,
+  collapsed,
+  onCollapsedChange,
+  drawerOpen,
+  onDrawerClose,
+}: {
+  items: NavItem[];
+  home: string;
+  collapsed: boolean;
+  onCollapsedChange: (value: boolean) => void;
+  drawerOpen: boolean;
+  onDrawerClose: () => void;
+}) {
+  const titleId = useId();
+  return (
+    <>
+      <aside
+        className={cn(
+          "hidden border-r border-t-4 border-t-brand border-border bg-surface md:flex md:h-dvh md:flex-col md:overflow-y-auto md:overscroll-contain",
+          collapsed ? "md:w-20" : "md:w-60",
+        )}
+      >
+        <div className="flex h-14 shrink-0 items-center justify-between px-3">
+          <Link href={home} aria-label="iktva Forum 2027" className="flex items-center text-brand">
+            <BrandMark compact className="h-9 w-9" />
+          </Link>
+          <button
+            type="button"
+            className="rounded p-1 hover:bg-secondary"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => onCollapsedChange(!collapsed)}
+          >
+            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+        </div>
+        <NavLinks items={items} home={home} collapsed={collapsed} />
+      </aside>
+
+      <div
+        className={cn(
+          "fixed inset-0 z-40 bg-[#111111]/45 transition md:hidden",
+          drawerOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+        )}
+        aria-hidden={!drawerOpen}
+        onClick={onDrawerClose}
+      />
+      <aside
+        id="mobile-nav-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-hidden={!drawerOpen}
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-[min(20rem,88vw)] flex-col border-r border-t-4 border-t-brand border-border bg-surface shadow-panel transition-transform duration-200 md:hidden",
+          drawerOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-3">
+          <Link href={home} id={titleId} aria-label="iktva Forum 2027" className="flex items-center text-brand" onClick={onDrawerClose}>
+            <BrandMark compact className="h-9 w-9" />
+          </Link>
+          <button type="button" className="rounded p-2 hover:bg-secondary" aria-label="Close menu" onClick={onDrawerClose}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-2">
+          <NavLinks items={items} home={home} onNavigate={onDrawerClose} />
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function ShellMain({
+  children,
+  home,
+  drawerOpen,
+  onOpenDrawer,
+}: {
+  children: React.ReactNode;
+  home: string;
+  drawerOpen: boolean;
+  onOpenDrawer: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { session } = useSession();
@@ -267,19 +287,49 @@ function ShellMain({ children, home }: { children: React.ReactNode; home: string
     enabled: query.trim().length > 1,
   });
   const crumbs = pathname.split("/").filter(Boolean);
+
   return (
-    <div className="flex min-h-dvh min-w-0 flex-col md:h-dvh md:min-h-0 md:overflow-hidden">
-      <header className="z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <header className="z-20 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 sm:gap-3 sm:px-4">
+        <button
+          type="button"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md hover:bg-secondary md:hidden"
+          aria-label="Open menu"
+          aria-controls="mobile-nav-drawer"
+          aria-expanded={drawerOpen}
+          onClick={onOpenDrawer}
+        >
+          <Menu size={20} />
+        </button>
+        <Link href={home} aria-label="iktva Forum 2027" className="shrink-0 text-brand md:hidden">
+          <BrandMark compact className="h-8 w-8" />
+        </Link>
         <div className="relative min-w-0 flex-1">
           <label className="relative block max-w-xl">
             <span className="sr-only">Search</span>
             <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" size={16} />
-            <input className="h-10 w-full rounded-md border border-border bg-secondary pl-9 pr-3 text-sm leading-10" placeholder={home.startsWith("/vendor") ? "Search" : "Search a company or event"} value={query} onChange={(event) => { setQuery(event.target.value); setOpenSearch(true); }} onFocus={() => setOpenSearch(true)} />
+            <input
+              className="h-10 w-full rounded-md border border-border bg-secondary pl-9 pr-3 text-sm leading-10"
+              placeholder={home.startsWith("/vendor") ? "Search" : "Search a company or event"}
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setOpenSearch(true);
+              }}
+              onFocus={() => setOpenSearch(true)}
+            />
           </label>
           {openSearch && query.trim().length > 1 ? (
             <div className="absolute z-30 mt-1 w-full max-w-xl rounded-md border border-border bg-surface p-1 shadow-panel">
               {(search.data?.data ?? []).map((item) => (
-                <button key={`${item.type}-${item.id}`} className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-secondary" onClick={() => { setOpenSearch(false); router.push(item.type === "vendor" ? `/admin/vendors/${item.id}` : item.type === "form" ? `/admin/forms/${item.id}` : "/admin/exhibitions"); }}>
+                <button
+                  key={`${item.type}-${item.id}`}
+                  className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-secondary"
+                  onClick={() => {
+                    setOpenSearch(false);
+                    router.push(item.type === "vendor" ? `/admin/vendors/${item.id}` : item.type === "form" ? `/admin/forms/${item.id}` : "/admin/exhibitions");
+                  }}
+                >
                   {item.label} <span className="text-muted">{item.hint}</span>
                 </button>
               ))}
@@ -293,10 +343,18 @@ function ShellMain({ children, home }: { children: React.ReactNode; home: string
             <Bell size={18} />
           </button>
           {openNotes ? (
-            <IsolatedScroll className="absolute right-0 z-30 mt-1 max-h-[min(24rem,calc(100dvh-4.5rem))] w-80 overflow-y-auto overscroll-contain rounded-md border border-border bg-surface p-2 shadow-panel">
+            <IsolatedScroll className="absolute right-0 z-30 mt-1 max-h-[min(24rem,calc(100dvh-4.5rem))] w-[min(20rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-md border border-border bg-surface p-2 shadow-panel">
               {(notifications.data?.data ?? []).length === 0 ? <p className="px-2 py-3 text-sm text-muted">Nothing new.</p> : null}
               {notifications.data?.data.map((note) => (
-                <button key={note.id} className="block w-full rounded px-2 py-2 text-left hover:bg-secondary" onClick={async () => { await api(`/notifications/${note.id}/read`, { method: "POST" }); setOpenNotes(false); if (note.link.startsWith("/")) router.push(note.link); }}>
+                <button
+                  key={note.id}
+                  className="block w-full rounded px-2 py-2 text-left hover:bg-secondary"
+                  onClick={async () => {
+                    await api(`/notifications/${note.id}/read`, { method: "POST" });
+                    setOpenNotes(false);
+                    if (note.link.startsWith("/")) router.push(note.link);
+                  }}
+                >
                   <span className="block text-sm font-medium">{note.title}</span>
                   <span className="line-clamp-2 text-xs text-muted">{note.body}</span>
                 </button>
@@ -315,7 +373,9 @@ function ShellMain({ children, home }: { children: React.ReactNode; home: string
           return <span key={crumb}> / {label}</span>;
         })}
       </div>
-      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-5">{children}</main>
+      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-5">
+        {children}
+      </main>
     </div>
   );
 }
