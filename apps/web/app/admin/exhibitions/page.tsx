@@ -1,12 +1,10 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
-import { formatDate } from "@/lib/utils";
-import { Pager, usePagedRows } from "@/components/pager";
-import { Button, EmptyState, ErrorNote, Field, LoadingState, Modal, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
+import { EventProgressBoard, type VendorProgress } from "@/components/event-progress-board";
+import { Button, EmptyState, ErrorNote, Field, LoadingState, Modal, Notice, inputClass } from "@/components/ui";
 
 type Exhibition = {
   id: string;
@@ -18,6 +16,15 @@ type Exhibition = {
   endsAt: string;
   status: string;
   _count: { vendors: number; assignments: number };
+};
+
+type ExhibitionDetail = {
+  data: {
+    id: string;
+    name: string;
+    code: string;
+    vendors: VendorProgress[];
+  };
 };
 
 type ExhibitionForm = {
@@ -49,14 +56,34 @@ function toLocalInput(value: string) {
 
 export default function ExhibitionsPage() {
   const client = useQueryClient();
+  const [selectedId, setSelectedId] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Exhibition | null>(null);
   const [removing, setRemoving] = useState<Exhibition | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [form, setForm] = useState<ExhibitionForm>(emptyForm);
-  const query = useQuery({ queryKey: ["exhibitions"], queryFn: () => api<{ data: Exhibition[] }>("/exhibitions") });
-  const exhibitions = usePagedRows(query.data?.data ?? []);
+
+  const list = useQuery({ queryKey: ["exhibitions"], queryFn: () => api<{ data: Exhibition[] }>("/exhibitions") });
+  const exhibitions = list.data?.data ?? [];
+
+  useEffect(() => {
+    if (!exhibitions.length) {
+      setSelectedId("");
+      return;
+    }
+    if (!selectedId || !exhibitions.some((row) => row.id === selectedId)) {
+      setSelectedId(exhibitions[0].id);
+    }
+  }, [exhibitions, selectedId]);
+
+  const detail = useQuery({
+    queryKey: ["exhibition", selectedId],
+    queryFn: () => api<ExhibitionDetail>(`/exhibitions/${selectedId}`),
+    enabled: Boolean(selectedId),
+  });
+
+  const selected = exhibitions.find((row) => row.id === selectedId) ?? null;
 
   const save = useMutation({
     mutationFn: () => {
@@ -69,13 +96,20 @@ export default function ExhibitionsPage() {
         ? api(`/exhibitions/${editing.id}`, { method: "PATCH", body: JSON.stringify(body) })
         : api("/exhibitions", { method: "POST", body: JSON.stringify(body) });
     },
-    onSuccess: async () => {
+    onSuccess: async (response) => {
+      const saved = (response as { data?: Exhibition })?.data;
       setNotice(editing ? `${form.name} updated.` : `${form.name} created.`);
       setOpen(false);
       setEditing(null);
       setForm(emptyForm);
       setError("");
       await client.invalidateQueries({ queryKey: ["exhibitions"] });
+      if (saved?.id) {
+        setSelectedId(saved.id);
+        await client.invalidateQueries({ queryKey: ["exhibition", saved.id] });
+      } else if (editing?.id) {
+        await client.invalidateQueries({ queryKey: ["exhibition", editing.id] });
+      }
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not save the event."),
   });
@@ -83,10 +117,12 @@ export default function ExhibitionsPage() {
   const remove = useMutation({
     mutationFn: () => api("/exhibitions/archive", { method: "POST", body: JSON.stringify({ ids: [removing?.id] }) }),
     onSuccess: async () => {
+      const removedId = removing?.id;
       setNotice(`${removing?.name ?? "Event"} deleted.`);
       setRemoving(null);
       setError("");
       await client.invalidateQueries({ queryKey: ["exhibitions"] });
+      if (removedId && selectedId === removedId) setSelectedId("");
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not delete the event."),
   });
@@ -115,47 +151,72 @@ export default function ExhibitionsPage() {
 
   return (
     <div>
-      <PageHeader title="Events" description="Each show is one event. Open it to see who is filling the form and which PDFs they sent." actions={<Button variant="primary" onClick={openCreate}>Add event</Button>} />
-      <ErrorNote message={query.isError ? "Could not load exhibitions." : error && !open && !removing ? error : ""} />
-      <Notice message={notice} />
-      {query.isLoading ? <LoadingState label="Loading events…" description="Fetching exhibition details." /> : null}
-      {!query.isLoading && exhibitions.total === 0 ? <EmptyState title="No events yet" body="Add the show first. You can add companies and forms after that." /> : null}
-      {exhibitions.total > 0 ? (
-        <div className="table-wrap">
-          <table className="data">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Exhibition</th>
-                <th>Status</th>
-                <th>Venue</th>
-                <th>Vendors</th>
-                <th>Starts</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {exhibitions.rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="whitespace-nowrap text-muted">{row.code}</td>
-                  <td><Link className="font-medium underline" href={`/admin/exhibitions/${row.id}`}>{row.name}</Link></td>
-                  <td><StatusBadge status={row.status} /></td>
-                  <td>{row.venue || "—"}</td>
-                  <td>{row._count.vendors}</td>
-                  <td className="whitespace-nowrap">{formatDate(row.startsAt)}</td>
-                  <td className="text-right">
-                    <div className="inline-flex gap-2">
-                      <Button size="sm" onClick={() => openEdit(row)}>Edit</Button>
-                      <Button size="sm" variant="danger" onClick={() => { setError(""); setRemoving(row); }}>Delete</Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          {exhibitions.length > 1 ? (
+            <label className="grid gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">Event</span>
+              <select
+                className={`${inputClass} min-w-[16rem]`}
+                value={selectedId}
+                onChange={(event) => setSelectedId(event.target.value)}
+                aria-label="Select event"
+              >
+                {exhibitions.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.name} ({row.code})
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : selected ? (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{selected.code}</p>
+              <h1 className="mt-1 text-xl font-semibold tracking-tight">{selected.name}</h1>
+            </div>
+          ) : (
+            <h1 className="text-xl font-semibold tracking-tight">Events</h1>
+          )}
         </div>
+        <div className="flex flex-wrap gap-2">
+          {selected ? (
+            <>
+              <Button size="sm" onClick={() => openEdit(selected)}>
+                Edit
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => {
+                  setError("");
+                  setRemoving(selected);
+                }}
+              >
+                Delete
+              </Button>
+            </>
+          ) : null}
+          <Button size="sm" variant="primary" onClick={openCreate}>
+            Add event
+          </Button>
+        </div>
+      </div>
+
+      <ErrorNote message={list.isError ? "Could not load events." : error && !open && !removing ? error : ""} />
+      <Notice message={notice} />
+
+      {list.isLoading ? <LoadingState label="Loading events…" description="Fetching exhibition details." /> : null}
+      {!list.isLoading && exhibitions.length === 0 ? (
+        <EmptyState title="No events yet" body="Add the show first. You can add companies and forms after that." action={<Button variant="primary" onClick={openCreate}>Add event</Button>} />
       ) : null}
-      <Pager page={exhibitions.page} pageCount={exhibitions.pageCount} total={exhibitions.total} rangeStart={exhibitions.rangeStart} rangeEnd={exhibitions.rangeEnd} onPage={exhibitions.setPage} />
+
+      {selectedId ? (
+        <>
+          {detail.isLoading ? <LoadingState label="Loading progress…" description="Fetching companies and form answers." /> : null}
+          <ErrorNote message={detail.isError ? "Could not load company progress for this event." : ""} />
+          {detail.data?.data ? <EventProgressBoard vendors={detail.data.data.vendors} /> : null}
+        </>
+      ) : null}
 
       <Modal open={open} title={editing ? "Edit event" : "Add event"} onClose={() => { setOpen(false); setEditing(null); setError(""); }}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); save.mutate(); }}>
