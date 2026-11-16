@@ -105,9 +105,9 @@ function schema(templates: { key: string; assetId: string; filename: string }[])
       field(declarationSection, 16, { key: "signing_person_name", type: "text", label: "Signing person name", required: true, description: "Authorized representative who signs the declaration." }),
       field(declarationSection, 17, { key: "id_iqama", type: "text", label: "ID / Iqama number", required: true }),
       field(declarationSection, 18, { key: "declaration", type: "info", label: "Declaration", required: false, description: declaration, readOnly: true }),
-      field(declarationSection, 19, { key: "signature", type: "image", label: "Signature", required: true, description: "Upload a clear image of the authorized representative's signature." }),
+      field(declarationSection, 19, { key: "signature", type: "file", label: "Signature", required: true, description: "Upload a signed PDF that includes the company name and authorized representative signature.", file: { accept: pdfAccept } }),
       field(declarationSection, 20, { key: "signed_on", type: "date", label: "Date", required: true }),
-      field(declarationSection, 21, { key: "company_stamp", type: "image", label: "Company stamp", required: true, description: "Upload a clear image of the company stamp." }),
+      field(declarationSection, 21, { key: "company_stamp", type: "file", label: "Company stamp", required: true, description: "Upload a PDF of the company stamp that includes the company name.", file: { accept: pdfAccept } }),
       field(declarationSection, 22, { key: "how_to_submit", type: "info", label: "How to submit", required: false, readOnly: true, description: "One declaration per stand contractor, signed by an authorized representative and stamped with the company stamp. Submit it with your design package to the Stand Audit Team. No PTB is issued until the signed declaration is received. The contractor is responsible for its subcontractors' compliance." }),
     ],
   });

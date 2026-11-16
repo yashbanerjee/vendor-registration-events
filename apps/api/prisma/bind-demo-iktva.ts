@@ -13,15 +13,9 @@ const EVENT_CODE = "1KT";
 const EVENT_NAME = "IKTVA2027";
 const FORM_NAME = "Mandatory design documents";
 
-const DEMO_PDF = makePdf(
-  "Demo compliance document",
-  "This is a placeholder PDF for client demo submissions.",
-  "Replace with a real signed document in production.",
-);
-const DEMO_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FABJADveWkH6aAAAAAElFTkSuQmCC",
-  "base64",
-);
+function demoPdf(title: string, companyName: string, extra: string[] = []) {
+  return makePdf(title, `Company: ${companyName}`, ...extra, "Demo file for client review.");
+}
 
 function makePdf(...lines: string[]) {
   const escape = (value: string) => value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
@@ -527,17 +521,23 @@ function shouldFillFile(field: FormField, vendor: DemoVendor, index: number) {
 
 function fileMeta(field: FormField, vendor: DemoVendor) {
   const slug = field.key.replaceAll("_", "-");
-  if (field.type === "image") {
+  const key = field.key.toLowerCase();
+  if (key === "signature" || key.includes("stamp") || field.type === "image") {
+    const kind = key.includes("stamp") ? "Company stamp" : key === "signature" ? "Authorized signature" : field.label;
     return {
-      filename: `${slug}-${vendor.reference.toLowerCase()}.png`,
-      mimeType: "image/png",
-      bytes: DEMO_PNG,
+      filename: `${slug}-${vendor.reference.toLowerCase()}.pdf`,
+      mimeType: "application/pdf",
+      bytes: demoPdf(kind, vendor.companyName, [
+        `Signed by: ${vendor.contactName}`,
+        `Reference: ${vendor.reference}`,
+        `Plot: ${vendor.booth}`,
+      ]),
     };
   }
   return {
     filename: `${slug}-${vendor.reference.toLowerCase()}.pdf`,
     mimeType: "application/pdf",
-    bytes: DEMO_PDF,
+    bytes: demoPdf(field.label, vendor.companyName, [`Reference: ${vendor.reference}`, `Plot: ${vendor.booth}`]),
   };
 }
 

@@ -135,7 +135,8 @@ export function PageHeader({ title, description, eyebrow, actions }: { title: st
         <h1 className="break-words text-xl font-semibold leading-7 tracking-tight">{title}</h1>
         {description ? <p className="mt-1 break-words text-sm leading-5 text-muted">{description}</p> : null}
       </div>
-      {actions ? <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div> : null}
+      {/* Phones give actions their own full-width row under the title so every page lines up the same way. */}
+      {actions ? <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:max-w-full">{actions}</div> : null}
     </div>
   );
 }

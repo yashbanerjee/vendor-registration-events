@@ -255,14 +255,14 @@ export default function VendorsPage() {
         title="Companies"
         description="Add a company, then send them the form for an event."
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
             <Button onClick={() => void download("/imports/template", "vendor-demo.csv").catch(() => setError("Could not download the demo CSV."))}>Demo CSV</Button>
             <Button disabled={upload.isPending} onClick={() => fileRef.current?.click()}>
               {upload.isPending ? <Spinner size="sm" /> : null}
               {upload.isPending ? "Uploading…" : "Bulk upload"}
             </Button>
-            {upload.isSuccess && !upload.isPending ? <span className="inline-flex items-center gap-1 self-center text-sm text-[var(--success)]"><Check size={16} aria-hidden /> Uploaded</span> : null}
-            <Button variant="primary" onClick={() => { setError(""); setOpen(true); }}>Add company</Button>
+            {upload.isSuccess && !upload.isPending ? <span className="col-span-2 inline-flex items-center gap-1 self-center text-sm text-[var(--success)]"><Check size={16} aria-hidden /> Uploaded</span> : null}
+            <Button className="col-span-2" variant="primary" onClick={() => { setError(""); setOpen(true); }}>Add company</Button>
             <input ref={fileRef} className="hidden" type="file" accept=".csv,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) upload.mutate(file); }} />
           </div>
         }

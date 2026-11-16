@@ -42,7 +42,7 @@ export function FormRenderer({
   const byId = new Map(schema.fields.map((field) => [field.id, field]));
   const sections = [...schema.sections].sort((a, b) => a.order - b.order).filter((section) => !visibleSectionId || section.id === visibleSectionId);
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 grid-cols-1 gap-4">
       {sections.map((section) => {
         const visible = schema.fields
           .filter((field) => field.sectionId === section.id)
@@ -55,7 +55,7 @@ export function FormRenderer({
               <CardTitle>{section.title}</CardTitle>
               {section.description ? <CardDescription>{section.description}</CardDescription> : null}
             </CardHeader>
-            <CardContent className="grid gap-3">
+            <CardContent className="grid grid-cols-1 gap-3">
               {groups.map((group) => group.table ? (
                 <DocumentTable
                   key={group.fields[0]?.id}
@@ -128,8 +128,9 @@ function DocumentTable({
   onChange?: (fieldId: string, value: unknown) => void;
   onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
 }) {
+  // grid-cols-1 is minmax(0, 1fr): a long file name must truncate, not widen the card past the screen.
   return (
-    <div className="grid gap-3">
+    <div className="grid min-w-0 grid-cols-1 gap-3">
       {fields.map((field) => {
         const id = `${idPrefix ? `${idPrefix}-` : ""}${field.id}`;
         const note = notes?.find((item) => item.fieldId === field.id)?.note;
@@ -144,13 +145,13 @@ function DocumentTable({
             id={id}
             onClick={() => onSelectField?.(field.id)}
             className={cn(
-              "rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-5",
+              "min-w-0 rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-5",
               error || note ? "border-[var(--warning)] bg-[var(--badge-warning-bg)]" : "",
               selectedFieldId === field.id ? "ring-2 ring-brand" : "",
             )}
           >
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Document required</p>
-            <h3 className="mt-1 text-base font-semibold leading-6">
+            <h3 className="mt-1 break-words text-base font-semibold leading-6">
               {field.label}
               {field.required ? <span className="text-danger"> *</span> : null}
             </h3>
@@ -159,12 +160,12 @@ function DocumentTable({
             {field.description ? (
               <div className="mt-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Note</p>
-                <p className="mt-1 text-sm leading-5 text-muted">{field.description}</p>
+                <p className="mt-1 break-words text-sm leading-5 text-muted">{field.description}</p>
               </div>
             ) : null}
 
             {template?.assetId && template.filename ? (
-              <div className="mt-3 rounded-lg border border-border bg-secondary/60 px-3 py-2.5">
+              <div className="mt-3 min-w-0 rounded-lg border border-border bg-secondary/60 px-3 py-2.5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Template</p>
                 <div className="mt-1 min-w-0">
                   <RemoteFileLink path={`/form-assets/${template.assetId}/content`} filename={template.filename} />
@@ -236,7 +237,7 @@ function FieldControl({
   if (field.type === "reupload") {
     return (
       <div className={shell}>
-        <div className="grid gap-1.5 text-sm">
+        <div className="grid grid-cols-1 gap-1.5 text-sm">
           {body}
           <ReuploadField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
         </div>
@@ -247,7 +248,7 @@ function FieldControl({
   }
   return (
     <div className={shell}>
-      <label className="grid gap-1.5 text-sm" htmlFor={id}>
+      <label className="grid grid-cols-1 gap-1.5 text-sm" htmlFor={id}>
         {body}
         <Control id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
       </label>
@@ -352,7 +353,7 @@ function ReuploadField({
 }) {
   const template = field.template;
   return (
-    <div className="grid min-w-0 gap-3">
+    <div className="grid min-w-0 grid-cols-1 gap-3">
       <div className="min-w-0 break-all rounded-md border border-border bg-secondary p-3 [&_button]:whitespace-normal [&_button]:text-left">
         <p className="text-xs font-medium uppercase text-muted">Download this file</p>
         {template?.assetId && template.filename ? (
@@ -361,7 +362,7 @@ function ReuploadField({
           <p className="mt-1 text-sm text-muted">No file has been uploaded yet.</p>
         )}
       </div>
-      <div className="grid gap-2">
+      <div className="grid min-w-0 grid-cols-1 gap-2">
         <p className="text-xs font-medium uppercase text-muted">Upload your completed file</p>
         <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} zone onChange={onChange} onUpload={onUpload} />
       </div>
@@ -443,9 +444,9 @@ function FileField({
 
   if (zone) {
     return (
-      <div className="grid min-w-0 gap-3">
+      <div className="grid min-w-0 grid-cols-1 gap-3">
         {hasFiles ? (
-          <div className="grid gap-2 rounded-xl border border-[color-mix(in_srgb,var(--success)_35%,var(--border))] bg-[var(--badge-success-bg)]/40 px-3 py-3">
+          <div className="grid min-w-0 grid-cols-1 gap-2 rounded-xl border border-[color-mix(in_srgb,var(--success)_35%,var(--border))] bg-[var(--badge-success-bg)]/40 px-3 py-3">
             <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--badge-success-fg)]">
               <UploadTick />
               Uploaded

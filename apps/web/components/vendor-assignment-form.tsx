@@ -124,6 +124,9 @@ export function VendorAssignmentForm({
   const currentStage = Math.min(stage, Math.max(sections.length - 1, 0));
   const editable = assignment.status === "INVITED" || assignment.status === "IN_PROGRESS" || assignment.status === "CORRECTION_REQUESTED";
   const staged = sections.length > 1;
+  // Phones keep the action bar on one row: one equal column per button (Back, Save, and Next or Send).
+  const actionCount = 1 + (staged && currentStage > 0 ? 1 : 0) + (assignment.status !== "CORRECTION_REQUESTED" ? 1 : 0);
+  const actionColumns = actionCount === 3 ? "grid-cols-3" : actionCount === 2 ? "grid-cols-2" : "grid-cols-1";
 
   function showStageForField(fieldId?: string) {
     const field = assignment.form.schema.fields.find((item) => item.id === fieldId);
@@ -131,7 +134,7 @@ export function VendorAssignmentForm({
     if (index >= 0) setStage(index);
   }
   return (
-    <section id={`assignment-${assignment.id}`} className="scroll-mt-20 grid gap-4">
+    <section id={`assignment-${assignment.id}`} className="scroll-mt-20 grid min-w-0 grid-cols-1 gap-4">
       {save.isPending ? (
         <LoadingState
           variant="overlay"
@@ -188,7 +191,7 @@ export function VendorAssignmentForm({
       />
       {editable ? (
         <Card className="sticky bottom-0 z-10 -mx-4 rounded-none border-x-0 border-b-0 shadow-[0_-4px_12px_rgba(16,24,40,0.06)] sm:static sm:mx-0 sm:rounded-xl sm:border sm:shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
-          <CardContent className="grid grid-cols-2 gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:flex sm:flex-wrap sm:items-center sm:py-4">
+          <CardContent className={`grid ${actionColumns} gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:flex sm:flex-wrap sm:items-center sm:py-4`}>
             {staged && currentStage > 0 ? <Button className="w-full sm:w-auto" variant="outline" onClick={() => setStage(currentStage - 1)}>Back</Button> : null}
             {assignment.status !== "CORRECTION_REQUESTED" ? <Button className="w-full sm:w-auto" variant="outline" onClick={() => save.mutate("draft")} disabled={save.isPending}>{save.isPending && save.variables === "draft" ? "Saving…" : "Save"}</Button> : null}
             {staged && currentStage < sections.length - 1 ? <Button className="w-full sm:w-auto" variant="primary" onClick={() => setStage(currentStage + 1)}>Next</Button> : null}
