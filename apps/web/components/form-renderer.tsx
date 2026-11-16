@@ -7,7 +7,6 @@ import { isEditable } from "@/lib/locking";
 import { friendlyErrorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UploadStatus, UploadTick, inputClass, textareaClass } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -130,63 +129,68 @@ function DocumentTable({
   onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
 }) {
   return (
-    <div className="table-wrap overflow-hidden rounded-md border border-border bg-surface">
-      <Table className="documents table-fixed">
-        <TableHeader className="bg-secondary">
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="w-[26%]">Document required</TableHead>
-            <TableHead className="w-[28%]">Note</TableHead>
-            <TableHead className="w-[23%]">Document template</TableHead>
-            <TableHead className="w-[23%]">Upload document</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {fields.map((field) => {
-            const id = `${idPrefix ? `${idPrefix}-` : ""}${field.id}`;
-            const note = notes?.find((item) => item.fieldId === field.id)?.note;
-            const error = errors?.find((item) => item.fieldId === field.id)?.message;
-            const editable = isEditable(field.id, editableFieldIds, disabled);
-            const uploaded = fileItems(values[field.id]).length > 0;
-            const describedBy = [note ? `${id}-note` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
-            const template = field.type === "reupload" ? field.template : undefined;
-            return (
-              <TableRow
-                key={field.id}
-                onClick={() => onSelectField?.(field.id)}
-                data-state={error || note ? "attention" : uploaded ? "uploaded" : undefined}
-                className={cn(error || note ? "bg-[var(--badge-warning-bg)] hover:bg-[var(--badge-warning-bg)]" : uploaded ? "bg-[var(--badge-success-bg)] hover:bg-[var(--badge-success-bg)]" : "")}
-              >
-                <TableCell className="align-top" data-label="Document required">
-                  <span className={cn("block min-w-0 break-words text-sm font-medium", selectedFieldId === field.id ? "underline" : "")}>
-                    {field.label}
-                    {field.required ? <span className="text-danger"> *</span> : null}
-                  </span>
-                  {!editable ? <span className="mt-1 block text-xs text-muted">Locked</span> : null}
-                </TableCell>
-                <TableCell className="align-top" data-label="Note">
-                  <p className="min-w-0 break-words text-sm text-muted">{field.description || "—"}</p>
-                  {error ? <p id={`${id}-error`} className="mt-1 break-words text-sm text-danger">{error}</p> : null}
-                  {note ? <p id={`${id}-note`} className="mt-1 break-words text-sm text-[var(--badge-warning-fg)]">Correction: {note}</p> : null}
-                </TableCell>
-                <TableCell className="max-w-0 align-top" data-label="Document template">
-                  {template?.assetId && template.filename ? (
-                    <div className="min-w-0 max-w-full">
-                      <RemoteFileLink path={`/form-assets/${template.assetId}/content`} filename={template.filename} />
-                    </div>
-                  ) : (
-                    <span className="text-sm text-muted">—</span>
-                  )}
-                </TableCell>
-                <TableCell className="max-w-0 align-top" data-label="Upload document">
-                  <div className="min-w-0 max-w-full">
-                    <FileField id={id} field={field} value={values[field.id]} editable={editable} describedBy={describedBy} dense onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+    <div className="grid gap-3">
+      {fields.map((field) => {
+        const id = `${idPrefix ? `${idPrefix}-` : ""}${field.id}`;
+        const note = notes?.find((item) => item.fieldId === field.id)?.note;
+        const error = errors?.find((item) => item.fieldId === field.id)?.message;
+        const editable = isEditable(field.id, editableFieldIds, disabled);
+        const uploaded = fileItems(values[field.id]).length > 0;
+        const describedBy = [note ? `${id}-note` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
+        const template = field.type === "reupload" ? field.template : undefined;
+        return (
+          <article
+            key={field.id}
+            id={id}
+            onClick={() => onSelectField?.(field.id)}
+            className={cn(
+              "rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-5",
+              error || note ? "border-[var(--warning)] bg-[var(--badge-warning-bg)]" : "",
+              selectedFieldId === field.id ? "ring-2 ring-brand" : "",
+            )}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Document required</p>
+            <h3 className="mt-1 text-base font-semibold leading-6">
+              {field.label}
+              {field.required ? <span className="text-danger"> *</span> : null}
+            </h3>
+            {!editable ? <p className="mt-1 text-xs font-medium text-muted">Locked</p> : null}
+
+            {field.description ? (
+              <div className="mt-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Note</p>
+                <p className="mt-1 text-sm leading-5 text-muted">{field.description}</p>
+              </div>
+            ) : null}
+
+            {template?.assetId && template.filename ? (
+              <div className="mt-3 rounded-lg border border-border bg-secondary/60 px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Template</p>
+                <div className="mt-1 min-w-0">
+                  <RemoteFileLink path={`/form-assets/${template.assetId}/content`} filename={template.filename} />
+                </div>
+              </div>
+            ) : null}
+
+            {error ? <p id={`${id}-error`} className="mt-3 break-words text-sm text-danger">{error}</p> : null}
+            {note ? <p id={`${id}-note`} className="mt-3 break-words text-sm text-[var(--badge-warning-fg)]">Correction: {note}</p> : null}
+
+            <div className="mt-4">
+              <FileField
+                id={`${id}-upload`}
+                field={field}
+                value={values[field.id]}
+                editable={editable}
+                describedBy={describedBy}
+                zone
+                uploaded={uploaded}
+                onChange={(next) => onChange?.(field.id, next)}
+                onUpload={onUpload}
+              />
+            </div>
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -322,7 +326,7 @@ function Control({
     );
   }
   if (field.type === "file" || field.type === "image" || field.type === "files") {
-    return <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={onChange} onUpload={onUpload} />;
+    return <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} zone onChange={onChange} onUpload={onUpload} />;
   }
   const type = field.type === "number" || field.type === "currency" ? "number" : field.type === "datetime" ? "datetime-local" : field.type === "tel" ? "tel" : field.type === "email" ? "email" : field.type === "url" ? "url" : field.type === "date" ? "date" : field.type === "time" ? "time" : "text";
   return <input id={id} className={inputClass} type={type} disabled={!editable} aria-describedby={describedBy} placeholder={field.placeholder} value={text} onChange={(event) => onChange(event.target.value)} />;
@@ -356,9 +360,9 @@ function ReuploadField({
           <p className="mt-1 text-sm text-muted">No file has been uploaded yet.</p>
         )}
       </div>
-      <div className="grid gap-1">
+      <div className="grid gap-2">
         <p className="text-xs font-medium uppercase text-muted">Upload your completed file</p>
-        <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={onChange} onUpload={onUpload} />
+        <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} zone onChange={onChange} onUpload={onUpload} />
       </div>
     </div>
   );
@@ -371,6 +375,8 @@ function FileField({
   editable,
   describedBy,
   dense,
+  zone,
+  uploaded: uploadedHint,
   onChange,
   onUpload,
 }: {
@@ -380,16 +386,20 @@ function FileField({
   editable: boolean;
   describedBy?: string;
   dense?: boolean;
+  zone?: boolean;
+  uploaded?: boolean;
   onChange: (value: unknown) => void;
   onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
 }) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [localPreview, setLocalPreview] = useState<Record<string, string>>({});
+  const inputRef = useRef<HTMLInputElement>(null);
   const previews = useRef<string[]>([]);
   const files = fileItems(value);
   const multiple = field.type === "files";
   const accept = field.type === "image" ? "image/*" : field.file?.accept?.join(",");
+  const hasFiles = files.length > 0 || Boolean(uploadedHint);
 
   useEffect(() => () => {
     for (const url of previews.current) URL.revokeObjectURL(url);
@@ -416,16 +426,92 @@ function FileField({
     }
   }
 
-  const chooseLabel = pending ? "Uploading…" : files.length ? (multiple ? "Add another" : "Replace") : "Upload";
+  const chooseLabel = pending ? "Uploading…" : hasFiles ? (multiple ? "Add another file" : "Reupload") : "Upload file";
+  const fileInput = (
+    <input
+      ref={inputRef}
+      id={id}
+      className="sr-only"
+      type="file"
+      accept={accept || undefined}
+      disabled={!editable || !onUpload || pending}
+      aria-describedby={describedBy}
+      onChange={(event) => void pick(event)}
+    />
+  );
+
+  if (zone) {
+    return (
+      <div className="grid min-w-0 gap-3">
+        {hasFiles ? (
+          <div className="grid gap-2 rounded-xl border border-[color-mix(in_srgb,var(--success)_35%,var(--border))] bg-[var(--badge-success-bg)]/40 px-3 py-3">
+            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--badge-success-fg)]">
+              <UploadTick />
+              Uploaded
+            </span>
+            {files.map((file) => (
+              <div key={file.documentId || file.filename} className="min-w-0">
+                {localPreview[file.documentId] ? (
+                  <img src={localPreview[file.documentId]} alt={file.filename} className="max-h-40 w-full rounded-md border border-border bg-white object-contain" />
+                ) : null}
+                {file.documentId && isStoredDocument(file.documentId) ? (
+                  <FileLink documentId={file.documentId} filename={file.filename} />
+                ) : (
+                  <span className="block truncate text-sm font-medium" title={file.filename}>{file.filename}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={!editable || !onUpload || pending}
+            className={cn(
+              "grid min-h-[7.5rem] place-items-center rounded-xl border-2 border-dashed border-border bg-secondary/40 px-4 py-6 text-center transition",
+              editable && onUpload && !pending ? "hover:border-brand hover:bg-secondary/70" : "opacity-70",
+            )}
+            onClick={() => inputRef.current?.click()}
+          >
+            <span className="grid gap-1">
+              <span className="text-sm font-semibold text-foreground">{pending ? "Uploading…" : "Tap to upload"}</span>
+              <span className="text-xs text-muted">
+                {field.type === "image" ? "Images only" : multiple ? "Add one or more files" : "PDF or image"}
+              </span>
+            </span>
+          </button>
+        )}
+        {error ? <p className="break-words text-sm text-danger">{error}</p> : null}
+        {editable ? (
+          <div className="grid gap-2">
+            {fileInput}
+            {hasFiles || pending ? (
+              <Button
+                type="button"
+                size="lg"
+                variant={hasFiles ? "outline" : "primary"}
+                className="h-11 w-full"
+                disabled={!onUpload || pending}
+                onClick={() => inputRef.current?.click()}
+              >
+                {chooseLabel}
+              </Button>
+            ) : null}
+            <UploadStatus pending={pending} />
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="grid min-w-0 max-w-full gap-2">
       {dense ? (
-        files.length ? (
-          <span className="inline-flex w-fit max-w-full items-center gap-1.5 text-sm font-semibold text-[var(--badge-success-fg)]">
+        hasFiles ? (
+          <span className="inline-flex w-fit max-w-full items-center gap-1.5 text-sm font-semibold text-[var(--success)]">
             <UploadTick />
-            Uploaded
+            <span>Uploaded</span>
           </span>
-        ) : (
+        ) : pending ? null : (
           <span className="text-sm text-muted">Not uploaded</span>
         )
       ) : null}
@@ -454,18 +540,26 @@ function FileField({
         </div>
       ))}
       {error ? <p className="break-words text-sm text-danger">{error}</p> : null}
-      {dense ? null : <UploadStatus pending={pending} />}
       {editable ? (
         dense ? (
-          <Button asChild size="sm" variant="outline" className={cn("h-11 w-full sm:h-8 sm:w-auto", pending || !onUpload ? "pointer-events-none opacity-70" : "")}>
-            <label className="cursor-pointer">
-              <input id={id} className="sr-only" type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {fileInput}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-9 w-full sm:h-8 sm:w-auto"
+              disabled={!onUpload || pending}
+              onClick={() => inputRef.current?.click()}
+            >
               {chooseLabel}
-            </label>
-          </Button>
+            </Button>
+            <UploadStatus pending={pending} />
+          </div>
         ) : (
-          <div className="min-w-0 max-w-full overflow-hidden">
-            <input id={id} className="block w-full max-w-full text-sm" type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-hidden">
+            <input id={id} className="block min-w-0 flex-1 text-sm" type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />
+            <UploadStatus pending={pending} />
           </div>
         )
       ) : null}

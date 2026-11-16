@@ -40,7 +40,15 @@ export function UploadStatus({ pending }: { pending: boolean }) {
 }
 
 export function UploadTick({ label = "Uploaded" }: { label?: string }) {
-  return <Check size={16} className="shrink-0 text-[var(--success)]" aria-label={label} />;
+  return (
+    <span
+      className="inline-flex size-5 shrink-0 items-center justify-center rounded border-2 border-[var(--success)] bg-[var(--badge-success-bg)] text-[var(--success)]"
+      aria-label={label}
+      title={label}
+    >
+      <Check size={14} strokeWidth={3} aria-hidden />
+    </span>
+  );
 }
 
 export function StatusBadge({ status }: { status: string }) {
