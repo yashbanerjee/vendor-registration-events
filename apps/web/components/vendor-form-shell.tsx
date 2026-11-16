@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { BrandMark } from "./brand-mark";
 import { useSession } from "./providers";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loader";
 
 export function VendorFormShell({ children }: { children: React.ReactNode }) {
   const { session, loading } = useSession();
@@ -21,7 +22,7 @@ export function VendorFormShell({ children }: { children: React.ReactNode }) {
     else if (session.mustChangePassword) router.replace("/change-password");
   }, [loading, session, router]);
 
-  if (loading) return <p className="p-6 text-sm text-muted">Loading form…</p>;
+  if (loading) return <LoadingState label="Loading form…" description="Getting your registration ready." />;
   if (!session) return null;
 
   return (

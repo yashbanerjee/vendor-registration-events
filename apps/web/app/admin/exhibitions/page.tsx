@@ -6,7 +6,7 @@ import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, EmptyState, ErrorNote, Field, Modal, PageHeader, StatusBadge, inputClass } from "@/components/ui";
+import { Button, EmptyState, ErrorNote, Field, LoadingState, Modal, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type Exhibition = { id: string; name: string; code: string; venue: string; startsAt: string; endsAt: string; status: string; _count: { vendors: number; assignments: number } };
 
@@ -26,7 +26,7 @@ export default function ExhibitionsPage() {
     <div>
       <PageHeader title="Events" description="Each show is one event. Open it to see who is filling the form and which PDFs they sent." actions={<Button variant="primary" onClick={() => setOpen(true)}>Add event</Button>} />
       <ErrorNote message={query.isError ? "Could not load exhibitions." : ""} />
-      {query.isLoading ? <p className="text-sm text-muted">Loading exhibitions…</p> : null}
+      {query.isLoading ? <LoadingState label="Loading events…" description="Fetching exhibition details." /> : null}
       {!query.isLoading && exhibitions.total === 0 ? <EmptyState title="No events yet" body="Add the show first. You can add companies and forms after that." /> : null}
       {exhibitions.total > 0 ? (
         <div className="table-wrap">

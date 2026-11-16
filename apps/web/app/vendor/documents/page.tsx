@@ -6,7 +6,7 @@ import { friendlyErrorMessage } from "@/lib/errors";
 import { formatLabel } from "@/lib/utils";
 import { FileLink } from "@/components/file-preview";
 import { Pager, usePagedRows } from "@/components/pager";
-import { ErrorNote, PageHeader, StatusBadge } from "@/components/ui";
+import { ErrorNote, LoadingState, PageHeader, StatusBadge } from "@/components/ui";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type Row = { id: string; status: string; category: string; versions: { filename: string }[] };
@@ -18,6 +18,7 @@ export default function VendorDocumentsPage() {
     <div>
       <PageHeader title="My files" description="Files your company has uploaded." />
       <ErrorNote message={query.isError ? friendlyErrorMessage(query.error, "Could not load your files. Please refresh and try again.") : ""} />
+      {query.isLoading ? <LoadingState label="Loading your files…" description="Gathering uploads for your company." /> : null}
       <div className="overflow-hidden rounded-md border border-border bg-surface">
         <Table className="table-fixed">
           <TableHeader className="bg-secondary">

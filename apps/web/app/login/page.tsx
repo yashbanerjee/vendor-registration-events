@@ -6,7 +6,7 @@ import { useState } from "react";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/errors";
 import { BrandMark } from "@/components/brand-mark";
-import { Button, ErrorNote, Field, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, Spinner, inputClass } from "@/components/ui";
 import { useSession } from "@/components/providers";
 
 export default function LoginPage() {
@@ -17,10 +17,12 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
   const [mfaToken, setMfaToken] = useState("");
   const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError("");
+    setPending(true);
     try {
       if (mfaToken) {
         await api("/auth/mfa/verify", { method: "POST", body: JSON.stringify({ mfaToken, code }) });
@@ -40,11 +42,14 @@ export default function LoginPage() {
       else router.push(me.data.vendorId ? "/vendor" : "/admin");
     } catch (caught) {
       setError(friendlyErrorMessage(caught, "Sign-in failed. Please check your details and try again."));
+    } finally {
+      setPending(false);
     }
   }
 
   return (
     <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,_#e5f6fc_0%,_var(--background)_55%)] px-4">
+      {pending ? <LoadingState variant="overlay" label="Signing you in…" description="Preparing your workspace." /> : null}
       <form onSubmit={(event) => void submit(event)} className="grid w-full max-w-md gap-4 rounded-lg border border-border bg-surface p-6 shadow-panel">
         <div>
           <BrandMark className="mb-4 h-12 w-auto max-w-[220px]" />
@@ -53,19 +58,22 @@ export default function LoginPage() {
         <ErrorNote message={error} />
         {mfaToken ? (
           <Field label="Authentication code">
-            <input className={inputClass} inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} required />
+            <input className={inputClass} inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} required disabled={pending} />
           </Field>
         ) : (
           <>
             <Field label="Email">
-              <input className={inputClass} type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
+              <input className={inputClass} type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required disabled={pending} />
             </Field>
             <Field label="Password">
-              <input className={inputClass} type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+              <input className={inputClass} type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={pending} />
             </Field>
           </>
         )}
-        <Button type="submit" variant="primary">Continue</Button>
+        <Button type="submit" variant="primary" disabled={pending}>
+          {pending ? <Spinner size="sm" /> : null}
+          {pending ? "Signing in…" : "Continue"}
+        </Button>
         <Link className="text-sm underline" href="/forgot-password">Forgot password?</Link>
       </form>
     </main>

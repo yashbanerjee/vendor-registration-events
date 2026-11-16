@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ApiError, api } from "@/lib/api";
-import { Badge, Button, ErrorNote, Field, Notice, PageHeader, inputClass, textareaClass } from "@/components/ui";
+import { Badge, Button, ErrorNote, Field, LoadingState, Notice, PageHeader, inputClass, textareaClass } from "@/components/ui";
 
 type EmailTemplate = {
   key: string;
@@ -127,7 +127,7 @@ export default function EmailTemplatesPage() {
       />
       <Notice message={message} />
       <ErrorNote message={error} />
-      {query.isLoading ? <p className="text-sm text-muted">Loading templates…</p> : null}
+      {query.isLoading ? <LoadingState label="Loading templates…" description="Fetching email templates." /> : null}
       {selected ? (
         <div className="grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="grid gap-4">

@@ -10,7 +10,7 @@ import { applyTheme, readTheme, type ThemeChoice } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useSession } from "./providers";
 import { BrandMark } from "./brand-mark";
-import { Button, Modal } from "./ui";
+import { Button, LoadingState, Modal } from "./ui";
 
 export type NavItem = { href: string; label: string; icon: React.ReactNode; secondary?: boolean };
 
@@ -188,7 +188,7 @@ export function ShellFrame({ items, home, children }: { items: NavItem[]; home: 
     if (!session) router.replace("/login");
     else if (session.mustChangePassword) router.replace("/change-password");
   }, [loading, session, router]);
-  if (loading) return <p className="p-6 text-sm text-muted">Loading workspace…</p>;
+  if (loading) return <LoadingState label="Loading workspace…" description="Getting your account ready." />;
   if (!session) return null;
   return (
     <div className="min-h-dvh md:grid md:h-dvh md:grid-cols-[auto_1fr] md:overflow-hidden">

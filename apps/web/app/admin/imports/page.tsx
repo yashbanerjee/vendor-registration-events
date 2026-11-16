@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatLabel } from "@/lib/utils";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, PageHeader, StatusBadge, UploadStatus, UploadTick } from "@/components/ui";
+import { Button, ErrorNote, LoadingState, PageHeader, StatusBadge, UploadStatus, UploadTick } from "@/components/ui";
 
 type Job = { id: string; filename: string; status: string; totalRows: number; createdCount: number; skippedCount: number; errorCount: number; rows?: { rowNumber: number; status: string; messages: string[] }[] };
 
@@ -38,6 +38,7 @@ export default function ImportsPage() {
         <UploadStatus pending={upload.isPending} />
         {upload.isSuccess && !upload.isPending ? <span className="inline-flex items-center gap-1.5 text-sm text-[var(--success)]"><UploadTick /> Uploaded</span> : null}
       </div>
+      {list.isLoading ? <LoadingState label="Loading imports…" description="Fetching recent import jobs." /> : null}
       <div className="table-wrap mt-4">
         <table className="data">
           <thead><tr><th>File</th><th>Status</th><th>Created</th><th>Skipped</th><th>Errors</th></tr></thead>

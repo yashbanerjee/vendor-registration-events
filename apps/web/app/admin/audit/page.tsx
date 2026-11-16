@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatDate, formatLabel } from "@/lib/utils";
 import { Pager, usePagedRows } from "@/components/pager";
-import { PageHeader } from "@/components/ui";
+import { LoadingState, PageHeader } from "@/components/ui";
 
 type Audit = { id: string; action: string; actorRole: string; resourceType: string; createdAt: string; fieldId: string | null };
 
@@ -14,6 +14,7 @@ export default function AuditPage() {
   return (
     <div>
       <PageHeader title="Audit trail" description="Append-only history of privileged actions, submissions, corrections, and document access." />
+      {query.isLoading ? <LoadingState label="Loading audit trail…" description="Fetching recent activity." /> : null}
       <div className="table-wrap">
         <table className="data">
           <thead><tr><th>When</th><th>Action</th><th>Role</th><th>Resource</th><th>Field</th></tr></thead>

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatLabel } from "@/lib/utils";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, Field, Modal, Notice, PageHeader, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, Modal, Notice, PageHeader, inputClass } from "@/components/ui";
 
 type FormRow = { id: string; name: string; scope: string; status: string; description: string; versions: { versionNumber: number }[] };
 
@@ -39,6 +39,7 @@ export default function FormsPage() {
       <PageHeader title="Forms" description="Write the questions a company answers online. Publish a form when it is ready to send." actions={<Button variant="primary" onClick={() => setOpen(true)}>New form</Button>} />
       <ErrorNote message={error} />
       <Notice message={notice} />
+      {query.isLoading ? <LoadingState label="Loading forms…" description="Fetching form templates." /> : null}
       <div className="table-wrap">
         <table className="data">
           <thead><tr><th>Name</th><th>Scope</th><th>Status</th><th>Latest version</th><th></th></tr></thead>

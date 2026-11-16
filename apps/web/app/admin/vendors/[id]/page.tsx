@@ -7,7 +7,7 @@ import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatDate, formatLabel } from "@/lib/utils";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, Field, Modal, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, Modal, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type Profile = {
   data: {
@@ -83,7 +83,9 @@ export default function VendorProfilePage() {
     onSuccess: () => router.push("/admin/vendors"),
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not delete the vendor."),
   });
-  if (!vendor) return <p className="text-sm text-muted">Loading vendor…</p>;
+  if (!vendor) {
+    return <LoadingState label="Loading company…" description="Opening this vendor profile." />;
+  }
   const selectedCategory = categoryId ?? vendor.categories?.[0]?.category.id ?? "";
   return (
     <div>

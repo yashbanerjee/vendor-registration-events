@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { BrandMark } from "@/components/brand-mark";
-import { Button, ErrorNote, Field, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, inputClass } from "@/components/ui";
 import { useSession } from "@/components/providers";
 
 export default function ChangePasswordPage() {
@@ -33,7 +33,7 @@ export default function ChangePasswordPage() {
     }
   }
 
-  if (loading || !session) return <p className="p-6 text-sm text-muted">Loading…</p>;
+  if (loading || !session) return <LoadingState label="Loading…" description="Checking your session." />;
 
   return (
     <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,_#e5f6fc_0%,_var(--background)_55%)] px-4">

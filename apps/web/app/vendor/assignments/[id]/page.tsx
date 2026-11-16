@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { VendorAssignmentForm, type VendorAssignment } from "@/components/vendor-assignment-form";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/errors";
-import { ErrorNote } from "@/components/ui";
+import { ErrorNote, LoadingState } from "@/components/ui";
 
 export default function VendorAssignmentPage() {
   const params = useParams<{ id: string }>();
@@ -15,7 +15,7 @@ export default function VendorAssignmentPage() {
     queryFn: () => api<{ data: VendorAssignment }>(`/assignments/${params.id}`),
   });
 
-  if (assignment.isLoading) return <p className="text-sm text-muted">Loading your form…</p>;
+  if (assignment.isLoading) return <LoadingState label="Loading your form…" description="Opening this registration form." />;
   if (assignment.isError || !assignment.data?.data) {
     return (
       <div className="grid gap-3">

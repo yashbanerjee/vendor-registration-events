@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { formatLabel } from "@/lib/utils";
 import { FileLink } from "@/components/file-preview";
 import { Pager, usePagedRows } from "@/components/pager";
-import { PageHeader, StatusBadge, inputClass } from "@/components/ui";
+import { LoadingState, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type DocumentRow = { id: string; status: string; category: string; vendor: { id: string; companyName: string }; versions: { filename: string; sizeBytes: number }[] };
 
@@ -19,6 +19,7 @@ export default function DocumentsPage() {
     <div>
       <PageHeader title="Document archive" description="Files stay private. Downloads are authorized on each request." />
       <input className={`${inputClass} mb-3 max-w-sm`} aria-label="Search documents" placeholder="Search by filename" value={q} onChange={(event) => setQ(event.target.value)} />
+      {query.isLoading ? <LoadingState label="Loading documents…" description="Gathering the file archive." /> : null}
       <div className="table-wrap">
         <table className="data">
           <thead><tr><th>File</th><th>Vendor</th><th>Category</th><th>Status</th></tr></thead>

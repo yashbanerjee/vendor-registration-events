@@ -10,7 +10,7 @@ import { formatDate } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ErrorNote, Notice, StatusBadge } from "@/components/ui";
+import { ErrorNote, LoadingState, Notice, StatusBadge } from "@/components/ui";
 
 export type VendorAssignment = {
   id: string;
@@ -132,6 +132,13 @@ export function VendorAssignmentForm({
   }
   return (
     <section id={`assignment-${assignment.id}`} className="scroll-mt-20 grid gap-4">
+      {save.isPending ? (
+        <LoadingState
+          variant="overlay"
+          label={save.variables === "submit" ? "Sending your form…" : "Saving your draft…"}
+          description="Please wait a moment."
+        />
+      ) : null}
       {compact ? null : (
         <Card>
           <CardHeader className="flex-row flex-wrap items-start justify-between gap-3 space-y-0">
@@ -183,10 +190,10 @@ export function VendorAssignmentForm({
         <Card className="sticky bottom-0 z-10 -mx-4 rounded-none border-x-0 border-b-0 sm:static sm:mx-0 sm:rounded-lg sm:border">
           <CardContent className="grid grid-cols-2 gap-2 py-3 sm:flex sm:flex-wrap sm:items-center sm:py-4">
             {staged && currentStage > 0 ? <Button className="w-full sm:w-auto" variant="outline" onClick={() => setStage(currentStage - 1)}>Back</Button> : null}
-            {assignment.status !== "CORRECTION_REQUESTED" ? <Button className="w-full sm:w-auto" variant="outline" onClick={() => save.mutate("draft")} disabled={save.isPending}>Save</Button> : null}
+            {assignment.status !== "CORRECTION_REQUESTED" ? <Button className="w-full sm:w-auto" variant="outline" onClick={() => save.mutate("draft")} disabled={save.isPending}>{save.isPending && save.variables === "draft" ? "Saving…" : "Save"}</Button> : null}
             {staged && currentStage < sections.length - 1 ? <Button className="w-full sm:w-auto" variant="primary" onClick={() => setStage(currentStage + 1)}>Next</Button> : null}
             {!staged || currentStage === sections.length - 1 ? (
-              <Button className="w-full sm:w-auto" variant="primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{assignment.status === "CORRECTION_REQUESTED" ? "Send again" : "Send"}</Button>
+              <Button className="w-full sm:w-auto" variant="primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{save.isPending && save.variables === "submit" ? "Sending…" : assignment.status === "CORRECTION_REQUESTED" ? "Send again" : "Send"}</Button>
             ) : null}
           </CardContent>
         </Card>

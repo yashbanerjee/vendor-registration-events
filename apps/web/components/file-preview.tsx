@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ErrorNote, Modal } from "./ui";
+import { ErrorNote, LoadingState, Modal } from "./ui";
 
 export function FileLink({ documentId, filename }: { documentId: string; filename: string }) {
   const [open, setOpen] = useState(false);
@@ -113,7 +113,7 @@ function ImageView({ src, alt }: { src: string; alt: string }) {
     };
   }, [src]);
   if (message) return <p className="text-sm text-muted">{message} Download it to open it on this device.</p>;
-  if (!url) return <p className="text-sm text-muted">Loading image…</p>;
+  if (!url) return <LoadingState variant="panel" label="Opening image…" description="Please wait while the preview loads." />;
   return <img src={url} alt={alt} className="max-h-[32rem] w-full rounded-md border border-border bg-white object-contain" />;
 }
 
@@ -138,7 +138,7 @@ function MediaView({ src, kind, tall }: { src: string; kind: "video" | "audio"; 
     };
   }, [kind, src]);
   if (message) return <p className="text-sm text-muted">{message}</p>;
-  if (!url) return <p className="text-sm text-muted">Loading file…</p>;
+  if (!url) return <LoadingState variant="panel" label="Opening file…" description="Please wait while the media loads." className={tall ? "min-h-[16rem]" : "min-h-[20rem]"} />;
   if (kind === "audio") return <audio src={url} controls className="w-full" />;
   return <video src={url} controls className={`w-full rounded-md border border-border bg-black ${tall ? "max-h-[32rem]" : "max-h-[70dvh]"}`} />;
 }
@@ -172,7 +172,7 @@ function FileBody({ src, filename, tall }: { src: string; filename: string; tall
   const extension = filename.includes(".") ? filename.split(".").pop()?.toLowerCase() : "";
   return (
     <div>
-      {status === "loading" ? <p className="text-sm text-muted">Loading file…</p> : null}
+      {status === "loading" ? <LoadingState variant="panel" label="Opening file…" description="Fetching the file for preview." className={tall ? "min-h-[14rem]" : "min-h-[18rem]"} /> : null}
       <ErrorNote message={status === "error" ? message : ""} />
       {status === "text" ? <pre className={`overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface p-3 text-sm ${tall ? "max-h-[32rem]" : "max-h-[70dvh]"}`}>{text}</pre> : null}
       {status === "binary" ? <p className="text-sm text-muted">This {extension ? `.${extension} ` : ""}file is saved with the submission. Download it to open it in its own application.</p> : null}
@@ -254,8 +254,15 @@ function ModelView({ src, filename, tall }: { src: string; filename: string; tal
     };
   }, [filename, src, tall]);
   return (
-    <div>
-      {status === "loading" ? <p className="mb-2 text-sm text-muted">Loading model…</p> : null}
+    <div className="relative">
+      {status === "loading" ? (
+        <LoadingState
+          variant="panel"
+          label="Opening 3D model…"
+          description="Preparing the interactive preview."
+          className={tall ? "absolute inset-0 z-10 min-h-0 h-[26rem]" : "absolute inset-0 z-10 min-h-0 h-[70dvh]"}
+        />
+      ) : null}
       <ErrorNote message={status === "error" ? message : ""} />
       {status === "error" ? <p className="mb-2 text-sm text-muted">This model could not be shown.</p> : null}
       {status === "ready" ? <p className="mb-2 text-xs text-muted">Drag to rotate. Scroll to zoom.</p> : null}
@@ -346,7 +353,14 @@ function PdfPages({ src, tall }: { src: string; tall?: boolean }) {
 
   return (
     <div className={`overflow-auto rounded-md border border-border bg-slate-100 p-3 ${tall ? "max-h-[32rem]" : "max-h-[70dvh]"}`}>
-      {status === "loading" ? <p className="text-sm text-muted">Loading document…</p> : null}
+      {status === "loading" ? (
+        <LoadingState
+          variant="panel"
+          label="Opening PDF…"
+          description="Rendering pages for preview. This can take a moment for large files."
+          className={tall ? "min-h-[16rem] border-0 bg-transparent" : "min-h-[22rem] border-0 bg-transparent"}
+        />
+      ) : null}
       <ErrorNote message={status === "error" ? message : ""} />
       {status === "error" ? <p className="text-sm text-muted">This document could not be shown.</p> : null}
       <div ref={holder} className="grid gap-3" />

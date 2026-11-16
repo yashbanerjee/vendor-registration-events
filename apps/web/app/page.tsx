@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { LoadingState } from "@/components/ui";
 import { useSession } from "@/components/providers";
 
 export default function HomePage() {
@@ -12,5 +13,5 @@ export default function HomePage() {
     if (!session) router.replace("/login");
     else router.replace(session.vendorId ? "/vendor" : "/admin");
   }, [loading, session, router]);
-  return <p className="p-6 text-sm text-muted">Opening your workspace…</p>;
+  return <LoadingState label="Opening your workspace…" description="Checking your sign-in and routing you to the right place." />;
 }

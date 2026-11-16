@@ -1,14 +1,14 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download, FileUp, Loader2 } from "lucide-react";
+import { Download, FileUp } from "lucide-react";
 import { useRef, useState } from "react";
 import { api, download } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/errors";
 import { RemoteFileLink } from "@/components/file-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ErrorNote, Field, StatusBadge, UploadStatus, UploadTick, inputClass } from "@/components/ui";
+import { ErrorNote, Field, Spinner, StatusBadge, UploadStatus, UploadTick, inputClass } from "@/components/ui";
 
 type PacketFile = { id: string; name: string; filename: string; status: string; adminNote: string };
 export type Packet = {
@@ -102,7 +102,7 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
               <input ref={docRef} type="file" disabled={run.isPending} onChange={(event) => setDocFile(event.target.files?.[0] ?? null)} />
             </Field>
             <Button type="submit" size="sm" disabled={run.isPending || !docName.trim() || !docFile}>
-              {busy === "document" ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <FileUp size={14} aria-hidden />}
+              {busy === "document" ? <Spinner size="sm" /> : <FileUp size={14} aria-hidden />}
               {busy === "document" ? "Uploading…" : "Add"}
             </Button>
           </form>

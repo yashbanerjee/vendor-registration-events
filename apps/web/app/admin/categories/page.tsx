@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, Field, Modal, Notice, PageHeader, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, Modal, Notice, PageHeader, inputClass } from "@/components/ui";
 
 type Category = { id: string; name: string; _count: { vendors: number } };
 
@@ -82,6 +82,7 @@ export default function CategoriesPage() {
         </table>
       </div>
       <Pager page={categories.page} pageCount={categories.pageCount} total={categories.total} rangeStart={categories.rangeStart} rangeEnd={categories.rangeEnd} onPage={categories.setPage} />
+      {query.isLoading ? <LoadingState label="Loading categories…" description="Fetching category options." /> : null}
       {!query.isLoading && categories.total === 0 ? <p className="mt-3 text-sm text-muted">No categories yet.</p> : null}
       <Modal open={creating} title="Add category" onClose={() => setCreating(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); setError(""); create.mutate(); }}>

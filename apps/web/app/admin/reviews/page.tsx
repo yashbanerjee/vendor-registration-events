@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, Field, Modal, PageHeader, StatusBadge, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, Modal, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type QueueItem = { id: string; status: string; vendor: { companyName: string }; exhibition: { name: string }; form: { name: string }; submittedAt: string | null };
 type Option = { id: string; name?: string; companyName?: string; code?: string; versions?: { id: string; versionNumber: number }[] };
@@ -44,6 +44,7 @@ export default function ReviewsPage() {
         </table>
       </div>
       <Pager page={reviews.page} pageCount={reviews.pageCount} total={reviews.total} rangeStart={reviews.rangeStart} rangeEnd={reviews.rangeEnd} onPage={reviews.setPage} />
+      {queue.isLoading ? <LoadingState label="Loading review queue…" description="Checking submitted company forms." /> : null}
       {reviews.total === 0 && !queue.isLoading ? <p className="mt-3 text-sm text-muted">The queue is empty.</p> : null}
       <Modal open={open} title="Send a form" onClose={() => setOpen(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); assign.mutate(); }}>

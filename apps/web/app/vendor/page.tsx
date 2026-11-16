@@ -9,12 +9,12 @@ import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/errors";
 import { PacketCard, type Packet } from "@/components/vendor-packets";
 import type { VendorAssignment } from "@/components/vendor-assignment-form";
-import { Button, EmptyState, ErrorNote, Notice, PageHeader, StatusBadge } from "@/components/ui";
+import { Button, EmptyState, ErrorNote, LoadingState, Notice, PageHeader, StatusBadge } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 
 export default function VendorHomePage() {
   return (
-    <Suspense fallback={<p className="text-sm text-muted">Loading your form…</p>}>
+    <Suspense fallback={<LoadingState label="Loading your form…" description="Fetching your registration details." />}>
       <MasterForm />
     </Suspense>
   );
@@ -42,7 +42,7 @@ function MasterForm() {
             : ""
         }
       />
-      {loading ? <p className="text-sm text-muted">Loading your form…</p> : null}
+      {loading ? <LoadingState label="Loading your form…" description="Fetching your registration details." /> : null}
       {profile ? (
         <section className="rounded-lg border border-border bg-surface p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{profile.vendor.reference}</p>

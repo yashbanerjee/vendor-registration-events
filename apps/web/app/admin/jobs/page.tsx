@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatDate, formatLabel } from "@/lib/utils";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, PageHeader, StatusBadge } from "@/components/ui";
+import { Button, LoadingState, PageHeader, StatusBadge } from "@/components/ui";
 
 type Jobs = { data: { outbox: { id: string; type: string; status: string; attempts: number; lastError: string; createdAt: string }[]; emails: { id: string; toAddress: string; template: string; status: string; lastError: string; createdAt: string }[] } };
 
@@ -20,6 +20,7 @@ export default function JobsPage() {
   return (
     <div>
       <PageHeader title="Background jobs" description="Pending mail stays in the queue and is sent one every 5 seconds. Sent means the mail server accepted the message. Delivered or bounced appears only after a provider event." />
+      {query.isLoading ? <LoadingState label="Loading jobs…" description="Checking the email and outbox queues." /> : null}
       <h2 className="mb-2 text-sm font-semibold">Outbox</h2>
       <div className="table-wrap">
         <table className="data">

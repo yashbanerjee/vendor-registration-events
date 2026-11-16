@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { LoadingState } from "@/components/ui";
 
 export default function VendorPdfFormPage() {
   const params = useParams<{ id: string }>();
@@ -9,5 +10,5 @@ export default function VendorPdfFormPage() {
   useEffect(() => {
     router.replace(`/vendor#pdf-${params.id}`);
   }, [params.id, router]);
-  return <p className="text-sm text-muted">Opening your form…</p>;
+  return <LoadingState label="Opening your form…" description="Taking you to the PDF packet." />;
 }

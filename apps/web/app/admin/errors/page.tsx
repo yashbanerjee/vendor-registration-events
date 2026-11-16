@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { Pager, usePagedRows } from "@/components/pager";
-import { PageHeader, StatusBadge } from "@/components/ui";
+import { LoadingState, PageHeader, StatusBadge } from "@/components/ui";
 
 type ErrorRow = {
   id: string;
@@ -41,6 +41,7 @@ export default function ErrorsPage() {
         title="API & upload errors"
         description="Failed uploads and API errors are saved here and emailed to info@vedha.ae and saadbhati1002@gmail.com with the affected user details."
       />
+      {query.isLoading ? <LoadingState label="Loading errors…" description="Fetching recent API and upload failures." /> : null}
       <div className="table-wrap">
         <table className="data">
           <thead>

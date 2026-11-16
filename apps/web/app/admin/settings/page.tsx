@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { applyTheme, readTheme, type ThemeChoice } from "@/lib/theme";
-import { Badge, Button, ErrorNote, Field, Notice, PageHeader, inputClass } from "@/components/ui";
+import { Badge, Button, ErrorNote, Field, LoadingState, Notice, PageHeader, inputClass } from "@/components/ui";
 
 type Settings = {
   sessionTtlHours: number;
@@ -204,6 +204,7 @@ export default function SettingsPage() {
         actions={<Button type="submit" form="organization-settings" variant="primary" disabled={save.isPending}>{save.isPending ? "Saving…" : "Save settings"}</Button>}
       />
       <Notice message={message} />
+      {organization.isLoading ? <LoadingState label="Loading settings…" description="Fetching organization configuration." /> : null}
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <form
           id="organization-settings"

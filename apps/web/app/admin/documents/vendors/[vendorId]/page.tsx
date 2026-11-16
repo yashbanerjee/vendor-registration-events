@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { formatLabel } from "@/lib/utils";
 import { FileLink } from "@/components/file-preview";
 import { Pager, usePagedRows } from "@/components/pager";
-import { PageHeader, StatusBadge } from "@/components/ui";
+import { ErrorNote, LoadingState, PageHeader, StatusBadge } from "@/components/ui";
 
 type Archive = {
   data: {
@@ -19,7 +19,11 @@ export default function VendorArchivePage() {
   const params = useParams<{ vendorId: string }>();
   const query = useQuery({ queryKey: ["archive", params.vendorId], queryFn: () => api<Archive>(`/documents/archive/${params.vendorId}`) });
   const archive = query.data?.data;
-  if (!archive) return <p className="text-sm text-muted">Loading archive…</p>;
+  if (!archive) {
+    return query.isError
+      ? <ErrorNote message="This archive could not be loaded." />
+      : <LoadingState label="Loading archive…" description="Opening this company’s files." />;
+  }
   const groups = new Map<string, typeof archive.documents>();
   for (const document of archive.documents) {
     const key = document.exhibition?.name ?? "Unassigned";

@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Badge, ErrorNote, PageHeader, StatusBadge, inputClass } from "@/components/ui";
+import { Badge, ErrorNote, LoadingState, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type FieldFill = { id: string; label: string; filled: boolean };
 type SubmissionRow = {
@@ -162,7 +162,7 @@ export default function SubmissionsPage() {
         </table>
       </div>
       <Pager page={page.page} pageCount={page.pageCount} total={page.total} rangeStart={page.rangeStart} rangeEnd={page.rangeEnd} onPage={page.setPage} />
-      {query.isLoading ? <p className="mt-3 text-sm text-muted">Loading submissions…</p> : null}
+      {query.isLoading ? <LoadingState label="Loading submissions…" description="Gathering company answers." /> : null}
       {!query.isLoading && !query.isError && page.total === 0 ? <p className="mt-3 text-sm text-muted">No vendors match this search.</p> : null}
     </div>
   );

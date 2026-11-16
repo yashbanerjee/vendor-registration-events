@@ -7,7 +7,7 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
-import { Badge, EmptyState, ErrorNote, StatusBadge, inputClass } from "@/components/ui";
+import { Badge, EmptyState, ErrorNote, LoadingState, StatusBadge, inputClass } from "@/components/ui";
 
 type FieldFill = { id: string; label: string; filled: boolean; required: boolean };
 type FormProgress = {
@@ -115,7 +115,7 @@ export default function ExhibitionDetailPage() {
         All events
       </Link>
       <ErrorNote message={query.isError ? "Could not load this exhibition." : ""} />
-      {query.isLoading ? <p className="text-sm text-muted">Loading vendors…</p> : null}
+      {query.isLoading ? <LoadingState label="Loading event…" description="Fetching companies and form progress." /> : null}
       {exhibition ? (
         <>
           <section className="mb-6 rounded-2xl border border-border bg-surface px-6 py-5 shadow-sm">

@@ -1,13 +1,13 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2 } from "lucide-react";
+import { Check } from "lucide-react";
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { ApiError, api, download } from "@/lib/api";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, Field, Modal, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, Modal, Notice, PageHeader, Spinner, StatusBadge, inputClass } from "@/components/ui";
 
 function fieldError(caught: unknown, fallback: string) {
   if (!(caught instanceof ApiError)) return fallback;
@@ -258,7 +258,7 @@ export default function VendorsPage() {
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => void download("/imports/template", "vendor-demo.csv").catch(() => setError("Could not download the demo CSV."))}>Demo CSV</Button>
             <Button disabled={upload.isPending} onClick={() => fileRef.current?.click()}>
-              {upload.isPending ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null}
+              {upload.isPending ? <Spinner size="sm" /> : null}
               {upload.isPending ? "Uploading…" : "Bulk upload"}
             </Button>
             {upload.isSuccess && !upload.isPending ? <span className="inline-flex items-center gap-1 self-center text-sm text-[var(--success)]"><Check size={16} aria-hidden /> Uploaded</span> : null}
@@ -291,7 +291,7 @@ export default function VendorsPage() {
         </table>
       </div>
       <Pager page={vendors.page} pageCount={vendors.pageCount} total={vendors.total} rangeStart={vendors.rangeStart} rangeEnd={vendors.rangeEnd} onPage={vendors.setPage} />
-      {query.isLoading ? <p className="mt-3 text-sm text-muted">Loading vendors…</p> : null}
+      {query.isLoading ? <LoadingState label="Loading companies…" description="Fetching the vendor list." /> : null}
       {!query.isLoading && vendors.total === 0 ? <p className="mt-3 text-sm text-muted">No vendors match this filter.</p> : null}
       <Modal open={open} title="Add a company" onClose={() => setOpen(false)}>
         <form className="grid gap-3" onSubmit={(event) => {

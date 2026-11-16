@@ -5,7 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { Pager, usePagedRows } from "@/components/pager";
-import { ErrorNote, PageHeader, StatusBadge } from "@/components/ui";
+import { ErrorNote, LoadingState, PageHeader, StatusBadge } from "@/components/ui";
 
 type Dashboard = {
   data: {
@@ -33,7 +33,7 @@ export default function DashboardPage() {
   return (
     <div>
       <PageHeader title="Home" description="Four steps. Start at the top and work down." />
-      {query.isLoading ? <p className="text-sm text-muted">Loading…</p> : null}
+      {query.isLoading ? <LoadingState label="Loading dashboard…" description="Gathering the latest activity." /> : null}
       <ErrorNote message={query.isError ? "The home page could not be loaded." : ""} />
       <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {steps.map(([number, title, body, href]) => (

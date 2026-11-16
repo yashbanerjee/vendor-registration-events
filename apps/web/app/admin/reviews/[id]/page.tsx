@@ -8,7 +8,7 @@ import { ApiError, api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { InlineFilePreview, RemoteFileLink } from "@/components/file-preview";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, Field, Notice, PageHeader, StatusBadge, textareaClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, Notice, PageHeader, StatusBadge, textareaClass } from "@/components/ui";
 import { COUNTRIES, isFieldVisible, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 
 type Review = {
@@ -80,7 +80,11 @@ export default function ReviewDetailPage() {
 
   const notes = usePagedRows(review?.notes ?? []);
   const revisions = usePagedRows(review?.revisions ?? []);
-  if (!review) return <p className="text-sm text-muted">Loading submission…</p>;
+  if (!review) {
+    return query.isError
+      ? <ErrorNote message="This submission could not be loaded." />
+      : <LoadingState label="Loading submission…" description="Opening the company’s submitted form and files." />;
+  }
   const reviewable = review.status === "SUBMITTED_PENDING_REVIEW" || review.status === "RESUBMITTED_PENDING_REVIEW";
   return (
     <div>

@@ -1,10 +1,11 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { usePublishFlag } from "@/components/flags";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge as ShadcnBadge } from "@/components/ui/badge";
+import { LoadingState } from "@/components/ui/loader";
 import { cn, formatLabel } from "@/lib/utils";
 
 export { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableC
 export { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 export { Input } from "@/components/ui/input";
 export { Label } from "@/components/ui/label";
+export { LoadingState, Spinner } from "@/components/ui/loader";
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -34,12 +36,7 @@ export function Badge({ tone, children }: { tone: "success" | "warning" | "dange
 
 export function UploadStatus({ pending }: { pending: boolean }) {
   if (!pending) return null;
-  return (
-    <span className="inline-flex items-center gap-1.5 text-sm text-muted" role="status">
-      <Loader2 size={16} className="animate-spin" aria-hidden />
-      Uploading…
-    </span>
-  );
+  return <LoadingState variant="inline" size="sm" label="Uploading…" />;
 }
 
 export function UploadTick({ label = "Uploaded" }: { label?: string }) {

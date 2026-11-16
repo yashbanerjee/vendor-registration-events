@@ -4,12 +4,11 @@ import { FIELD_TYPES, type FieldType, type FormField, type FormSchemaDefinition 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { arrayMove } from "@dnd-kit/sortable";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { useEffect, useState, type ChangeEvent } from "react";
 import { FormRenderer } from "@/components/form-renderer";
 import { RemoteFileLink } from "@/components/file-preview";
 import { ApiError, api } from "@/lib/api";
-import { Button, ErrorNote, Field, Modal, PageHeader, UploadStatus, UploadTick, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, Modal, PageHeader, Spinner, UploadStatus, UploadTick, inputClass } from "@/components/ui";
 
 type Template = {
   data: {
@@ -74,7 +73,7 @@ export default function FormBuilderPage() {
   });
 
   if (query.isError) return <p className="text-sm text-muted">This form was not found.</p>;
-  if (!schema) return <p className="text-sm text-muted">Loading form…</p>;
+  if (!schema) return <LoadingState label="Loading form…" description="Opening the form builder." />;
   const sectionId = schema.sections[0]?.id;
   const field = schema.fields.find((item) => item.id === selected) ?? null;
 
@@ -236,7 +235,7 @@ function TemplateFile({ templateId, field, onChange }: { templateId: string; fie
       )}
       <label className={`inline-flex h-10 w-fit max-w-full items-center gap-2 rounded-md border border-border px-3 text-sm leading-5 hover:bg-secondary ${pending ? "cursor-wait opacity-70" : "cursor-pointer"}`}>
         <input className="sr-only" type="file" disabled={pending} onChange={(event) => void pick(event)} />
-        {pending ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null}
+        {pending ? <Spinner size="sm" /> : null}
         {pending ? "Uploading…" : "Choose file"}
       </label>
       <UploadStatus pending={pending} />
