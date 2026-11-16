@@ -14,6 +14,7 @@
     "prisma:dev": "prisma migrate dev",
     "prisma:seed": "tsx --env-file=.env prisma/seed.ts",
     "prisma:demo": "tsx --env-file=.env prisma/demo-portal.ts",
+    "prisma:demo:iktva": "tsx --env-file=.env prisma/bind-demo-iktva.ts",
     "prisma:grant": "prisma db execute --url \"%MIGRATE_DATABASE_URL%\" --file prisma/sql/grants.sql",
     "start": "node dist/main.js",
     "start:worker": "node dist/worker.js"
