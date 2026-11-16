@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, Field, LoadingState, Modal, Notice, PageHeader, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, Modal, ModalActions, Notice, PageHeader, inputClass } from "@/components/ui";
 
 type Category = { id: string; name: string; _count: { vendors: number } };
 
@@ -61,15 +61,15 @@ export default function CategoriesPage() {
         actions={<Button variant="primary" onClick={() => { setError(""); setName(""); setCreating(true); }}>Add category</Button>}
       />
       <Notice message={notice} />
-      <ErrorNote message={error} />
-      <div className="table-wrap mt-3">
+      <ErrorNote className="mb-3" message={error} />
+      <div className="table-wrap">
         <table className="data">
           <thead><tr><th>Name</th><th>Vendors</th><th></th></tr></thead>
           <tbody>
             {categories.rows.map((category) => (
               <tr key={category.id}>
                 <td className="font-medium">{category.name}</td>
-                <td>{category._count.vendors}</td>
+                <td data-label="Vendors">{category._count.vendors}</td>
                 <td className="text-right">
                   <div className="inline-flex gap-2">
                     <Button size="sm" onClick={() => { setError(""); setEditName(category.name); setEditing(category); }}>Edit</Button>
@@ -83,7 +83,7 @@ export default function CategoriesPage() {
       </div>
       <Pager page={categories.page} pageCount={categories.pageCount} total={categories.total} rangeStart={categories.rangeStart} rangeEnd={categories.rangeEnd} onPage={categories.setPage} />
       {query.isLoading ? <LoadingState label="Loading categories…" description="Fetching category options." /> : null}
-      {!query.isLoading && categories.total === 0 ? <p className="mt-3 text-sm text-muted">No categories yet.</p> : null}
+      {!query.isLoading && categories.total === 0 ? <p className="text-sm text-muted sm:mt-3">No categories yet.</p> : null}
       <Modal open={creating} title="Add category" onClose={() => setCreating(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); setError(""); create.mutate(); }}>
           <ErrorNote message={error} />
@@ -102,10 +102,10 @@ export default function CategoriesPage() {
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); remove.mutate(); }}>
           <ErrorNote message={error} />
           <p className="text-sm">Delete {removing?.name}? Vendors in this category stay in the directory, and the category is removed from them.</p>
-          <div className="flex justify-end gap-2">
+          <ModalActions>
             <Button type="button" onClick={() => setRemoving(null)}>Cancel</Button>
             <Button type="submit" variant="danger" disabled={remove.isPending}>Delete</Button>
-          </div>
+          </ModalActions>
         </form>
       </Modal>
     </div>

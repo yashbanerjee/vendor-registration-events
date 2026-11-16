@@ -89,11 +89,11 @@ export default function ReviewDetailPage() {
   return (
     <div>
       <PageHeader title={review.vendor.companyName} description={`${review.form.name} v${review.form.versionNumber} · ${review.exhibition.name}`} actions={<StatusBadge status={review.status} />} />
-      <p className="mb-3 text-sm text-muted">{review.vendor.contactName} · {review.vendor.email} · {review.exhibition.venue}</p>
-      <ErrorNote message={error} />
+      <p className="mb-4 break-words text-sm text-muted">{[review.vendor.contactName, review.vendor.email, review.exhibition.venue].filter(Boolean).join(" · ")}</p>
+      <ErrorNote className="mb-3" message={error} />
       <Notice message={message} />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="grid gap-4">
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="grid min-w-0 gap-4">
           {reviewable ? <p className="text-sm text-muted">Each answer is shown below. Mark a field that needs a change and write a comment on that field. The vendor gets one email with every marked field and its comment.</p> : null}
           <AnswerList
             schema={review.form.schema}
@@ -109,8 +109,8 @@ export default function ReviewDetailPage() {
             }}
           />
         </div>
-        <aside className="grid h-fit gap-3 rounded-lg border border-border bg-surface p-3">
-          <h2 className="text-sm font-semibold">Decision</h2>
+        <aside className="panel grid h-fit min-w-0 gap-3 p-4">
+          <h2 className="text-base font-semibold">Decision</h2>
           {reviewable ? (
             <>
               <p className="text-xs text-muted">{markedIds.length === 0 ? "No fields marked." : `${readyFields.length} of ${markedIds.length} marked fields have a comment.`}</p>
@@ -121,7 +121,7 @@ export default function ReviewDetailPage() {
           <Link className="text-sm underline" href={`/admin/documents/vendors/${review.vendor.id}`}>Open document archive</Link>
           <h3 className="text-sm font-semibold">Internal notes</h3>
           <ul className="grid gap-2 text-sm">
-            {notes.rows.map((item) => <li key={item.id} className="rounded bg-secondary px-2 py-1">{item.body}<span className="mt-1 block text-xs text-muted">{formatDate(item.createdAt)}</span></li>)}
+            {notes.rows.map((item) => <li key={item.id} className="break-words rounded-md bg-secondary px-2.5 py-2">{item.body}<span className="mt-1 block text-xs text-muted">{formatDate(item.createdAt)}</span></li>)}
           </ul>
           <Pager page={notes.page} pageCount={notes.pageCount} total={notes.total} rangeStart={notes.rangeStart} rangeEnd={notes.rangeEnd} onPage={notes.setPage} />
           <Field label="Add note"><textarea className={textareaClass} value={note} onChange={(event) => setNote(event.target.value)} /></Field>
@@ -163,7 +163,7 @@ function AnswerList({
       {sections.map((section) => {
         const fields = schema.fields.filter((field) => field.sectionId === section.id).sort((a, b) => a.order - b.order).filter((field) => isFieldVisible(field, values, byId));
         return (
-          <section key={section.id} className="rounded-lg border border-border bg-surface p-4">
+          <section key={section.id} className="panel min-w-0 p-4 sm:p-5">
             <h2 className="text-base font-semibold">{section.title}</h2>
             {section.description ? <p className="mt-1 text-sm text-muted">{section.description}</p> : null}
             <div className="mt-4 grid gap-4">
@@ -173,13 +173,13 @@ function AnswerList({
                 const earlier = previous.find((item) => item.fieldId === field.id)?.note;
                 const on = Boolean(marked[field.id]);
                 return (
-                  <article key={field.id} className={`grid gap-2 rounded-md border p-3 ${on ? "border-brand bg-[var(--badge-info-bg)]" : "border-border"}`}>
+                  <article key={field.id} className={`grid min-w-0 gap-2 rounded-lg border p-3 sm:p-4 ${on ? "border-brand bg-[var(--badge-info-bg)]" : "border-border"}`}>
                     <h3 className="text-sm font-semibold">{field.label}</h3>
                     <Answer field={field} value={values[field.id]} />
                     {earlier ? <p className="text-sm text-[var(--badge-warning-fg)]">Previous comment: {earlier}</p> : null}
                     {reviewable ? (
                       <div className="grid gap-2 border-t border-border pt-2">
-                        <label className="flex items-center gap-2 text-sm">
+                        <label className="flex min-h-9 items-center gap-2 text-sm">
                           <input type="checkbox" checked={on} onChange={(event) => onMark(field.id, event.target.checked)} />
                           Mark this field
                         </label>
@@ -238,7 +238,7 @@ function Answer({ field, value }: { field: FormField; value: unknown }) {
       </ul>
     );
   }
-  return <p className="whitespace-pre-wrap text-sm">{text}</p>;
+  return <p className="whitespace-pre-wrap break-words text-sm">{text}</p>;
 }
 
 function displayAnswer(field: FormField, value: unknown): string {

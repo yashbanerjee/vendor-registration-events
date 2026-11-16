@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Badge, ErrorNote, LoadingState, PageHeader, StatusBadge, inputClass } from "@/components/ui";
+import { Badge, ErrorNote, FilterBar, LoadingState, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type FieldFill = { id: string; label: string; filled: boolean };
 type SubmissionRow = {
@@ -71,19 +71,19 @@ export default function SubmissionsPage() {
   return (
     <div>
       <PageHeader title="Submissions" description="See which vendors have sent their form, which have not, and which fields are filled in." />
-      <div className="mb-3 mt-3 flex flex-wrap gap-2">
-        <input className={`${inputClass} max-w-sm`} placeholder="Search company, contact, or email" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Search submissions" />
-        <select className={`${inputClass} max-w-[180px]`} aria-label="Submission" value={state} onChange={(event) => setState(event.target.value)}>
+      <FilterBar>
+        <input className={`${inputClass} col-span-2 sm:max-w-sm`} placeholder="Search company, contact, or email" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Search submissions" />
+        <select className={`${inputClass} sm:max-w-[180px]`} aria-label="Submission" value={state} onChange={(event) => setState(event.target.value)}>
           <option value="">All vendors</option>
           <option value="submitted">Submitted</option>
           <option value="missing">Not submitted</option>
         </select>
-        <select className={`${inputClass} max-w-xs`} aria-label="Exhibition" value={exhibitionId} onChange={(event) => setExhibitionId(event.target.value)}>
+        <select className={`${inputClass} sm:max-w-xs`} aria-label="Exhibition" value={exhibitionId} onChange={(event) => setExhibitionId(event.target.value)}>
           <option value="">All exhibitions</option>
           {exhibitions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
         </select>
         <select
-          className={`${inputClass} max-w-xs`}
+          className={`${inputClass} sm:max-w-xs`}
           aria-label="Form"
           value={formVersionId}
           onChange={(event) => {
@@ -96,7 +96,7 @@ export default function SubmissionsPage() {
           {forms.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
         </select>
         <select
-          className={`${inputClass} max-w-xs`}
+          className={`${inputClass} sm:max-w-xs`}
           aria-label="Form field"
           value={fieldId}
           onChange={(event) => {
@@ -107,14 +107,14 @@ export default function SubmissionsPage() {
           <option value="">All fields</option>
           {fields.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select>
-        <select className={`${inputClass} max-w-[160px]`} aria-label="Field status" value={fieldState} disabled={!fieldId} onChange={(event) => setFieldState(event.target.value)}>
+        <select className={`${inputClass} col-span-2 sm:max-w-[160px]`} aria-label="Field status" value={fieldState} disabled={!fieldId} onChange={(event) => setFieldState(event.target.value)}>
           <option value="">Filled or empty</option>
           <option value="filled">Filled</option>
           <option value="empty">Empty</option>
         </select>
-      </div>
+      </FilterBar>
       <p className="mb-3 text-sm text-muted">{submittedCount} submitted · {filtered.length - submittedCount} not submitted</p>
-      <ErrorNote message={query.isError ? "Could not load submissions." : ""} />
+      <ErrorNote className="mb-3" message={query.isError ? "Could not load submissions." : ""} />
       <div className="table-wrap">
         <table className="data">
           <thead>
@@ -134,20 +134,20 @@ export default function SubmissionsPage() {
                 <tr key={row.id ?? row.vendor.id}>
                   <td>
                     <Link className="font-medium underline" href={row.id ? `/admin/reviews/${row.id}` : `/admin/vendors/${row.vendor.id}`}>{row.vendor.companyName}</Link>
-                    <p className="max-w-xs truncate text-xs text-muted" title={`${row.vendor.contactName} · ${row.vendor.email}`}>{row.vendor.contactName} · {row.vendor.email}</p>
+                    <p className="truncate text-xs font-normal text-muted sm:max-w-xs" title={`${row.vendor.contactName} · ${row.vendor.email}`}>{row.vendor.contactName} · {row.vendor.email}</p>
                   </td>
-                  <td>{row.form ? `${row.form.name} v${row.form.versionNumber}` : "No form"}</td>
-                  <td>{row.exhibition?.name ?? "—"}</td>
-                  <td><StatusBadge status={row.status} /></td>
-                  <td>{row.submittedAt ? formatDate(row.submittedAt) : "—"}</td>
-                  <td>
+                  <td data-label="Form">{row.form ? `${row.form.name} v${row.form.versionNumber}` : "No form"}</td>
+                  <td data-label="Exhibition">{row.exhibition?.name ?? "—"}</td>
+                  <td data-label="Status"><StatusBadge status={row.status} /></td>
+                  <td data-label="Submitted">{row.submittedAt ? formatDate(row.submittedAt) : "—"}</td>
+                  <td data-label="Fields" data-stack>
                     {row.fieldCount === 0 ? <span className="text-muted">—</span> : (
                       <details>
-                        <summary className="cursor-pointer text-sm">{row.filledCount} of {row.fieldCount} filled{watched ? ` · ${watched.filled ? "this field is filled" : "this field is empty"}` : ""}</summary>
-                        <ul className="mt-2 grid gap-1">
+                        <summary className="cursor-pointer py-0.5 text-sm">{row.filledCount} of {row.fieldCount} filled{watched ? ` · ${watched.filled ? "this field is filled" : "this field is empty"}` : ""}</summary>
+                        <ul className="mt-2 grid gap-1.5">
                           {row.fields.map((field) => (
                             <li key={field.id} className="flex items-center justify-between gap-3 text-xs">
-                              <span className={field.id === fieldId ? "font-semibold" : ""}>{field.label}</span>
+                              <span className={`min-w-0 ${field.id === fieldId ? "font-semibold" : ""}`}>{field.label}</span>
                               <Badge tone={field.filled ? "success" : "neutral"}>{field.filled ? "Filled" : "Empty"}</Badge>
                             </li>
                           ))}
@@ -163,7 +163,7 @@ export default function SubmissionsPage() {
       </div>
       <Pager page={page.page} pageCount={page.pageCount} total={page.total} rangeStart={page.rangeStart} rangeEnd={page.rangeEnd} onPage={page.setPage} />
       {query.isLoading ? <LoadingState label="Loading submissions…" description="Gathering company answers." /> : null}
-      {!query.isLoading && !query.isError && page.total === 0 ? <p className="mt-3 text-sm text-muted">No vendors match this search.</p> : null}
+      {!query.isLoading && !query.isError && page.total === 0 ? <p className="text-sm text-muted sm:mt-3">No vendors match this search.</p> : null}
     </div>
   );
 }

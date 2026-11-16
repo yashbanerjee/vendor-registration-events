@@ -197,7 +197,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-4">
+    <div>
       <PageHeader
         title="Settings"
         description="The database connection stays in the server environment. Session, email, and Railway storage values are saved for this organization."
@@ -208,7 +208,7 @@ export default function SettingsPage() {
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <form
           id="organization-settings"
-          className="grid gap-4"
+          className="grid min-w-0 gap-4"
           onSubmit={(event) => {
             event.preventDefault();
             save.mutate();
@@ -239,9 +239,9 @@ export default function SettingsPage() {
             description="Messages to vendors and administrators use these sender and SMTP details. Batches leave the queue at up to 15 messages per minute."
             extra={form.smtpPasswordSet ? <Badge tone="success">Password saved</Badge> : <Badge tone="neutral">No password saved</Badge>}
           >
-            <div className="grid gap-3 rounded-md border border-border bg-secondary p-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+            <div className="grid gap-3 rounded-lg border border-border bg-secondary p-3 sm:p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                   <h3 className="text-sm font-semibold">Send emails</h3>
                   <p className="mt-1 text-xs text-muted">
                     When off, vendor registration and other portal emails stay held. Turning on releases held messages at 15 per minute.
@@ -250,6 +250,7 @@ export default function SettingsPage() {
                 </div>
                 <Button
                   type="button"
+                  className="shrink-0"
                   variant={form.emailSendEnabled ? "primary" : "secondary"}
                   disabled={toggleEmailSending.isPending}
                   onClick={() => toggleEmailSending.mutate(!form.emailSendEnabled)}
@@ -279,17 +280,17 @@ export default function SettingsPage() {
                 <input className={inputClass} type="password" value={smtpPassword} onChange={(event) => setSmtpPassword(event.target.value)} autoComplete="new-password" />
               </Field>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.smtpSecure} onChange={(event) => set("smtpSecure", event.target.checked)} />
+            <label className="flex items-start gap-2.5 text-sm leading-5">
+              <input className="mt-0.5" type="checkbox" checked={form.smtpSecure} onChange={(event) => set("smtpSecure", event.target.checked)} />
               Use TLS for SMTP
             </label>
             {form.smtpPasswordSet ? (
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={clearSmtpPassword} onChange={(event) => setClearSmtpPassword(event.target.checked)} />
+              <label className="flex items-start gap-2.5 text-sm leading-5">
+                <input className="mt-0.5" type="checkbox" checked={clearSmtpPassword} onChange={(event) => setClearSmtpPassword(event.target.checked)} />
                 Remove the saved SMTP password and use the server password
               </label>
             ) : null}
-            <div className="grid gap-3 rounded-md border border-border bg-secondary p-3">
+            <div className="grid gap-3 rounded-lg border border-border bg-secondary p-3 sm:p-4">
               <div>
                 <h3 className="text-sm font-semibold">Send a test email</h3>
                 <p className="mt-1 text-xs text-muted">Uses the saved settings. Save first if you changed the host, port, or password.</p>
@@ -332,22 +333,22 @@ export default function SettingsPage() {
                 </Field>
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.storagePathStyle} onChange={(event) => set("storagePathStyle", event.target.checked)} />
+            <label className="flex items-start gap-2.5 text-sm leading-5">
+              <input className="mt-0.5" type="checkbox" checked={form.storagePathStyle} onChange={(event) => set("storagePathStyle", event.target.checked)} />
               Use path-style URLs. Leave this off for Railway virtual-hosted buckets.
             </label>
             {form.storageSecretSet ? (
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={clearStorageSecret} onChange={(event) => setClearStorageSecret(event.target.checked)} />
+              <label className="flex items-start gap-2.5 text-sm leading-5">
+                <input className="mt-0.5" type="checkbox" checked={clearStorageSecret} onChange={(event) => setClearStorageSecret(event.target.checked)} />
                 Remove the saved storage secret
               </label>
             ) : null}
           </Card>
           <div className="flex items-center justify-end">
-            <Button type="submit" variant="primary" disabled={save.isPending}>{save.isPending ? "Saving…" : "Save settings"}</Button>
+            <Button className="w-full sm:w-auto" type="submit" variant="primary" disabled={save.isPending}>{save.isPending ? "Saving…" : "Save settings"}</Button>
           </div>
         </form>
-        <aside className="grid content-start gap-4">
+        <aside className="grid min-w-0 content-start gap-4">
           <Card title="Appearance" description="Light is the default. This choice is saved in this browser.">
             <Field label="Theme">
               <select
@@ -366,7 +367,7 @@ export default function SettingsPage() {
             </Field>
           </Card>
           <Card title="Multi-factor authentication" description="Add a second step when this administrator signs in.">
-            <Button type="button" onClick={() => setup.mutate()}>Generate authenticator secret</Button>
+            <Button type="button" className="h-auto min-h-10 whitespace-normal py-2" onClick={() => setup.mutate()}>Generate authenticator secret</Button>
             {secret ? <p className="break-all rounded-md bg-secondary p-2 text-xs text-muted">{secret}</p> : null}
             <Field label="6-digit code"><input className={inputClass} inputMode="numeric" value={code} onChange={(event) => setCode(event.target.value)} /></Field>
             <Button type="button" onClick={() => confirm.mutate()} disabled={!code.trim()}>Confirm code</Button>
@@ -374,7 +375,7 @@ export default function SettingsPage() {
           <Card title="Exports" description="Download the current organization data as CSV.">
             <div className="flex flex-wrap gap-2">
               {["vendors", "submissions", "corrections", "emails", "documents"].map((kind) => (
-                <a key={kind} className="rounded-md border border-border px-2.5 py-1 text-sm capitalize hover:bg-secondary" href={`/api/v1/reports/${kind}`}>{kind}</a>
+                <a key={kind} className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium capitalize hover:bg-secondary sm:h-8 sm:px-2.5" href={`/api/v1/reports/${kind}`}>{kind}</a>
               ))}
             </div>
           </Card>
@@ -401,11 +402,11 @@ function MailAuthNote({ auth }: { auth: MailAuth | null }) {
 
 function Card({ title, description, extra, children }: { title: string; description?: string; extra?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="grid gap-4 rounded-lg border border-border bg-surface p-5">
+    <section className="panel grid min-w-0 gap-4 p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-base font-semibold">{title}</h2>
-          {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
+          {description ? <p className="mt-1 text-sm leading-5 text-muted">{description}</p> : null}
         </div>
         {extra}
       </div>

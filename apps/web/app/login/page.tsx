@@ -48,13 +48,12 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,_#e5f6fc_0%,_var(--background)_55%)] px-4">
+    <main className="auth-screen">
       {pending ? <LoadingState variant="overlay" label="Signing you in…" description="Preparing your workspace." /> : null}
-      <form onSubmit={(event) => void submit(event)} className="grid w-full max-w-md gap-4 rounded-lg border border-border bg-surface p-6 shadow-panel">
+      <form onSubmit={(event) => void submit(event)} className="auth-card">
         <div>
           <BrandMark className="mb-4 h-12 w-auto max-w-[220px]" />
-          <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
-        </div>
+          <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>        </div>
         <ErrorNote message={error} />
         {mfaToken ? (
           <Field label="Authentication code">
@@ -74,7 +73,7 @@ export default function LoginPage() {
           {pending ? <Spinner size="sm" /> : null}
           {pending ? "Signing in…" : "Continue"}
         </Button>
-        <Link className="text-sm underline" href="/forgot-password">Forgot password?</Link>
+        <Link className="justify-self-center py-1 text-sm underline" href="/forgot-password">Forgot password?</Link>
       </form>
     </main>
   );

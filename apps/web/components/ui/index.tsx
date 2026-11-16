@@ -68,10 +68,10 @@ export function Modal({ open, title, onClose, wide, children }: { open: boolean;
     <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-[#111111]/50 backdrop-blur-md" />
-        <Dialog.Content className={cn("fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-4rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-[0_8px_16px_rgba(28,30,22,0.25),0_0_1px_rgba(28,30,22,0.31)]", wide ? "w-[min(960px,calc(100%-2rem))]" : "w-[min(560px,calc(100%-2rem))]")}>
-          <div className="mb-4 flex items-start justify-between gap-4">
-            <Dialog.Title className="min-w-0 flex-1 truncate text-lg font-semibold" title={title}>{title}</Dialog.Title>
-            <Dialog.Close className="rounded p-1 hover:bg-secondary" aria-label="Close">
+        <Dialog.Content className={cn("fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface p-4 shadow-[0_8px_16px_rgba(28,30,22,0.25),0_0_1px_rgba(28,30,22,0.31)] sm:max-h-[calc(100dvh-4rem)] sm:p-5", wide ? "w-[min(960px,calc(100%-1.5rem))]" : "w-[min(560px,calc(100%-1.5rem))]")}>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <Dialog.Title className="min-w-0 flex-1 truncate text-lg font-semibold leading-7" title={title}>{title}</Dialog.Title>
+            <Dialog.Close className="-mr-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-secondary sm:h-8 sm:w-8" aria-label="Close">
               <X size={16} />
             </Dialog.Close>
           </div>
@@ -82,9 +82,14 @@ export function Modal({ open, title, onClose, wide, children }: { open: boolean;
   );
 }
 
+/** Button row at the foot of a dialog: equal halves on a phone, right-aligned from tablet up. */
+export function ModalActions({ children }: { children: React.ReactNode }) {
+  return <div className="mt-1 grid grid-cols-2 gap-2 sm:flex sm:justify-end">{children}</div>;
+}
+
 export function EmptyState({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-border bg-surface px-6 py-10 text-center">
+    <div className="rounded-xl border border-dashed border-border bg-surface px-5 py-10 text-center">
       <h2 className="text-base font-semibold">{title}</h2>
       <p className="mx-auto mt-1 max-w-md text-sm text-muted">{body}</p>
       {action ? <div className="mt-4">{action}</div> : null}
@@ -92,12 +97,27 @@ export function EmptyState({ title, body, action }: { title: string; body: strin
   );
 }
 
-export function ErrorNote({ message }: { message?: string }) {
+/** Summary tile. Every dashboard uses this so the tiles are the same size everywhere. */
+export function StatCard({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+  return (
+    <div className="panel flex min-w-0 flex-col px-3.5 py-3.5 sm:px-4 sm:py-4">
+      <p className="eyebrow">{label}</p>
+      <p className="mt-1.5 text-2xl font-semibold leading-8 tracking-tight sm:text-3xl sm:leading-9">{value}</p>
+      {hint ? <p className="mt-1 text-xs leading-5 text-muted">{hint}</p> : null}
+    </div>
+  );
+}
+
+export function StatGrid({ children }: { children: React.ReactNode }) {
+  return <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{children}</div>;
+}
+
+export function ErrorNote({ message, className }: { message?: string; className?: string }) {
   usePublishFlag(message, "error");
   if (!message) return null;
   return (
-    <Alert variant="destructive">
-      <AlertDescription>{message}</AlertDescription>
+    <Alert variant="destructive" className={className}>
+      <AlertDescription className="break-words">{message}</AlertDescription>
     </Alert>
   );
 }
@@ -107,14 +127,20 @@ export function Notice({ message, appearance = "success" }: { message?: string; 
   return null;
 }
 
-export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: React.ReactNode }) {
+export function PageHeader({ title, description, eyebrow, actions }: { title: string; description?: string; eyebrow?: string; actions?: React.ReactNode }) {
   return (
-    <div className="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+    <div className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:mb-5">
       <div className="min-w-0 max-w-2xl">
-        <h1 className="text-xl font-semibold leading-7 tracking-tight">{title}</h1>
-        {description ? <p className="mt-1 text-sm leading-5 text-muted">{description}</p> : null}
+        {eyebrow ? <p className="eyebrow mb-1">{eyebrow}</p> : null}
+        <h1 className="break-words text-xl font-semibold leading-7 tracking-tight">{title}</h1>
+        {description ? <p className="mt-1 break-words text-sm leading-5 text-muted">{description}</p> : null}
       </div>
-      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div> : null}
     </div>
   );
+}
+
+/** Search and filter row: a two-column grid on a phone so every control lines up, inline from tablet up. */
+export function FilterBar({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn("mb-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center", className)}>{children}</div>;
 }

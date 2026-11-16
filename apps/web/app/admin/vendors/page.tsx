@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { ApiError, api, download } from "@/lib/api";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, Field, LoadingState, Modal, Notice, PageHeader, Spinner, StatusBadge, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, FilterBar, LoadingState, Modal, ModalActions, Notice, PageHeader, Spinner, StatusBadge, inputClass } from "@/components/ui";
 
 function fieldError(caught: unknown, fallback: string) {
   if (!(caught instanceof ApiError)) return fallback;
@@ -217,21 +217,21 @@ export default function VendorsPage() {
         const vendor = info.row.original;
         const detail = [vendor.reference, vendor.contactName].filter(Boolean).join(" · ");
         return (
-          <div className="min-w-36">
+          <div className="min-w-0 sm:min-w-36">
             <Link className="font-medium underline" href={`/admin/vendors/${vendor.id}`}>{vendor.companyName}</Link>
-            <p className="max-w-xs truncate text-xs text-muted" title={detail}>{detail}</p>
+            <p className="truncate text-xs font-normal text-muted sm:max-w-xs" title={detail}>{detail}</p>
           </div>
         );
       },
     }),
-    helper.accessor("email", { header: "Email", cell: (info) => <span className="block max-w-[220px] truncate" title={info.getValue()}>{info.getValue()}</span> }),
+    helper.accessor("email", { header: "Email", cell: (info) => <span className="block truncate sm:max-w-[220px]" title={info.getValue()}>{info.getValue()}</span> }),
     helper.display({
       id: "category",
       header: "Category",
       cell: (info) => {
         const names = (info.row.original.categories ?? []).map((link) => link.category.name).sort((left, right) => left.localeCompare(right));
         const label = names.length ? names.join(", ") : info.row.original.category;
-        return <span className="block max-w-[200px] truncate" title={label}>{label || "None"}</span>;
+        return <span className="block truncate sm:max-w-[200px]" title={label}>{label || "None"}</span>;
       },
     }),
     helper.display({ id: "form", header: "Form", cell: (info) => formLabel(info.row.original) }),
@@ -268,14 +268,14 @@ export default function VendorsPage() {
         }
       />
       <Notice message={notice} />
-      <ErrorNote message={error} />
-      <div className="mb-3 mt-3 flex flex-wrap gap-2">
-        <input className={`${inputClass} max-w-sm`} placeholder="Search company, email, or reference" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Filter vendors" />
-        <select className={`${inputClass} max-w-xs`} aria-label="Category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+      <ErrorNote className="mb-3" message={error} />
+      <FilterBar>
+        <input className={`${inputClass} col-span-2 sm:max-w-sm`} placeholder="Search company, email, or reference" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Filter vendors" />
+        <select className={`${inputClass} col-span-2 sm:max-w-xs`} aria-label="Category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
           <option value="">All categories</option>
           {(categories.data?.data ?? []).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
         </select>
-      </div>
+      </FilterBar>
       <div className="table-wrap">
         <table className="data">
           <thead>
@@ -285,14 +285,21 @@ export default function VendorsPage() {
           </thead>
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id}>{row.getVisibleCells().map((cell) => <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>)}</tr>
+              <tr key={row.id}>
+                {row.getVisibleCells().map((cell) => {
+                  // The company cell is the card title on a phone, and the actions cell spans the card.
+                  const header = cell.column.columnDef.header;
+                  const label = cell.column.id !== "companyName" && typeof header === "string" && header ? header : undefined;
+                  return <td key={cell.id} data-label={label} className={cell.column.id === "actions" ? "text-right" : undefined}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
+                })}
+              </tr>
             ))}
           </tbody>
         </table>
       </div>
       <Pager page={vendors.page} pageCount={vendors.pageCount} total={vendors.total} rangeStart={vendors.rangeStart} rangeEnd={vendors.rangeEnd} onPage={vendors.setPage} />
       {query.isLoading ? <LoadingState label="Loading companies…" description="Fetching the vendor list." /> : null}
-      {!query.isLoading && vendors.total === 0 ? <p className="mt-3 text-sm text-muted">No vendors match this filter.</p> : null}
+      {!query.isLoading && vendors.total === 0 ? <p className="text-sm text-muted sm:mt-3">No vendors match this filter.</p> : null}
       <Modal open={open} title="Add a company" onClose={() => setOpen(false)}>
         <form className="grid gap-3" onSubmit={(event) => {
           event.preventDefault();
@@ -359,10 +366,10 @@ export default function VendorsPage() {
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); if (removing) remove.mutate(removing.id); }}>
           <ErrorNote message={error} />
           <p className="text-sm">Delete {removing?.companyName}? Open invitation links stop working, and the company leaves the directory.</p>
-          <div className="flex justify-end gap-2">
+          <ModalActions>
             <Button type="button" onClick={() => setRemoving(null)}>Cancel</Button>
             <Button type="submit" variant="danger" disabled={remove.isPending}>Delete</Button>
-          </div>
+          </ModalActions>
         </form>
       </Modal>
       <Modal open={Boolean(importResult)} title="Upload summary" onClose={() => { setImportResult(null); setFormSent(false); }}>
@@ -378,9 +385,9 @@ export default function VendorsPage() {
               </ul>
             ) : null}
             <dl className="grid grid-cols-3 gap-2 text-sm">
-              <div className="rounded-md bg-secondary px-3 py-2"><dt className="text-muted">Transferred</dt><dd className="text-lg font-semibold">{importResult.createdCount}</dd></div>
-              <div className="rounded-md bg-secondary px-3 py-2"><dt className="text-muted">Skipped</dt><dd className="text-lg font-semibold">{importResult.skippedCount}</dd></div>
-              <div className="rounded-md bg-secondary px-3 py-2"><dt className="text-muted">Not transferred</dt><dd className="text-lg font-semibold">{importResult.errorCount}</dd></div>
+              <div className="flex min-w-0 flex-col justify-between rounded-md bg-secondary px-2.5 py-2 sm:px-3"><dt className="text-xs leading-4 text-muted sm:text-sm">Transferred</dt><dd className="text-lg font-semibold">{importResult.createdCount}</dd></div>
+              <div className="flex min-w-0 flex-col justify-between rounded-md bg-secondary px-2.5 py-2 sm:px-3"><dt className="text-xs leading-4 text-muted sm:text-sm">Skipped</dt><dd className="text-lg font-semibold">{importResult.skippedCount}</dd></div>
+              <div className="flex min-w-0 flex-col justify-between rounded-md bg-secondary px-2.5 py-2 sm:px-3"><dt className="text-xs leading-4 text-muted sm:text-sm">Not transferred</dt><dd className="text-lg font-semibold">{importResult.errorCount}</dd></div>
             </dl>
             {mailSummary.data ? (
               <div className="grid gap-2 rounded-md border border-border p-3 text-sm">

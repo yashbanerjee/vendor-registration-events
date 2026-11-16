@@ -28,11 +28,11 @@ export default function ImportsPage() {
   });
   return (
     <div>
-      <PageHeader title="Bulk import" description="Upload a CSV or Excel vendor list. Valid rows become vendor accounts, and each new contact receives a portal link and a temporary password. Configure the exhibition form next, then review submissions." actions={<a className="inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold" href="/api/v1/imports/template">Download template</a>} />
-      <ErrorNote message={error} />
-      <label className="mt-3 block text-sm">
+      <PageHeader title="Bulk import" description="Upload a CSV or Excel vendor list. Valid rows become vendor accounts, and each new contact receives a portal link and a temporary password. Configure the exhibition form next, then review submissions." actions={<Button asChild><a href="/api/v1/imports/template">Download template</a></Button>} />
+      <ErrorNote className="mb-3" message={error} />
+      <label className="block text-sm font-medium sm:max-w-md">
         Upload file
-        <input className="mt-1 block text-sm" type="file" accept=".csv,.xlsx" disabled={upload.isPending} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) upload.mutate(file); }} />
+        <input className="mt-1.5 block text-sm" type="file" accept=".csv,.xlsx" disabled={upload.isPending} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) upload.mutate(file); }} />
       </label>
       <div className="mt-2 flex items-center gap-2">
         <UploadStatus pending={upload.isPending} />
@@ -45,11 +45,11 @@ export default function ImportsPage() {
           <tbody>
             {jobs.rows.map((job) => (
               <tr key={job.id}>
-                <td><button className="underline" onClick={() => setActive(job.id)}>{job.filename}</button></td>
-                <td><StatusBadge status={job.status} /></td>
-                <td>{job.createdCount}</td>
-                <td>{job.skippedCount}</td>
-                <td>{job.errorCount}</td>
+                <td><button className="max-w-full break-words text-left underline" onClick={() => setActive(job.id)}>{job.filename}</button></td>
+                <td data-label="Status"><StatusBadge status={job.status} /></td>
+                <td data-label="Created">{job.createdCount}</td>
+                <td data-label="Skipped">{job.skippedCount}</td>
+                <td data-label="Errors">{job.errorCount}</td>
               </tr>
             ))}
           </tbody>
@@ -57,8 +57,8 @@ export default function ImportsPage() {
       </div>
       <Pager page={jobs.page} pageCount={jobs.pageCount} total={jobs.total} rangeStart={jobs.rangeStart} rangeEnd={jobs.rangeEnd} onPage={jobs.setPage} />
       {detail.data ? (
-        <div className="mt-4">
-          <div className="mb-2 flex items-center justify-between">
+        <div className="mt-5">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold">Row results</h2>
             <Button onClick={() => { window.location.href = `/api/v1/imports/${detail.data.data.id}/errors.csv`; }}>Download error report</Button>
           </div>
@@ -67,7 +67,7 @@ export default function ImportsPage() {
               <thead><tr><th>Row</th><th>Status</th><th>Messages</th></tr></thead>
               <tbody>
                 {resultRows.rows.map((row) => (
-                  <tr key={row.rowNumber}><td>{row.rowNumber}</td><td>{formatLabel(row.status)}</td><td>{row.messages.join(" ")}</td></tr>
+                  <tr key={row.rowNumber}><td data-label="Row">{row.rowNumber}</td><td data-label="Status">{formatLabel(row.status)}</td><td data-label="Messages" data-stack>{row.messages.join(" ")}</td></tr>
                 ))}
               </tbody>
             </table>

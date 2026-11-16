@@ -143,7 +143,7 @@ export function VendorAssignmentForm({
         <Card>
           <CardHeader className="flex-row flex-wrap items-start justify-between gap-3 space-y-0">
             <div className="min-w-0">
-              <CardTitle className="truncate" title={assignment.form.name}>{assignment.form.name}</CardTitle>
+              <CardTitle className="break-words" title={assignment.form.name}>{assignment.form.name}</CardTitle>
               <CardDescription>
                 {assignment.exhibition.name}
                 {assignment.deadline ? ` · Due ${formatDate(assignment.deadline)}` : ""}
@@ -187,8 +187,8 @@ export function VendorAssignmentForm({
         onUpload={upload}
       />
       {editable ? (
-        <Card className="sticky bottom-0 z-10 -mx-4 rounded-none border-x-0 border-b-0 sm:static sm:mx-0 sm:rounded-lg sm:border">
-          <CardContent className="grid grid-cols-2 gap-2 py-3 sm:flex sm:flex-wrap sm:items-center sm:py-4">
+        <Card className="sticky bottom-0 z-10 -mx-4 rounded-none border-x-0 border-b-0 shadow-[0_-4px_12px_rgba(16,24,40,0.06)] sm:static sm:mx-0 sm:rounded-xl sm:border sm:shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
+          <CardContent className="grid grid-cols-2 gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:flex sm:flex-wrap sm:items-center sm:py-4">
             {staged && currentStage > 0 ? <Button className="w-full sm:w-auto" variant="outline" onClick={() => setStage(currentStage - 1)}>Back</Button> : null}
             {assignment.status !== "CORRECTION_REQUESTED" ? <Button className="w-full sm:w-auto" variant="outline" onClick={() => save.mutate("draft")} disabled={save.isPending}>{save.isPending && save.variables === "draft" ? "Saving…" : "Save"}</Button> : null}
             {staged && currentStage < sections.length - 1 ? <Button className="w-full sm:w-auto" variant="primary" onClick={() => setStage(currentStage + 1)}>Next</Button> : null}

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatLabel } from "@/lib/utils";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, Field, LoadingState, Modal, Notice, PageHeader, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, Modal, ModalActions, Notice, PageHeader, inputClass } from "@/components/ui";
 
 type FormRow = { id: string; name: string; scope: string; status: string; description: string; versions: { versionNumber: number }[] };
 
@@ -37,7 +37,7 @@ export default function FormsPage() {
   return (
     <div>
       <PageHeader title="Forms" description="Write the questions a company answers online. Publish a form when it is ready to send." actions={<Button variant="primary" onClick={() => setOpen(true)}>New form</Button>} />
-      <ErrorNote message={error} />
+      <ErrorNote className="mb-3" message={error} />
       <Notice message={notice} />
       {query.isLoading ? <LoadingState label="Loading forms…" description="Fetching form templates." /> : null}
       <div className="table-wrap">
@@ -47,9 +47,9 @@ export default function FormsPage() {
             {forms.rows.map((form) => (
               <tr key={form.id}>
                 <td><Link className="font-medium underline" href={`/admin/forms/${form.id}`}>{form.name}</Link></td>
-                <td>{formatLabel(form.scope)}</td>
-                <td>{formatLabel(form.status)}</td>
-                <td>{form.versions[0]?.versionNumber ?? "Draft"}</td>
+                <td data-label="Scope">{formatLabel(form.scope)}</td>
+                <td data-label="Status">{formatLabel(form.status)}</td>
+                <td data-label="Latest version">{form.versions[0]?.versionNumber ?? "Draft"}</td>
                 <td className="text-right">
                   <div className="inline-flex gap-2">
                     <Button size="sm" asChild>
@@ -73,10 +73,10 @@ export default function FormsPage() {
       <Modal open={Boolean(removing)} title="Delete form" onClose={() => setRemoving(null)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); remove.mutate(); }}>
           <p className="text-sm">Delete {removing?.name}? It leaves this list and cannot be assigned again. Answers already sent stay on record. A company that has not sent it yet will no longer see it.</p>
-          <div className="flex gap-2">
+          <ModalActions>
             <Button type="button" onClick={() => setRemoving(null)}>Cancel</Button>
             <Button type="submit" variant="danger" disabled={remove.isPending}>Delete</Button>
-          </div>
+          </ModalActions>
         </form>
       </Modal>
     </div>

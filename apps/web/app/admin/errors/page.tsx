@@ -56,41 +56,41 @@ export default function ErrorsPage() {
           <tbody>
             {rows.rows.map((row) => (
               <tr key={row.id}>
-                <td className="whitespace-nowrap align-top">{formatDate(row.createdAt)}</td>
-                <td className="align-top">
-                  <div className="grid gap-0.5 text-sm">
+                <td data-label="When" className="whitespace-nowrap align-top">{formatDate(row.createdAt)}</td>
+                <td data-label="User" data-stack className="align-top">
+                  <div className="grid min-w-0 gap-0.5 text-sm">
                     <span className="font-medium">{row.userName || "Unknown user"}</span>
-                    <span>{row.userEmail || "—"}</span>
+                    <span className="break-words">{row.userEmail || "—"}</span>
                     <span className="text-muted">{row.companyName || "—"}</span>
                   </div>
                 </td>
-                <td className="align-top">
-                  <div className="grid gap-0.5 text-sm">
-                    <span className="font-medium">{row.method ? `${row.method} ${row.path}` : row.path}</span>
+                <td data-label="Request" data-stack className="align-top">
+                  <div className="grid min-w-0 gap-0.5 text-sm">
+                    <span className="break-all font-medium">{row.method ? `${row.method} ${row.path}` : row.path}</span>
                     <span className="text-muted">
                       {row.source}
                       {row.statusCode != null ? ` · ${row.statusCode}` : ""}
                       {row.code ? ` · ${row.code}` : ""}
                     </span>
-                    {row.correlationId ? <span className="text-xs text-muted">{row.correlationId}</span> : null}
+                    {row.correlationId ? <span className="break-all text-xs text-muted">{row.correlationId}</span> : null}
                   </div>
                 </td>
-                <td className="align-top">
-                  <div className="grid max-w-xl gap-1 text-sm">
-                    <span>{row.message}</span>
+                <td data-label="Error" data-stack className="align-top">
+                  <div className="grid min-w-0 max-w-xl gap-1 text-sm">
+                    <span className="break-words">{row.message}</span>
                     {row.details != null ? (
-                      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-secondary p-2 text-xs text-muted">{JSON.stringify(row.details, null, 2)}</pre>
+                      <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-md bg-secondary p-2 text-xs text-muted">{JSON.stringify(row.details, null, 2)}</pre>
                     ) : null}
                   </div>
                 </td>
-                <td className="align-top">
+                <td data-label="Alert" className="align-top">
                   {row.alertedAt ? <StatusBadge status="SENT" /> : <StatusBadge status="QUEUED" />}
                 </td>
               </tr>
             ))}
-            {!rows.rows.length ? (
+            {!rows.rows.length && !query.isLoading ? (
               <tr>
-                <td colSpan={5} className="text-sm text-muted">No errors recorded yet.</td>
+                <td colSpan={5} className="text-sm font-normal text-muted">No errors recorded yet.</td>
               </tr>
             ) : null}
           </tbody>

@@ -214,12 +214,13 @@ function FieldControl({
   onChange?: (fieldId: string, value: unknown) => void;
   onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
 }) {
-  if (field.type === "heading") return <h3 className="px-3 text-sm font-semibold leading-6">{field.label}</h3>;
-  if (field.type === "info") return <p className="px-3 text-sm leading-5 text-muted">{field.description || field.label}</p>;
+  // Phones drop the inner gutter so inputs use the full card width.
+  if (field.type === "heading") return <h3 className="text-sm font-semibold leading-6 sm:px-3">{field.label}</h3>;
+  if (field.type === "info") return <p className="text-sm leading-5 text-muted sm:px-3">{field.description || field.label}</p>;
   const describedBy = [note ? `${id}-note` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
   const shell = note || error
     ? "rounded-md border border-[var(--warning)] bg-[var(--badge-warning-bg)] px-3 py-3"
-    : "rounded-md border border-transparent px-3 py-3";
+    : "rounded-md border border-transparent py-2 sm:px-3 sm:py-3";
   const body = (
     <>
       <span className="flex items-baseline justify-between gap-3">
@@ -292,8 +293,8 @@ function Control({
     return (
       <div className="grid gap-1" role="radiogroup" aria-describedby={describedBy}>
         {(field.options ?? []).map((option) => (
-          <label key={option.value} className="flex min-h-10 items-center gap-2.5 leading-5">
-            <input type="radio" name={id} disabled={!editable} checked={text === option.value} onChange={() => onChange(option.value)} />
+          <label key={option.value} className="flex min-h-10 items-center gap-2.5 break-words leading-5">
+            <input className="shrink-0" type="radio" name={id} disabled={!editable} checked={text === option.value} onChange={() => onChange(option.value)} />
             {option.label}
           </label>
         ))}

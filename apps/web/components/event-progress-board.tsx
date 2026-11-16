@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Badge, EmptyState, StatusBadge, inputClass } from "@/components/ui";
+import { Badge, EmptyState, StatCard, StatGrid, StatusBadge, inputClass } from "@/components/ui";
 
 export type FieldFill = { id: string; label: string; filled: boolean; required: boolean };
 export type FormProgress = {
@@ -87,30 +87,33 @@ export function EventProgressBoard({ vendors }: { vendors: VendorProgress[] }) {
 
   return (
     <div>
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat
-          label="Fields done"
-          value={`${totals.percent}%`}
-          hint={
-            totals.requiredOpen
-              ? `${totals.filled} of ${totals.total} · ${totals.requiredOpen} required left`
-              : `${totals.filled} of ${totals.total} fields`
-          }
-        />
-        <Stat label="Complete" value={String(totals.complete)} hint="Every questionnaire field filled" />
-        <Stat label="In progress" value={String(totals.partial)} hint="Some fields still open" />
-        <Stat label="Not started" value={String(totals.open)} hint="No answers yet" />
+      <div className="mb-5">
+        <StatGrid>
+          <StatCard
+            label="Fields done"
+            value={`${totals.percent}%`}
+            hint={
+              totals.requiredOpen
+                ? `${totals.filled} of ${totals.total} · ${totals.requiredOpen} required left`
+                : `${totals.filled} of ${totals.total} fields`
+            }
+          />
+          <StatCard label="Complete" value={String(totals.complete)} hint="Every questionnaire field filled" />
+          <StatCard label="In progress" value={String(totals.partial)} hint="Some fields still open" />
+          <StatCard label="Not started" value={String(totals.open)} hint="No answers yet" />
+        </StatGrid>
       </div>
 
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
         <input
-          className={`${inputClass} w-full max-w-sm`}
+          className={`${inputClass} lg:max-w-sm`}
           placeholder="Search company, contact, or email"
           value={q}
           onChange={(event) => setQ(event.target.value)}
           aria-label="Search companies"
         />
-        <div className="flex flex-wrap gap-2">
+        {/* One swipeable row on a phone instead of wrapping onto three lines. */}
+        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
           <FilterButton current={filter} value="all" onSelect={setFilter}>
             All ({vendors.length})
           </FilterButton>
@@ -141,16 +144,6 @@ export function EventProgressBoard({ vendors }: { vendors: VendorProgress[] }) {
   );
 }
 
-function Stat({ label, value, hint }: { label: string; value: string; hint: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-surface px-4 py-4 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">{label}</p>
-      <p className="mt-2 text-3xl font-semibold tracking-tight">{value}</p>
-      <p className="mt-1 text-xs leading-5 text-muted">{hint}</p>
-    </div>
-  );
-}
-
 function FilterButton({
   current,
   value,
@@ -168,7 +161,7 @@ function FilterButton({
       type="button"
       aria-pressed={selected}
       className={cn(
-        "h-8 rounded-full px-3 text-sm font-medium transition",
+        "h-9 shrink-0 whitespace-nowrap rounded-full px-3.5 text-sm font-medium transition sm:h-8 sm:px-3",
         selected ? "bg-foreground text-[var(--surface)]" : "bg-surface text-muted ring-1 ring-border hover:text-foreground",
       )}
       onClick={() => onSelect(value)}
@@ -192,14 +185,14 @@ function VendorCard({ vendor }: { vendor: VendorProgress }) {
     : [];
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-      <div className="flex flex-wrap items-start gap-4 border-b border-border px-5 py-5">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-secondary text-sm font-semibold" aria-hidden>
+    <article className="panel overflow-hidden">
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-3 border-b border-border p-4 sm:p-5">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-secondary text-sm font-semibold sm:h-11 sm:w-11" aria-hidden>
           {initial}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link className="text-base font-semibold hover:underline" href={`/admin/vendors/${vendor.id}`}>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+            <Link className="min-w-0 break-words text-base font-semibold hover:underline" href={`/admin/vendors/${vendor.id}`}>
               {vendor.companyName}
             </Link>
             <StatusBadge status={vendor.status} />
@@ -209,10 +202,10 @@ function VendorCard({ vendor }: { vendor: VendorProgress }) {
               </Badge>
             ))}
           </div>
-          <p className="mt-1 text-sm text-muted">{[vendor.contactName, vendor.email, vendor.phone].filter(Boolean).join(" · ")}</p>
-          <p className="text-xs text-muted">{vendor.reference}</p>
+          <p className="mt-1 break-words text-sm leading-5 text-muted">{[vendor.contactName, vendor.email, vendor.phone].filter(Boolean).join(" · ")}</p>
+          <p className="mt-0.5 text-xs text-muted">{vendor.reference}</p>
         </div>
-        <div className="min-w-[9rem] flex-1 sm:max-w-xs">
+        <div className="basis-full sm:min-w-[9rem] sm:max-w-xs sm:flex-1 sm:basis-0">
           <div className="mb-1.5 flex items-baseline justify-between gap-2 text-sm">
             <span className="font-semibold">{total ? `${filled} of ${total} done` : "No fields"}</span>
             <span className="text-muted">{done}%</span>
@@ -229,7 +222,7 @@ function VendorCard({ vendor }: { vendor: VendorProgress }) {
           </div>
         </div>
       </div>
-      <div className="grid gap-5 p-5">
+      <div className="grid gap-5 p-4 sm:p-5">
         {forms.length === 0 ? <p className="text-sm text-muted">No questionnaire is assigned.</p> : null}
         {forms.map((form) => (
           <FormBlock key={form.id} form={form} />
@@ -287,7 +280,7 @@ function FieldColumn({
   return (
     <div
       className={cn(
-        "rounded-xl border px-4 py-4",
+        "min-w-0 rounded-lg border px-3.5 py-3.5 sm:px-4 sm:py-4",
         success
           ? "border-[color-mix(in_srgb,var(--success)_30%,var(--border))] bg-[var(--badge-success-bg)]/55"
           : "border-[color-mix(in_srgb,var(--danger)_30%,var(--border))] bg-[var(--badge-danger-bg)]/70",

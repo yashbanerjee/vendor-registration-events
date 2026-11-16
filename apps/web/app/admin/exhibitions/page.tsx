@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { EventProgressBoard, type VendorProgress } from "@/components/event-progress-board";
-import { Button, EmptyState, ErrorNote, Field, LoadingState, Modal, Notice, inputClass } from "@/components/ui";
+import { Button, EmptyState, ErrorNote, Field, LoadingState, Modal, ModalActions, Notice, PageHeader, inputClass } from "@/components/ui";
 
 type Exhibition = {
   id: string;
@@ -149,60 +149,54 @@ export default function ExhibitionsPage() {
     setOpen(true);
   }
 
+  const actions = (
+    <>
+      {selected ? (
+        <>
+          <Button onClick={() => openEdit(selected)}>Edit</Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              setError("");
+              setRemoving(selected);
+            }}
+          >
+            Delete
+          </Button>
+        </>
+      ) : null}
+      <Button variant="primary" onClick={openCreate}>
+        Add event
+      </Button>
+    </>
+  );
+
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          {exhibitions.length > 1 ? (
-            <label className="grid gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">Event</span>
-              <select
-                className={`${inputClass} min-w-[16rem]`}
-                value={selectedId}
-                onChange={(event) => setSelectedId(event.target.value)}
-                aria-label="Select event"
-              >
-                {exhibitions.map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {row.name} ({row.code})
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : selected ? (
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{selected.code}</p>
-              <h1 className="mt-1 text-xl font-semibold tracking-tight">{selected.name}</h1>
-            </div>
-          ) : (
-            <h1 className="text-xl font-semibold tracking-tight">Events</h1>
-          )}
+      {exhibitions.length > 1 ? (
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 sm:mb-5">
+          <label className="grid w-full gap-1.5 sm:w-auto">
+            <span className="eyebrow">Event</span>
+            <select
+              className={`${inputClass} sm:min-w-[16rem]`}
+              value={selectedId}
+              onChange={(event) => setSelectedId(event.target.value)}
+              aria-label="Select event"
+            >
+              {exhibitions.map((row) => (
+                <option key={row.id} value={row.id}>
+                  {row.name} ({row.code})
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {selected ? (
-            <>
-              <Button size="sm" onClick={() => openEdit(selected)}>
-                Edit
-              </Button>
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={() => {
-                  setError("");
-                  setRemoving(selected);
-                }}
-              >
-                Delete
-              </Button>
-            </>
-          ) : null}
-          <Button size="sm" variant="primary" onClick={openCreate}>
-            Add event
-          </Button>
-        </div>
-      </div>
+      ) : (
+        <PageHeader eyebrow={selected?.code} title={selected?.name ?? "Events"} actions={actions} />
+      )}
 
-      <ErrorNote message={list.isError ? "Could not load events." : error && !open && !removing ? error : ""} />
+      <ErrorNote className="mb-3" message={list.isError ? "Could not load events." : error && !open && !removing ? error : ""} />
       <Notice message={notice} />
 
       {list.isLoading ? <LoadingState label="Loading events…" description="Fetching exhibition details." /> : null}
@@ -213,7 +207,7 @@ export default function ExhibitionsPage() {
       {selectedId ? (
         <>
           {detail.isLoading ? <LoadingState label="Loading progress…" description="Fetching companies and form answers." /> : null}
-          <ErrorNote message={detail.isError ? "Could not load company progress for this event." : ""} />
+          <ErrorNote className="mb-3" message={detail.isError ? "Could not load company progress for this event." : ""} />
           {detail.data?.data ? <EventProgressBoard vendors={detail.data.data.vendors} /> : null}
         </>
       ) : null}
@@ -242,10 +236,10 @@ export default function ExhibitionsPage() {
           <p className="text-sm">
             Delete {removing?.name}? It leaves this list. Open invitations and unfinished forms for this event are closed. Submitted answers stay on record.
           </p>
-          <div className="flex gap-2">
+          <ModalActions>
             <Button type="button" onClick={() => setRemoving(null)}>Cancel</Button>
             <Button type="submit" variant="danger" disabled={remove.isPending}>{remove.isPending ? "Deleting…" : "Delete"}</Button>
-          </div>
+          </ModalActions>
         </form>
       </Modal>
     </div>

@@ -32,8 +32,9 @@ function MasterForm() {
   const failed = assignments.isError || packets.isError;
 
   return (
-    <div className="grid gap-4">
+    <div>
       <PageHeader title="Your form" description="Each form shows how many questions are finished. Press Continue to fill one in, then Send when it is ready." />
+      <div className="grid gap-4 [&>*]:min-w-0">
       <Notice message={submitted ? "Your form was submitted." : ""} />
       <ErrorNote
         message={
@@ -44,13 +45,13 @@ function MasterForm() {
       />
       {loading ? <LoadingState label="Loading your form…" description="Fetching your registration details." /> : null}
       {profile ? (
-        <section className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{profile.vendor.reference}</p>
-          <h2 className="mt-1 text-xl font-semibold tracking-tight">{profile.vendor.companyName}</h2>
-          <dl className="mt-4 grid items-start gap-x-6 gap-y-4 border-t border-border pt-4 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="panel p-4 sm:p-5">
+          <p className="eyebrow">{profile.vendor.reference}</p>
+          <h2 className="mt-1 break-words text-xl font-semibold tracking-tight">{profile.vendor.companyName}</h2>
+          <dl className="mt-4 grid grid-cols-2 items-start gap-x-4 gap-y-4 border-t border-border pt-4 sm:gap-x-6 lg:grid-cols-4">
             <Detail label="Contact" value={profile.vendor.contactName} />
-            <Detail label="Email" value={profile.vendor.email} />
             <Detail label="Phone" value={profile.vendor.phone || "Not provided"} />
+            <Detail wide label="Email" value={profile.vendor.email} />
             <Detail label="Category" value={profile.vendor.category || "Not provided"} />
           </dl>
         </section>
@@ -74,14 +75,16 @@ function MasterForm() {
           ))}
         </section>
       ) : null}
+      </div>
     </div>
   );
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
+// `wide` gives long values (an email address) the full row on a phone.
+function Detail({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
   return (
-    <div>
-      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</dt>
+    <div className={wide ? "col-span-2 min-w-0 sm:col-span-1" : "min-w-0"}>
+      <dt className="eyebrow">{label}</dt>
       <dd className="mt-1 break-words text-sm font-medium leading-5">{value}</dd>
     </div>
   );
@@ -98,10 +101,10 @@ function FormCard({ assignment }: { assignment: VendorAssignment }) {
   const overdue = canContinue && assignment.deadline ? new Date(assignment.deadline).getTime() < Date.now() : false;
   const corrections = assignment.correction?.fields.length ?? 0;
   return (
-    <section className="rounded-lg border border-border bg-surface p-4">
+    <section className="panel p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-base font-semibold">{assignment.form.name}{assignment.form.versionNumber ? ` v${assignment.form.versionNumber}` : ""}</h2>
+          <h2 className="break-words text-base font-semibold">{assignment.form.name}{assignment.form.versionNumber ? ` v${assignment.form.versionNumber}` : ""}</h2>
           <p className="mt-1 text-sm text-muted">
             {assignment.exhibition.name}
             {assignment.deadline ? ` · Due ${formatDate(assignment.deadline)}` : ""}
@@ -110,15 +113,15 @@ function FormCard({ assignment }: { assignment: VendorAssignment }) {
         </div>
         <StatusBadge status={assignment.status} />
       </div>
-      <dl className="mt-4 grid items-start gap-x-6 gap-y-4 border-t border-border pt-4 sm:grid-cols-2">
-        <div className="min-w-0 sm:col-span-2">
-          <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">ID</dt>
+      <dl className="mt-4 grid grid-cols-2 items-start gap-x-4 gap-y-4 border-t border-border pt-4 sm:gap-x-6">
+        <div className="col-span-2 min-w-0">
+          <dt className="eyebrow">ID</dt>
           <dd className="mt-1 break-all text-xs leading-5">{assignment.id}</dd>
         </div>
         <Detail label="Total fields" value={String(total)} />
         <Detail label="Completed" value={`${completed} of ${total}`} />
       </dl>
-      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={`${assignment.form.name} progress`}>
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={`${assignment.form.name} progress`}>
         <div className={`h-full ${percent === 100 ? "bg-[var(--success)]" : "bg-brand"}`} style={{ width: `${percent}%` }} />
       </div>
       {assignment.status === "CORRECTION_REQUESTED" ? (

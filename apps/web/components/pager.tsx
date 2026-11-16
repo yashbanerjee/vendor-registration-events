@@ -42,11 +42,13 @@ export function Pager({
 }) {
   if (total <= PAGE_SIZE) return null;
   return (
-    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
-      <p className="text-muted">{rangeStart}–{rangeEnd} of {total}</p>
-      <div className="flex items-center gap-2">
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-sm">
+      <p className="min-w-0 text-muted">{rangeStart}–{rangeEnd} of {total}</p>
+      <div className="flex shrink-0 items-center gap-2">
         <Button type="button" size="sm" disabled={page <= 0} onClick={() => onPage(page - 1)}>Previous</Button>
-        <span className="text-muted">Page {page + 1} of {pageCount}</span>
+        <span className="whitespace-nowrap text-muted">
+          <span className="max-sm:sr-only">Page </span>{page + 1}<span className="sm:hidden" aria-hidden> / </span><span className="max-sm:sr-only"> of </span>{pageCount}
+        </span>
         <Button type="button" size="sm" disabled={page >= pageCount - 1} onClick={() => onPage(page + 1)}>Next</Button>
       </div>
     </div>

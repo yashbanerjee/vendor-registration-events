@@ -21,11 +21,11 @@ export default function AuditPage() {
           <tbody>
             {audits.rows.map((row) => (
               <tr key={row.id}>
-                <td>{formatDate(row.createdAt)}</td>
-                <td>{formatLabel(row.action)}</td>
-                <td>{formatLabel(row.actorRole)}</td>
-                <td>{formatLabel(row.resourceType)}</td>
-                <td>{row.fieldId ? row.fieldId.slice(0, 8) : "—"}</td>
+                <td data-label="When" className="whitespace-nowrap">{formatDate(row.createdAt)}</td>
+                <td data-label="Action">{formatLabel(row.action)}</td>
+                <td data-label="Role">{formatLabel(row.actorRole)}</td>
+                <td data-label="Resource">{formatLabel(row.resourceType)}</td>
+                <td data-label="Field">{row.fieldId ? row.fieldId.slice(0, 8) : "—"}</td>
               </tr>
             ))}
           </tbody>

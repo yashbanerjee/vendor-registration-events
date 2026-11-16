@@ -62,21 +62,21 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
   }
 
   return (
-    <Card className="overflow-hidden bg-secondary">
+    <Card className="overflow-hidden">
       <CardHeader className="flex-row flex-wrap items-start justify-between gap-3 space-y-0">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 basis-full sm:flex-1 sm:basis-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <CardTitle className="min-w-0 truncate" title={form.name}>{form.name}</CardTitle>
+            <CardTitle className="min-w-0 break-words" title={form.name}>{form.name}</CardTitle>
             <StatusBadge status={form.status === "AWAITING" && form.filledName ? "READY" : form.status} />
           </div>
           {form.exhibition.name ? <CardDescription>{form.exhibition.name}</CardDescription> : null}
           <ol className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
             {["Get the form", "Upload it", "Add papers", "Send"].map((label, index) => (
-              <li key={label} className={`rounded-full px-2.5 py-1 ${index < step ? "bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)]" : "bg-surface text-muted ring-1 ring-border"}`}>{index + 1} {label}</li>
+              <li key={label} className={`rounded-full px-2.5 py-1 ${index < step ? "bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)]" : "bg-secondary text-muted ring-1 ring-border"}`}>{index + 1} {label}</li>
             ))}
           </ol>
         </div>
-        <Button size="sm" variant="outline" className="shrink-0" onClick={() => void download(`/pdf-forms/${form.id}/file?disposition=attachment`, form.filename).catch((caught) => setError(friendlyErrorMessage(caught, "The download failed. Please try again.")))}>
+        <Button size="sm" variant="outline" className="w-full shrink-0 sm:w-auto" onClick={() => void download(`/pdf-forms/${form.id}/file?disposition=attachment`, form.filename).catch((caught) => setError(friendlyErrorMessage(caught, "The download failed. Please try again.")))}>
           <Download size={14} aria-hidden />
           Download form
         </Button>
@@ -96,12 +96,12 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
             <input type="file" accept="application/pdf,.pdf" disabled={run.isPending} onChange={(event) => uploadFilled(event.target.files?.[0] ?? null)} />
             <UploadStatus pending={busy === "filled"} />
           </Field>
-          <form className="grid min-w-0 items-start gap-3 rounded-md border border-border bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" onSubmit={uploadDocument}>
+          <form className="grid min-w-0 items-start gap-3 rounded-lg border border-border bg-secondary p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end sm:p-4" onSubmit={uploadDocument}>
             <Field label="Document name"><input className={inputClass} value={docName} onChange={(event) => setDocName(event.target.value)} placeholder="Trade license" /></Field>
             <Field label="File">
               <input ref={docRef} type="file" disabled={run.isPending} onChange={(event) => setDocFile(event.target.files?.[0] ?? null)} />
             </Field>
-            <Button type="submit" size="sm" disabled={run.isPending || !docName.trim() || !docFile}>
+            <Button type="submit" className="w-full sm:w-auto" disabled={run.isPending || !docName.trim() || !docFile}>
               {busy === "document" ? <Spinner size="sm" /> : <FileUp size={14} aria-hidden />}
               {busy === "document" ? "Uploading…" : "Add"}
             </Button>
@@ -111,12 +111,12 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
       {form.files.length ? (
         <ul className="mt-3 grid gap-2">
           {form.files.map((file) => (
-            <li key={file.id} className="min-w-0 rounded-md bg-surface px-3 py-2 text-sm">
-              <div className="flex min-w-0 items-center gap-2">
+            <li key={file.id} className="min-w-0 rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <UploadTick />
                 <span className="min-w-0 shrink truncate font-medium" title={file.name}>{file.name}</span>
                 <StatusBadge status={file.status === "AWAITING" ? "READY" : file.status} />
-                <div className="min-w-0 flex-1 overflow-hidden">
+                <div className="min-w-0 basis-full overflow-hidden sm:flex-1 sm:basis-0">
                   <RemoteFileLink path={`/pdf-files/${file.id}/file`} filename={file.filename} />
                 </div>
               </div>
@@ -140,7 +140,7 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
       ) : null}
       {!locked ? (
         <div className="mt-4">
-          <Button variant="primary" disabled={run.isPending || !form.filledName} onClick={() => run.mutate({ kind: "submit", task: () => api(`/my/pdf-forms/${form.id}/submit`, { method: "POST" }) })}>{busy === "submit" ? "Sending…" : "Send"}</Button>
+          <Button className="w-full sm:w-auto" variant="primary" disabled={run.isPending || !form.filledName} onClick={() => run.mutate({ kind: "submit", task: () => api(`/my/pdf-forms/${form.id}/submit`, { method: "POST" }) })}>{busy === "submit" ? "Sending…" : "Send"}</Button>
         </div>
       ) : <p className="mt-3 text-sm text-muted">Sent. You can upload again only if the organizer asks for a new copy.</p>}
       </CardContent>

@@ -21,7 +21,7 @@ export default function JobsPage() {
     <div>
       <PageHeader title="Background jobs" description="Pending mail stays in the queue and is sent one every 5 seconds. Sent means the mail server accepted the message. Delivered or bounced appears only after a provider event." />
       {query.isLoading ? <LoadingState label="Loading jobs…" description="Checking the email and outbox queues." /> : null}
-      <h2 className="mb-2 text-sm font-semibold">Outbox</h2>
+      <h2 className="section-title">Outbox</h2>
       <div className="table-wrap">
         <table className="data">
           <thead><tr><th>Type</th><th>Status</th><th>Attempts</th><th>Error</th><th></th></tr></thead>
@@ -29,27 +29,36 @@ export default function JobsPage() {
             {outbox.rows.map((row) => (
               <tr key={row.id}>
                 <td>{formatLabel(row.type)}</td>
-                <td><StatusBadge status={row.status} /></td>
-                <td>{row.attempts}</td>
-                <td>{row.lastError}</td>
-                <td>{row.status === "FAILED" ? <Button size="sm" onClick={() => retry.mutate(row.id)}>Retry</Button> : formatDate(row.createdAt)}</td>
+                <td data-label="Status"><StatusBadge status={row.status} /></td>
+                <td data-label="Attempts">{row.attempts}</td>
+                <td data-label="Error" data-stack>{row.lastError}</td>
+                {row.status === "FAILED"
+                  ? <td><Button size="sm" onClick={() => retry.mutate(row.id)}>Retry</Button></td>
+                  : <td data-label="Created" className="whitespace-nowrap">{formatDate(row.createdAt)}</td>}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {query.data && outbox.total === 0 ? <p className="text-sm text-muted sm:mt-3">The outbox is empty.</p> : null}
       <Pager page={outbox.page} pageCount={outbox.pageCount} total={outbox.total} rangeStart={outbox.rangeStart} rangeEnd={outbox.rangeEnd} onPage={outbox.setPage} />
-      <h2 className="mb-2 mt-4 text-sm font-semibold">Email</h2>
+      <h2 className="section-title mt-5">Email</h2>
       <div className="table-wrap">
         <table className="data">
           <thead><tr><th>To</th><th>Template</th><th>Status</th><th>When</th></tr></thead>
           <tbody>
             {emails.rows.map((row) => (
-              <tr key={row.id}><td>{row.toAddress}</td><td>{formatLabel(row.template)}</td><td><StatusBadge status={row.status} /></td><td>{formatDate(row.createdAt)}</td></tr>
+              <tr key={row.id}>
+                <td>{row.toAddress}</td>
+                <td data-label="Template">{formatLabel(row.template)}</td>
+                <td data-label="Status"><StatusBadge status={row.status} /></td>
+                <td data-label="When" className="whitespace-nowrap">{formatDate(row.createdAt)}</td>
+              </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {query.data && emails.total === 0 ? <p className="text-sm text-muted sm:mt-3">No email has been sent yet.</p> : null}
       <Pager page={emails.page} pageCount={emails.pageCount} total={emails.total} rangeStart={emails.rangeStart} rangeEnd={emails.rangeEnd} onPage={emails.setPage} />
     </div>
   );

@@ -7,7 +7,7 @@ import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatDate, formatLabel } from "@/lib/utils";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, Field, LoadingState, Modal, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, Modal, ModalActions, Notice, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type Profile = {
   data: {
@@ -95,27 +95,27 @@ export default function VendorProfilePage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={vendor.status} />
-            <Button size="sm" onClick={() => { setError(""); setNextFormId(current?.formVersion.id ?? ""); setNextExhibitionId(current?.exhibition.id ?? ""); setChanging(true); }}>Change form</Button>
-            <Button size="sm" variant="danger" onClick={() => { setError(""); setRemoving(true); }}>Delete</Button>
+            <Button onClick={() => { setError(""); setNextFormId(current?.formVersion.id ?? ""); setNextExhibitionId(current?.exhibition.id ?? ""); setChanging(true); }}>Change form</Button>
+            <Button variant="danger" onClick={() => { setError(""); setRemoving(true); }}>Delete</Button>
           </div>
         }
       />
       <Notice message={notice} />
-      <ErrorNote message={error} />
-      <p className="mb-4 text-sm text-muted">{[vendor.addressLine1, vendor.city, vendor.country, vendor.phone].filter(Boolean).join(" · ")}</p>
-      <section className="mb-4 max-w-sm rounded border border-border bg-surface p-3">
-        <h2 className="mb-2 text-sm font-semibold">Category</h2>
+      <ErrorNote className="mb-3" message={error} />
+      <p className="mb-4 break-words text-sm text-muted">{[vendor.addressLine1, vendor.city, vendor.country, vendor.phone].filter(Boolean).join(" · ")}</p>
+      <section className="panel mb-5 p-4 sm:max-w-sm sm:p-5">
+        <h2 className="section-title">Category</h2>
         <select className={inputClass} value={selectedCategory} onChange={(event) => setCategoryId(event.target.value)}>
           <option value="">None</option>
           {(categories.data?.data ?? []).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
         </select>
         <div className="mt-3">
-          <Button size="sm" variant="primary" disabled={saveCategory.isPending || categoryId === null} onClick={() => { setError(""); saveCategory.mutate(); }}>Save category</Button>
+          <Button className="w-full sm:w-auto" variant="primary" disabled={saveCategory.isPending || categoryId === null} onClick={() => { setError(""); saveCategory.mutate(); }}>Save category</Button>
         </div>
       </section>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section>
-          <h2 className="mb-2 text-sm font-semibold">Assignments</h2>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section className="min-w-0">
+          <h2 className="section-title">Assignments</h2>
           <div className="table-wrap">
             <table className="data">
               <thead><tr><th>Exhibition</th><th>Form</th><th>Status</th></tr></thead>
@@ -123,17 +123,18 @@ export default function VendorProfilePage() {
                 {assignments.rows.map((assignment) => (
                   <tr key={assignment.id}>
                     <td>{assignment.exhibition.name}</td>
-                    <td><Link className="underline" href={`/admin/reviews/${assignment.id}`}>{assignment.formVersion.template.name} v{assignment.formVersion.versionNumber}</Link></td>
-                    <td><StatusBadge status={assignment.status} /></td>
+                    <td data-label="Form"><Link className="underline" href={`/admin/reviews/${assignment.id}`}>{assignment.formVersion.template.name} v{assignment.formVersion.versionNumber}</Link></td>
+                    <td data-label="Status"><StatusBadge status={assignment.status} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {assignments.total === 0 ? <p className="text-sm text-muted sm:mt-3">No form has been assigned.</p> : null}
           <Pager page={assignments.page} pageCount={assignments.pageCount} total={assignments.total} rangeStart={assignments.rangeStart} rangeEnd={assignments.rangeEnd} onPage={assignments.setPage} />
         </section>
-        <section>
-          <h2 className="mb-2 text-sm font-semibold">Documents</h2>
+        <section className="min-w-0">
+          <h2 className="section-title">Documents</h2>
           <div className="table-wrap">
             <table className="data">
               <thead><tr><th>File</th><th>Status</th></tr></thead>
@@ -141,33 +142,34 @@ export default function VendorProfilePage() {
                 {documents.rows.map((document) => (
                   <tr key={document.id}>
                     <td><Link className="underline" href={`/admin/documents/vendors/${vendor.id}`}>{document.versions[0]?.filename ?? document.category}</Link></td>
-                    <td><StatusBadge status={document.status} /></td>
+                    <td data-label="Status"><StatusBadge status={document.status} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {documents.total === 0 ? <p className="text-sm text-muted sm:mt-3">No files have been uploaded.</p> : null}
           <Pager page={documents.page} pageCount={documents.pageCount} total={documents.total} rangeStart={documents.rangeStart} rangeEnd={documents.rangeEnd} onPage={documents.setPage} />
         </section>
       </div>
-      <h2 className="mb-2 mt-4 text-sm font-semibold">Audit history</h2>
+      <h2 className="section-title mt-5">Audit history</h2>
       <ul className="grid gap-2 text-sm">
         {history.rows.map((entry) => (
-            <li key={`${entry.kind}-${entry.id}`} className="rounded border border-border bg-surface px-3 py-2">
+            <li key={`${entry.kind}-${entry.id}`} className="panel flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3.5 py-2.5">
               {entry.kind === "email" ? (
-                <span className="inline-flex flex-wrap items-center gap-2">
+                <span className="inline-flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="font-medium">Email {formatLabel(entry.template).toLowerCase()}</span>
                   <StatusBadge status={entry.status} />
-                  <span className="text-muted">{entry.toAddress}</span>
-                  {entry.subject ? <span className="text-muted">{entry.subject}</span> : null}
+                  <span className="min-w-0 break-words text-muted">{entry.toAddress}</span>
+                  {entry.subject ? <span className="min-w-0 break-words text-muted">{entry.subject}</span> : null}
                 </span>
               ) : (
-                <>
+                <span className="min-w-0">
                   <span className="font-medium">{formatLabel(entry.action)}</span>
                   {entry.fieldId ? <span className="ml-2 text-muted">field {entry.fieldId.slice(0, 8)}</span> : null}
-                </>
+                </span>
               )}
-              <span className="float-right text-muted">{formatDate(entry.createdAt)}</span>
+              <span className="shrink-0 text-xs text-muted sm:text-sm">{formatDate(entry.createdAt)}</span>
             </li>
         ))}
       </ul>
@@ -196,10 +198,10 @@ export default function VendorProfilePage() {
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); remove.mutate(); }}>
           <ErrorNote message={error} />
           <p className="text-sm">Delete {vendor.companyName}? Open invitation links stop working, and the company leaves the directory.</p>
-          <div className="flex justify-end gap-2">
+          <ModalActions>
             <Button type="button" onClick={() => setRemoving(false)}>Cancel</Button>
             <Button type="submit" variant="danger" disabled={remove.isPending}>Delete</Button>
-          </div>
+          </ModalActions>
         </form>
       </Modal>
     </div>

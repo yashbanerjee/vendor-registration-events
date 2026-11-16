@@ -27,7 +27,7 @@ export function VendorFormShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-[var(--background)]">
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-surface px-4">
+      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-surface px-4 sm:px-6 lg:px-8">
         <Link href="/vendor" className="inline-flex items-center gap-2 text-sm font-semibold text-foreground hover:text-brand">
           <ArrowLeft size={16} aria-hidden />
           Back
@@ -51,7 +51,7 @@ export function VendorFormShell({ children }: { children: React.ReactNode }) {
           </Button>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-4xl px-4 py-4 sm:py-6">{children}</main>
+      <main className="mx-auto w-full max-w-4xl px-4 py-4 sm:px-6 sm:pb-10 lg:px-8">{children}</main>
     </div>
   );
 }

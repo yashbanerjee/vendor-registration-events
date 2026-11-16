@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { formatLabel } from "@/lib/utils";
 import { FileLink } from "@/components/file-preview";
 import { Pager, usePagedRows } from "@/components/pager";
-import { LoadingState, PageHeader, StatusBadge, inputClass } from "@/components/ui";
+import { FilterBar, LoadingState, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
 type DocumentRow = { id: string; status: string; category: string; vendor: { id: string; companyName: string }; versions: { filename: string; sizeBytes: number }[] };
 
@@ -18,7 +18,9 @@ export default function DocumentsPage() {
   return (
     <div>
       <PageHeader title="Document archive" description="Files stay private. Downloads are authorized on each request." />
-      <input className={`${inputClass} mb-3 max-w-sm`} aria-label="Search documents" placeholder="Search by filename" value={q} onChange={(event) => setQ(event.target.value)} />
+      <FilterBar>
+        <input className={`${inputClass} col-span-2 sm:max-w-sm`} aria-label="Search documents" placeholder="Search by filename" value={q} onChange={(event) => setQ(event.target.value)} />
+      </FilterBar>
       {query.isLoading ? <LoadingState label="Loading documents…" description="Gathering the file archive." /> : null}
       <div className="table-wrap">
         <table className="data">
@@ -27,14 +29,15 @@ export default function DocumentsPage() {
             {documents.rows.map((row) => (
               <tr key={row.id}>
                 <td><FileLink documentId={row.id} filename={row.versions[0]?.filename ?? "File"} /></td>
-                <td><Link className="underline" href={`/admin/documents/vendors/${row.vendor.id}`}>{row.vendor.companyName}</Link></td>
-                <td>{formatLabel(row.category)}</td>
-                <td><StatusBadge status={row.status} /></td>
+                <td data-label="Vendor"><Link className="underline" href={`/admin/documents/vendors/${row.vendor.id}`}>{row.vendor.companyName}</Link></td>
+                <td data-label="Category">{formatLabel(row.category)}</td>
+                <td data-label="Status"><StatusBadge status={row.status} /></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {!query.isLoading && documents.total === 0 ? <p className="text-sm text-muted sm:mt-3">No files match this search.</p> : null}
       <Pager page={documents.page} pageCount={documents.pageCount} total={documents.total} rangeStart={documents.rangeStart} rangeEnd={documents.rangeEnd} onPage={documents.setPage} />
     </div>
   );

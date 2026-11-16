@@ -32,6 +32,7 @@ export default function VendorArchivePage() {
   return (
     <div>
       <PageHeader title={archive.vendor.companyName} description={`Document archive · ${archive.vendor.reference}`} />
+      {groups.size === 0 ? <p className="text-sm text-muted">This company has not uploaded any files.</p> : null}
       {[...groups.entries()].map(([exhibition, documents]) => (
         <DocumentGroup key={exhibition} exhibition={exhibition} documents={documents} />
       ))}
@@ -42,8 +43,8 @@ export default function VendorArchivePage() {
 function DocumentGroup({ exhibition, documents }: { exhibition: string; documents: Archive["data"]["documents"] }) {
   const page = usePagedRows(documents);
   return (
-    <section className="mb-4">
-      <h2 className="mb-2 text-sm font-semibold">{exhibition}</h2>
+    <section className="mb-5">
+      <h2 className="section-title">{exhibition}</h2>
       <div className="table-wrap">
         <table className="data">
           <thead><tr><th>File</th><th>Form</th><th>Versions</th><th>Status</th></tr></thead>
@@ -51,9 +52,9 @@ function DocumentGroup({ exhibition, documents }: { exhibition: string; document
             {page.rows.map((document) => (
               <tr key={document.id}>
                 <td>{document.versions[0]?.filename ? <FileLink documentId={document.id} filename={document.versions[0].filename} /> : document.category}</td>
-                <td>{document.assignment?.formVersion.template.name ?? formatLabel(document.category)}</td>
-                <td>{document.versions.length}</td>
-                <td><StatusBadge status={document.status} /></td>
+                <td data-label="Form">{document.assignment?.formVersion.template.name ?? formatLabel(document.category)}</td>
+                <td data-label="Versions">{document.versions.length}</td>
+                <td data-label="Status"><StatusBadge status={document.status} /></td>
               </tr>
             ))}
           </tbody>

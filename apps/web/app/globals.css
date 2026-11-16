@@ -182,9 +182,140 @@ input[type="file"]:disabled {
   }
 }
 
-.table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-table.data { width: 100%; border-collapse: collapse; font-size: 14px; }
-table.data th { text-align: left; font-size: 12px; letter-spacing: 0.02em; color: var(--muted); font-weight: 600; background: var(--surface-secondary); }
-table.data th, table.data td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-table.data tr:last-child td { border-bottom: 0; }
-table.data tbody tr:hover { background: color-mix(in srgb, var(--surface-secondary) 65%, transparent); }
+@layer components {
+  /* One card surface for every view: same radius, border, and shadow. */
+  .panel {
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: var(--surface);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .section-title {
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+  }
+
+  /* Sign-in, invitation, and password screens share one layout. */
+  .auth-screen {
+    display: grid;
+    min-height: 100vh;
+    min-height: 100dvh;
+    place-items: center;
+    padding: 1.5rem 1rem;
+    background: radial-gradient(circle at top, var(--badge-info-bg) 0%, var(--background) 55%);
+  }
+
+  .auth-card {
+    display: grid;
+    width: 100%;
+    max-width: 28rem;
+    gap: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: var(--surface);
+    padding: 1.25rem;
+    box-shadow: 0 8px 24px rgba(28, 30, 22, 0.12);
+  }
+
+  @media (min-width: 640px) {
+    .auth-card { padding: 1.75rem; }
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: var(--surface);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  }
+
+  /* :where() keeps these at low specificity so utility classes on a cell still apply. */
+  :where(table.data) { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  :where(table.data) th {
+    text-align: left;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    font-weight: 600;
+    background: var(--surface-secondary);
+    white-space: nowrap;
+  }
+  :where(table.data) th,
+  :where(table.data) td { padding: 0.625rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  :where(table.data) tr:last-child td { border-bottom: 0; }
+
+  @media (min-width: 640px) {
+    :where(table.data) tbody tr:hover { background: color-mix(in srgb, var(--surface-secondary) 65%, transparent); }
+  }
+
+  /*
+   * Phones: each row becomes a card. A cell with data-label shows "label / value";
+   * a cell without one spans the card (the title in the first cell, or row actions).
+   * data-stack puts the value under its label for long content.
+   */
+  @media (max-width: 639.98px) {
+    .table-wrap { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+    table.data { display: block; }
+    table.data thead { display: none; }
+    table.data tbody { display: grid; gap: 0.625rem; }
+    table.data tr {
+      display: block;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 0.25rem 0.875rem;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    }
+    :where(table.data) tr { background: var(--surface); }
+    table.data td {
+      display: block;
+      min-width: 0;
+      max-width: none;
+      padding: 0.625rem 0;
+      border-bottom: 0;
+      border-top: 1px solid var(--border);
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    table.data td:first-child { border-top: 0; }
+    table.data td:empty { display: none; }
+    table.data td:first-child:not([data-label]) { font-size: 0.9375rem; font-weight: 600; line-height: 1.375rem; }
+    table.data td[data-label] {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      text-align: right;
+    }
+    table.data td[data-label]::before {
+      content: attr(data-label);
+      flex: 0 0 auto;
+      max-width: 42%;
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1.25rem;
+      color: var(--muted);
+    }
+    table.data td[data-label] > * { min-width: 0; }
+    table.data td[data-label][data-stack] { display: block; text-align: left; }
+    table.data td[data-label][data-stack]::before { display: block; max-width: none; margin-bottom: 0.25rem; }
+  }
+}
+
+@layer utilities {
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}

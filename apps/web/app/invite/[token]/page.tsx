@@ -42,11 +42,13 @@ export default function InvitePage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,_#e5f6fc_0%,_var(--background)_55%)] px-4">
-      <form onSubmit={(event) => void continueInvitation(event)} className="grid w-full max-w-md gap-4 rounded-lg border border-border bg-surface p-6 shadow-panel">
-        <BrandMark className="mb-2 h-12 w-auto max-w-[220px]" />
-        <h1 className="text-2xl font-semibold">Invitation</h1>
-        <p className="text-sm text-muted">{preview ? `${preview.companyName || "Your company"} · ${preview.email}` : "Checking the invitation…"}</p>
+    <main className="auth-screen">
+      <form onSubmit={(event) => void continueInvitation(event)} className="auth-card">
+        <div>
+          <BrandMark className="mb-4 h-12 w-auto max-w-[220px]" />
+          <h1 className="text-2xl font-semibold tracking-tight">Invitation</h1>
+          <p className="mt-1 break-words text-sm leading-5 text-muted">{preview ? `${preview.companyName || "Your company"} · ${preview.email}` : "Checking the invitation…"}</p>
+        </div>
         <ErrorNote message={error} />
         {preview?.needsPassword ? (
           <>

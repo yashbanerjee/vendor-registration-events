@@ -8,7 +8,7 @@ import { useEffect, useState, type ChangeEvent } from "react";
 import { FormRenderer } from "@/components/form-renderer";
 import { RemoteFileLink } from "@/components/file-preview";
 import { ApiError, api } from "@/lib/api";
-import { Button, ErrorNote, Field, LoadingState, Modal, PageHeader, Spinner, UploadStatus, UploadTick, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, Modal, ModalActions, PageHeader, Spinner, UploadStatus, UploadTick, inputClass } from "@/components/ui";
 
 type Template = {
   data: {
@@ -22,6 +22,9 @@ type Template = {
 };
 
 const palette = FIELD_TYPES.filter((type) => type !== "repeater");
+
+// Side panels: pinned under the 3.5rem top bar with a 1rem gap above and below.
+const PINNED = "lg:sticky lg:top-4 lg:max-h-[calc(100dvh-5.5rem)]";
 
 export default function FormBuilderPage() {
   const params = useParams<{ id: string }>();
@@ -105,36 +108,35 @@ export default function FormBuilderPage() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col lg:overflow-hidden">
-      <div className="shrink-0">
-        <PageHeader
-          title={name || "Form"}
-          description={`This canvas is the form vendors will fill in. Click a field to edit it. Published versions: ${query.data?.data.versions.map((version) => `v${version.versionNumber}`).join(", ") || "none yet"}`}
-          actions={
-            <div className="flex gap-2">
-              <Button variant="danger" onClick={() => { setError(""); setRemoving(true); }}>Delete</Button>
-              <Button onClick={() => save.mutate()} disabled={save.isPending}>Save draft</Button>
-              <Button variant="primary" onClick={() => publish.mutate()} disabled={publish.isPending}>Publish</Button>
-            </div>
-          }
-        />
-        <ErrorNote message={error} />
-        <Field label="Form name">
-          <input className={`${inputClass} max-w-md`} value={name} onChange={(event) => setName(event.target.value)} />
-        </Field>
-      </div>
-      <div className="mt-4 grid min-h-0 flex-1 gap-4 lg:grid-cols-[200px_minmax(0,1fr)_minmax(240px,320px)] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden">
-        <aside className="max-h-72 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain rounded-lg border border-border bg-surface p-3 lg:h-full lg:max-h-full">
-          <h2 className="mb-2 text-xs font-semibold uppercase text-muted">Add a field</h2>
-          <div className="grid gap-1">
+    <div>
+      <PageHeader
+        title={name || "Form"}
+        description={`This canvas is the form vendors will fill in. Click a field to edit it. Published versions: ${query.data?.data.versions.map((version) => `v${version.versionNumber}`).join(", ") || "none yet"}`}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button variant="danger" onClick={() => { setError(""); setRemoving(true); }}>Delete</Button>
+            <Button onClick={() => save.mutate()} disabled={save.isPending}>Save draft</Button>
+            <Button variant="primary" onClick={() => publish.mutate()} disabled={publish.isPending}>Publish</Button>
+          </div>
+        }
+      />
+      <ErrorNote className="mb-3" message={error} />
+      <Field label="Form name">
+        <input className={`${inputClass} sm:max-w-md`} value={name} onChange={(event) => setName(event.target.value)} />
+      </Field>
+      {/* The page scrolls as one; on desktop the two side panels stay pinned beside the canvas. */}
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[200px_minmax(0,1fr)_minmax(240px,320px)]">
+        <aside className={`panel max-h-52 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain p-3 ${PINNED}`}>
+          <h2 className="eyebrow mb-2">Add a field</h2>
+          <div className="flex flex-wrap gap-1.5 lg:grid lg:gap-1">
             {palette.map((type) => (
-              <button key={type} className="rounded border border-border px-2 py-1 text-left text-sm hover:bg-secondary" onClick={() => addField(type)}>
+              <button key={type} className="rounded-full border border-border px-3 py-1.5 text-left text-sm hover:bg-secondary lg:rounded lg:px-2 lg:py-1" onClick={() => addField(type)}>
                 {labelFor(type)}
               </button>
             ))}
           </div>
         </aside>
-        <div className="min-h-0 min-w-0 lg:h-full lg:overflow-y-auto lg:overflow-x-hidden lg:overscroll-contain lg:pr-1">
+        <div className="min-w-0">
           {schema.fields.length === 0 ? <p className="mb-3 text-sm text-muted">Add a field. It appears here the same way a vendor will see it.</p> : null}
           <FormRenderer
             schema={schema}
@@ -148,8 +150,8 @@ export default function FormBuilderPage() {
             onUpload={async (_field, file) => ({ documentId: "preview", filename: file.name })}
           />
         </div>
-        <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden overscroll-contain rounded-lg border border-border bg-surface lg:h-full">
-          <h2 className="shrink-0 px-3 pt-3 text-xs font-semibold uppercase text-muted">Configuration</h2>
+        <aside className={`panel flex min-h-0 min-w-0 flex-col overflow-hidden overscroll-contain ${PINNED}`}>
+          <h2 className="eyebrow shrink-0 px-3 pt-3">Configuration</h2>
           <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3">
             {!field ? <p className="text-sm text-muted">Select a field in the form.</p> : (
               <div className="grid min-w-0 gap-3 break-words">
@@ -176,10 +178,10 @@ export default function FormBuilderPage() {
       <Modal open={removing} title="Delete form" onClose={() => setRemoving(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); remove.mutate(); }}>
           <p className="text-sm">Delete {name || "this form"}? It leaves the forms list and cannot be assigned again. Answers already sent stay on record. A company that has not sent it yet will no longer see it.</p>
-          <div className="flex gap-2">
+          <ModalActions>
             <Button type="button" onClick={() => setRemoving(false)}>Cancel</Button>
             <Button type="submit" variant="danger" disabled={remove.isPending}>Delete</Button>
-          </div>
+          </ModalActions>
         </form>
       </Modal>
     </div>

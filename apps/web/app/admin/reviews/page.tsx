@@ -35,9 +35,9 @@ export default function ReviewsPage() {
             {reviews.rows.map((row) => (
               <tr key={row.id}>
                 <td><Link className="font-medium underline" href={`/admin/reviews/${row.id}`}>{row.vendor.companyName}</Link></td>
-                <td>{row.exhibition.name}</td>
-                <td>{row.form.name}</td>
-                <td><StatusBadge status={row.status} /></td>
+                <td data-label="Event">{row.exhibition.name}</td>
+                <td data-label="Form">{row.form.name}</td>
+                <td data-label="Status"><StatusBadge status={row.status} /></td>
               </tr>
             ))}
           </tbody>
@@ -45,7 +45,7 @@ export default function ReviewsPage() {
       </div>
       <Pager page={reviews.page} pageCount={reviews.pageCount} total={reviews.total} rangeStart={reviews.rangeStart} rangeEnd={reviews.rangeEnd} onPage={reviews.setPage} />
       {queue.isLoading ? <LoadingState label="Loading review queue…" description="Checking submitted company forms." /> : null}
-      {reviews.total === 0 && !queue.isLoading ? <p className="mt-3 text-sm text-muted">The queue is empty.</p> : null}
+      {reviews.total === 0 && !queue.isLoading ? <p className="text-sm text-muted sm:mt-3">The queue is empty.</p> : null}
       <Modal open={open} title="Send a form" onClose={() => setOpen(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); assign.mutate(); }}>
           <ErrorNote message={error} />

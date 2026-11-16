@@ -108,7 +108,7 @@ export default function EmailTemplatesPage() {
   const adminTemplates = templates.filter((item) => item.audience === "admin");
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-4">
+    <div>
       <PageHeader
         title="Email templates"
         description="Edit the subject, title, body, and button label for every system email. Use {{variable}} placeholders from the list for each template."
@@ -126,15 +126,32 @@ export default function EmailTemplatesPage() {
         }
       />
       <Notice message={message} />
-      <ErrorNote message={error} />
+      <ErrorNote className="mb-3" message={error} />
       {query.isLoading ? <LoadingState label="Loading templates…" description="Fetching email templates." /> : null}
       {selected ? (
         <div className="grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="grid gap-4">
+          {/* Phones and tablets pick the template from one menu instead of scrolling past the whole list. */}
+          <div className="lg:hidden">
+            <Field label="Template">
+              <select className={inputClass} value={selected.key} onChange={(event) => setSelectedKey(event.target.value)}>
+                {vendorTemplates.length ? (
+                  <optgroup label="Company emails">
+                    {vendorTemplates.map((item) => <option key={item.key} value={item.key}>{item.label}{item.customized ? " (customized)" : ""}</option>)}
+                  </optgroup>
+                ) : null}
+                {adminTemplates.length ? (
+                  <optgroup label="Admin emails">
+                    {adminTemplates.map((item) => <option key={item.key} value={item.key}>{item.label}{item.customized ? " (customized)" : ""}</option>)}
+                  </optgroup>
+                ) : null}
+              </select>
+            </Field>
+          </div>
+          <aside className="hidden gap-4 lg:grid">
             <TemplateGroup title="Company emails" items={vendorTemplates} selectedKey={selected.key} onSelect={setSelectedKey} />
             <TemplateGroup title="Admin emails" items={adminTemplates} selectedKey={selected.key} onSelect={setSelectedKey} />
           </aside>
-          <section className="grid gap-4 rounded-lg border border-border bg-surface p-4">
+          <section className="panel grid min-w-0 gap-4 p-4 sm:p-5">
             <div className="grid gap-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-semibold">{selected.label}</h2>
@@ -159,8 +176,8 @@ export default function EmailTemplatesPage() {
               <h3 className="text-sm font-semibold">Available variables</h3>
               <ul className="grid gap-1 sm:grid-cols-2">
                 {selected.variables.map((variable) => (
-                  <li key={variable.key} className="rounded-md border border-border bg-secondary px-2.5 py-2 text-sm">
-                    <code className="font-semibold">{`{{${variable.key}}}`}</code>
+                  <li key={variable.key} className="min-w-0 rounded-md border border-border bg-secondary px-2.5 py-2 text-sm">
+                    <code className="break-all font-semibold">{`{{${variable.key}}}`}</code>
                     <span className="mt-0.5 block text-xs text-muted">{variable.label}</span>
                   </li>
                 ))}
@@ -187,7 +204,7 @@ function TemplateGroup({
   if (!items.length) return null;
   return (
     <div className="grid gap-2">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
+      <h2 className="eyebrow">{title}</h2>
       <div className="grid gap-1">
         {items.map((item) => {
           const active = item.key === selectedKey;

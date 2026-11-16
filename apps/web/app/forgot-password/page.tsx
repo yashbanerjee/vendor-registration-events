@@ -23,12 +23,12 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,_#e5f6fc_0%,_var(--background)_55%)] px-4">
-      <form onSubmit={(event) => void submit(event)} className="grid w-full max-w-md gap-4 rounded-lg border border-border bg-surface p-6 shadow-panel">
+    <main className="auth-screen">
+      <form onSubmit={(event) => void submit(event)} className="auth-card">
         <div>
           <BrandMark className="mb-4 h-12 w-auto max-w-[220px]" />
-          <h1 className="text-2xl font-semibold">Forgot password</h1>
-          <p className="mt-1 text-sm text-muted">We will email a one-hour reset link if an active account matches this address.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Forgot password</h1>
+          <p className="mt-1 text-sm leading-5 text-muted">We will email a one-hour reset link if an active account matches this address.</p>
         </div>
         <ErrorNote message={error} />
         <Notice message={sent ? "If that account exists, a reset message is on its way." : ""} />
@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
           <input className={inputClass} type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
         </Field>
         <Button type="submit" variant="primary">Send reset link</Button>
-        <Link className="text-sm underline" href="/login">Back to sign in</Link>
+        <Link className="justify-self-center py-1 text-sm underline" href="/login">Back to sign in</Link>
       </form>
     </main>
   );

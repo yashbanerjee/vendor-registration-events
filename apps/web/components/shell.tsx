@@ -10,15 +10,22 @@ import { applyTheme, readTheme, type ThemeChoice } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useSession } from "./providers";
 import { BrandMark } from "./brand-mark";
-import { Button, LoadingState, Modal } from "./ui";
+import { Button, LoadingState, Modal, ModalActions } from "./ui";
 
 export type NavItem = { href: string; label: string; icon: React.ReactNode; secondary?: boolean };
 
-function SignOutButton() {
+const PAGE_CONTAINER = "mx-auto w-full max-w-7xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-4 sm:px-6 lg:px-8";
+
+function SignOutButton({ labelled, onBeforeOpen }: { labelled?: boolean; onBeforeOpen?: () => void }) {
   const router = useRouter();
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
+
+  function ask() {
+    onBeforeOpen?.();
+    setOpen(true);
+  }
 
   async function signOut() {
     setPending(true);
@@ -34,23 +41,34 @@ function SignOutButton() {
 
   return (
     <>
-      <Button type="button" size="sm" variant="ghost" aria-label="Sign out" onClick={() => setOpen(true)}>
-        <LogOut size={16} />
-      </Button>
+      {labelled ? (
+        <Button type="button" className="w-full" onClick={ask}>
+          <LogOut size={16} />
+          Sign out
+        </Button>
+      ) : (
+        <Button type="button" size="sm" variant="ghost" aria-label="Sign out" onClick={ask}>
+          <LogOut size={16} />
+        </Button>
+      )}
       <Modal open={open} title="Sign out" onClose={() => { if (!pending) setOpen(false); }}>
         <p className="text-sm text-muted">Sign out of this account on this browser?</p>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button type="button" disabled={pending} onClick={() => setOpen(false)}>Cancel</Button>
-          <Button type="button" variant="primary" disabled={pending} onClick={() => void signOut()}>
-            {pending ? "Signing out…" : "Sign out"}
-          </Button>
+        <div className="mt-4">
+          <ModalActions>
+            <Button type="button" disabled={pending} onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="button" variant="primary" disabled={pending} onClick={() => void signOut()}>
+              {pending ? "Signing out…" : "Sign out"}
+            </Button>
+          </ModalActions>
         </div>
       </Modal>
     </>
   );
 }
 
-function ThemeToggle() {
+const THEME_NAMES: Record<ThemeChoice, string> = { light: "Light", dark: "Dark", system: "Auto" };
+
+function ThemeToggle({ labelled }: { labelled?: boolean }) {
   const [theme, setTheme] = useState<ThemeChoice>("light");
   useEffect(() => {
     const sync = () => setTheme(readTheme());
@@ -59,11 +77,41 @@ function ThemeToggle() {
     return () => window.removeEventListener("theme-change", sync);
   }, []);
   const next: ThemeChoice = theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
+  const icon = theme === "dark" ? <Moon size={labelled ? 16 : 18} /> : <Sun size={labelled ? 16 : 18} />;
+  if (labelled) {
+    return (
+      <Button type="button" className="w-full" aria-label={`Theme ${theme}. Activate to switch.`} onClick={() => applyTheme(next)}>
+        {icon}
+        {THEME_NAMES[theme]}
+      </Button>
+    );
+  }
   return (
-    <button className="rounded p-2 hover:bg-secondary" aria-label={`Theme ${theme}. Activate to switch.`} onClick={() => applyTheme(next)}>
-      {theme === "dark" ? <Moon size={18} /> : <Sun size={18} />}
+    <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-secondary" aria-label={`Theme ${theme}. Activate to switch.`} onClick={() => applyTheme(next)}>
+      {icon}
     </button>
   );
+}
+
+/** Closes a popover on a press outside it or on Escape. */
+function useDismiss(ref: React.RefObject<HTMLElement | null>, open: boolean, onDismiss: () => void) {
+  const callback = useRef(onDismiss);
+  callback.current = onDismiss;
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: PointerEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) callback.current();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") callback.current();
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, ref]);
 }
 
 export function ShellFrame({ items, home, children }: { items: NavItem[]; home: string; children: React.ReactNode }) {
@@ -173,7 +221,7 @@ function NavLinks({
               aria-current={active ? "page" : undefined}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-2 rounded-md px-2 py-2.5 text-sm md:py-2",
+                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm md:gap-2 md:px-2 md:py-2",
                 active ? "bg-[var(--badge-info-bg)] font-semibold text-[var(--badge-info-fg)]" : "text-foreground hover:bg-secondary",
                 item.secondary && !active ? "text-muted" : "",
               )}
@@ -204,6 +252,8 @@ function ShellNav({
   onDrawerClose: () => void;
 }) {
   const titleId = useId();
+  const { session } = useSession();
+  const initial = (session?.name || session?.email || "?").trim().charAt(0).toUpperCase();
   return (
     <>
       <aside
@@ -242,8 +292,9 @@ function ShellNav({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-hidden={!drawerOpen}
+        inert={!drawerOpen}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[min(20rem,88vw)] flex-col border-r border-t-4 border-t-brand border-border bg-surface shadow-panel transition-transform duration-200 md:hidden",
+          "fixed inset-y-0 left-0 z-50 flex w-[min(20rem,86vw)] flex-col border-r border-t-4 border-t-brand border-border bg-surface shadow-panel transition-transform duration-200 md:hidden",
           drawerOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -251,12 +302,27 @@ function ShellNav({
           <Link href={home} id={titleId} aria-label="iktva Forum 2027" className="flex items-center text-brand" onClick={onDrawerClose}>
             <BrandMark compact className="h-9 w-9" />
           </Link>
-          <button type="button" className="rounded p-2 hover:bg-secondary" aria-label="Close menu" onClick={onDrawerClose}>
+          <button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-secondary" aria-label="Close menu" onClick={onDrawerClose}>
             <X size={18} />
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-2">
           <NavLinks items={items} home={home} onNavigate={onDrawerClose} />
+        </div>
+        <div className="shrink-0 border-t border-border px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+          <div className="mb-3 flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--badge-info-bg)] text-sm font-semibold text-[var(--badge-info-fg)]" aria-hidden>
+              {initial}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold leading-5">{session?.name}</p>
+              <p className="truncate text-xs leading-4 text-muted">{session?.email}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <ThemeToggle labelled />
+            <SignOutButton labelled onBeforeOpen={onDrawerClose} />
+          </div>
         </div>
       </aside>
     </>
@@ -287,13 +353,17 @@ function ShellMain({
     enabled: query.trim().length > 1,
   });
   const crumbs = pathname.split("/").filter(Boolean);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const notesRef = useRef<HTMLDivElement>(null);
+  useDismiss(searchRef, openSearch, () => setOpenSearch(false));
+  useDismiss(notesRef, openNotes, () => setOpenNotes(false));
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <header className="z-20 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 sm:gap-3 sm:px-4">
+      <header className="z-20 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 sm:gap-3 sm:px-6 lg:px-8">
         <button
           type="button"
-          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md hover:bg-secondary md:hidden"
+          className="-ml-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md hover:bg-secondary md:hidden"
           aria-label="Open menu"
           aria-controls="mobile-nav-drawer"
           aria-expanded={drawerOpen}
@@ -304,12 +374,12 @@ function ShellMain({
         <Link href={home} aria-label="iktva Forum 2027" className="shrink-0 text-brand md:hidden">
           <BrandMark compact className="h-8 w-8" />
         </Link>
-        <div className="relative min-w-0 flex-1">
+        <div ref={searchRef} className="relative min-w-0 flex-1">
           <label className="relative block max-w-xl">
             <span className="sr-only">Search</span>
             <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" size={16} />
             <input
-              className="h-10 w-full rounded-md border border-border bg-secondary pl-9 pr-3 text-sm leading-10"
+              className="h-10 w-full min-w-0 rounded-md border border-border bg-secondary pl-9 pr-3 text-base leading-10 placeholder:text-muted sm:text-sm"
               placeholder={home.startsWith("/vendor") ? "Search" : "Search a company or event"}
               value={query}
               onChange={(event) => {
@@ -320,11 +390,11 @@ function ShellMain({
             />
           </label>
           {openSearch && query.trim().length > 1 ? (
-            <div className="absolute z-30 mt-1 w-full max-w-xl rounded-md border border-border bg-surface p-1 shadow-panel">
+            <div className="fixed inset-x-3 top-[3.75rem] z-30 max-h-[min(24rem,calc(100dvh-4.5rem))] overflow-y-auto overscroll-contain rounded-lg border border-border bg-surface p-1 shadow-panel sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-1 sm:w-full sm:max-w-xl">
               {(search.data?.data ?? []).map((item) => (
                 <button
                   key={`${item.type}-${item.id}`}
-                  className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-secondary"
+                  className="block w-full rounded px-2.5 py-2.5 text-left text-sm hover:bg-secondary sm:px-2 sm:py-1.5"
                   onClick={() => {
                     setOpenSearch(false);
                     router.push(item.type === "vendor" ? `/admin/vendors/${item.id}` : item.type === "form" ? `/admin/forms/${item.id}` : "/admin/exhibitions");
@@ -337,13 +407,15 @@ function ShellMain({
             </div>
           ) : null}
         </div>
-        <ThemeToggle />
-        <div className="relative">
-          <button className="rounded p-2 hover:bg-secondary" aria-label="Notifications" aria-expanded={openNotes} onClick={() => setOpenNotes((value) => !value)}>
+        <div className="hidden md:block">
+          <ThemeToggle />
+        </div>
+        <div ref={notesRef} className="relative">
+          <button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-secondary md:h-9 md:w-9" aria-label="Notifications" aria-expanded={openNotes} onClick={() => setOpenNotes((value) => !value)}>
             <Bell size={18} />
           </button>
           {openNotes ? (
-            <IsolatedScroll className="absolute right-0 z-30 mt-1 max-h-[min(24rem,calc(100dvh-4.5rem))] w-[min(20rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-md border border-border bg-surface p-2 shadow-panel">
+            <IsolatedScroll className="absolute right-0 z-30 mt-1 max-h-[min(24rem,calc(100dvh-4.5rem))] w-[min(20rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-lg border border-border bg-surface p-2 shadow-panel">
               {(notifications.data?.data ?? []).length === 0 ? <p className="px-2 py-3 text-sm text-muted">Nothing new.</p> : null}
               {notifications.data?.data.map((note) => (
                 <button
@@ -362,19 +434,24 @@ function ShellMain({
             </IsolatedScroll>
           ) : null}
         </div>
-        <span className="hidden text-sm sm:inline">{session?.name}</span>
-        <SignOutButton />
+        <span className="hidden max-w-[14rem] truncate text-sm md:inline">{session?.name}</span>
+        <div className="hidden md:block">
+          <SignOutButton />
+        </div>
       </header>
-      <div className="shrink-0 px-4 pt-3 text-xs text-muted" aria-label="Breadcrumb">
-        <Link href={home}>Home</Link>
-        {crumbs.slice(1).map((crumb) => {
-          const label = crumbLabel(crumb);
-          if (!label) return null;
-          return <span key={crumb}> / {label}</span>;
-        })}
-      </div>
-      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-5">
-        {children}
+      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {/* Every page sits in this one container, so all views share the same width and gutters. */}
+        <div className={PAGE_CONTAINER}>
+          <nav className="mb-3 text-xs leading-4 text-muted" aria-label="Breadcrumb">
+            <Link className="hover:text-foreground" href={home}>Home</Link>
+            {crumbs.slice(1).map((crumb) => {
+              const label = crumbLabel(crumb);
+              if (!label) return null;
+              return <span key={crumb}> / {label}</span>;
+            })}
+          </nav>
+          {children}
+        </div>
       </main>
     </div>
   );

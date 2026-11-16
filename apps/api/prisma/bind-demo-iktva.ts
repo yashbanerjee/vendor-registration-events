@@ -1,13 +1,85 @@
-import { createHash } from "node:crypto";
-import { PrismaClient, type AssignmentStatus } from "@prisma/client";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { PrismaClient, type AssignmentStatus, type Prisma } from "@prisma/client";
 import { formSchemaDefinition, type FormField } from "@vmp/shared";
 import { assignVendorCategoryNames } from "../src/catalog/categories";
+import { effectiveSettings, parseStored } from "../src/platform/org-settings";
 
 const prisma = new PrismaClient();
 
 const EVENT_CODE = "1KT";
 const EVENT_NAME = "IKTVA2027";
 const FORM_NAME = "Mandatory design documents";
+
+const DEMO_PDF = makePdf(
+  "Demo compliance document",
+  "This is a placeholder PDF for client demo submissions.",
+  "Replace with a real signed document in production.",
+);
+const DEMO_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FABJADveWkH6aAAAAAElFTkSuQmCC",
+  "base64",
+);
+
+function makePdf(...lines: string[]) {
+  const escape = (value: string) => value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+  const commands = ["BT", "/F1 12 Tf", "50 740 Td", "16 TL"];
+  for (const line of lines) {
+    commands.push(`(${escape(line)}) Tj`, "T*");
+  }
+  commands.push("ET");
+  const stream = commands.join("\n");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let content = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(content));
+    content += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = Buffer.byteLength(content);
+  content += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let index = 1; index < offsets.length; index += 1) content += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  content += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return Buffer.from(content);
+}
+
+async function putDemoBytes(organizationId: string, key: string, body: Buffer, mimeType: string, settings: ReturnType<typeof effectiveSettings>) {
+  const ready = Boolean(settings.storageEndpoint && settings.storageBucket && settings.storageAccessKey && settings.storageSecret);
+  if (!ready || process.env.STORAGE_DRIVER === "local") {
+    const root = path.resolve(process.env.STORAGE_LOCAL_DIR || "storage");
+    const target = path.resolve(root, key);
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, body);
+    return;
+  }
+  try {
+    const client = new S3Client({
+      region: settings.storageRegion || "auto",
+      endpoint: settings.storageEndpoint || undefined,
+      forcePathStyle: settings.storagePathStyle,
+      credentials: { accessKeyId: settings.storageAccessKey, secretAccessKey: settings.storageSecret },
+    });
+    await client.send(new PutObjectCommand({
+      Bucket: settings.storageBucket,
+      Key: key,
+      Body: body,
+      ContentType: mimeType,
+    }));
+  } catch {
+    const root = path.resolve(process.env.STORAGE_LOCAL_DIR || "storage");
+    const target = path.resolve(root, key);
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, body);
+  }
+}
 
 type DemoVendor = {
   reference: string;
@@ -402,15 +474,17 @@ function daysFromNow(days: number) {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 }
 
-function answerFor(field: FormField, vendor: DemoVendor, index: number): unknown {
-  if (field.type === "email") return vendor.email;
-  if (field.type === "tel") return vendor.phone;
-  if (field.type === "url") return vendor.website;
+function textAnswerFor(field: FormField, vendor: DemoVendor, index: number): unknown {
+  const key = field.key.toLowerCase();
+  const label = `${field.key} ${field.label}`.toLowerCase();
+  if (field.type === "email" || key === "email") return vendor.email;
+  if (field.type === "tel" || key === "mobile" || label.includes("phone") || label.includes("mobile")) return vendor.phone;
+  if (field.type === "url" || key === "website") return vendor.website;
   if (field.type === "number") return 12 + index;
   if (field.type === "currency") return 4800 + index * 250;
-  if (field.type === "date") return "2026-12-30";
+  if (field.type === "date" || key === "signed_on") return "2026-12-15";
   if (field.type === "time") return "09:30";
-  if (field.type === "datetime") return "2026-12-30T18:40:00.000Z";
+  if (field.type === "datetime") return "2026-12-15T08:00:00.000Z";
   if (field.type === "country") return "AE";
   if (field.type === "toggle") return true;
   if (field.type === "select" || field.type === "radio") {
@@ -422,27 +496,49 @@ function answerFor(field: FormField, vendor: DemoVendor, index: number): unknown
     return option ? [option.value] : [];
   }
   if (field.type === "textarea") return vendor.blurb;
-  if (field.type === "file" || field.type === "image" || field.type === "files" || field.type === "reupload") return undefined;
-  const label = `${field.key} ${field.label}`.toLowerCase();
-  if (label.includes("booth")) return vendor.booth;
-  if (label.includes("company")) return vendor.companyName;
+  if (key === "client_name" || label.includes("client") || label.includes("sponsor")) return "Saudi Aramco";
+  if (key === "plot_number" || label.includes("plot") || label.includes("booth")) return vendor.booth;
+  if (key === "contractor_name" || (label.includes("company") && !label.includes("stamp"))) return vendor.companyName;
+  if (key === "contact_name") return vendor.contactName;
+  if (key === "signing_person_name" || label.includes("signing")) return vendor.contactName;
+  if (key === "id_iqama" || label.includes("iqama") || label.includes("id /")) return String(784199000000000 + index * 17);
   if (label.includes("contact") || label.includes("name")) return vendor.contactName;
-  if (label.includes("phone")) return vendor.phone;
   if (label.includes("city")) return vendor.city;
-  return vendor.blurb;
+  return vendor.companyName;
 }
 
-function answersFor(fields: FormField[], vendor: DemoVendor, index: number) {
-  const values: Record<string, unknown> = {};
-  for (const field of fields) {
-    if (["heading", "info", "file", "image", "files", "reupload"].includes(field.type)) continue;
-    if (field.type === "repeater") {
-      values[field.id] = [];
-      continue;
-    }
-    values[field.id] = answerFor(field, vendor, index);
+function shouldFillFile(field: FormField, vendor: DemoVendor, index: number) {
+  if (vendor.status === "INVITED") return false;
+  if (vendor.status === "IN_PROGRESS") {
+    // Partial package: first compliance docs + declaration images stay empty.
+    const partialKeys = new Set(["letter_of_undertaking", "rams", "trade_license", "client_name"]);
+    return field.type !== "image" && (partialKeys.has(field.key) || field.order < 3);
   }
-  return values;
+  if (vendor.status === "CORRECTION_REQUESTED") {
+    // Leave one compliance document empty so re-upload is obvious in the UI.
+    if (field.key === "trade_license" && index % 2 === 0) return false;
+    if (field.key === "insurance" && index % 2 === 1) return false;
+    return true;
+  }
+  // Submitted / approved: every required upload, plus optional structural pack for approved.
+  if (!field.required && field.key === "structural_calculations") return vendor.status === "APPROVED";
+  return field.required || field.type === "image";
+}
+
+function fileMeta(field: FormField, vendor: DemoVendor) {
+  const slug = field.key.replaceAll("_", "-");
+  if (field.type === "image") {
+    return {
+      filename: `${slug}-${vendor.reference.toLowerCase()}.png`,
+      mimeType: "image/png",
+      bytes: DEMO_PNG,
+    };
+  }
+  return {
+    filename: `${slug}-${vendor.reference.toLowerCase()}.pdf`,
+    mimeType: "application/pdf",
+    bytes: DEMO_PDF,
+  };
 }
 
 async function main() {
@@ -452,6 +548,7 @@ async function main() {
     await tx.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`;
     const organization = await tx.organization.findUnique({ where: { slug: "vehda" } });
     if (!organization) throw new Error("Organization not found. Run prisma:seed first.");
+    const settings = effectiveSettings(parseStored(organization.settings as Prisma.JsonValue));
     const admin = await tx.user.findFirst({
       where: { organizationId: organization.id, status: "ACTIVE", roles: { some: { role: { name: "ORG_ADMIN" } } } },
       orderBy: { createdAt: "asc" },
@@ -482,6 +579,50 @@ async function main() {
     const fields = formSchemaDefinition.parse(version.schema).fields;
     const textField = fields.find((item) => item.type === "text");
     const fileField = fields.find((item) => item.type === "file" || item.type === "reupload" || item.type === "files");
+    let documentsCreated = 0;
+
+    async function attachFile(input: {
+      vendorId: string;
+      assignmentId: string;
+      fieldId: string;
+      filename: string;
+      mimeType: string;
+      bytes: Buffer;
+    }) {
+      const documentId = randomUUID();
+      const versionId = randomUUID();
+      const storageKey = `org/${organization!.id}/vendor/${input.vendorId}/${documentId}/${versionId}`;
+      await putDemoBytes(organization!.id, storageKey, input.bytes, input.mimeType, settings);
+      await tx.document.create({
+        data: {
+          id: documentId,
+          organizationId: organization!.id,
+          vendorId: input.vendorId,
+          exhibitionId: exhibition!.id,
+          assignmentId: input.assignmentId,
+          fieldId: input.fieldId,
+          category: "form-upload",
+          status: "AVAILABLE",
+          versions: {
+            create: {
+              id: versionId,
+              organizationId: organization!.id,
+              versionNumber: 1,
+              storageKey,
+              filename: input.filename,
+              mimeType: input.mimeType,
+              sizeBytes: input.bytes.length,
+              checksum: createHash("sha256").update(input.bytes).digest("hex"),
+              uploadedById: admin!.id,
+              scanStatus: "clean",
+              scanDetails: "demo seed",
+            },
+          },
+        },
+      });
+      documentsCreated += 1;
+      return { documentId, filename: input.filename };
+    }
 
     // Keep demo companies on this one event + form only.
     const demoRefs = vendors.map((item) => item.reference);
@@ -601,7 +742,62 @@ async function main() {
           data: { organizationId: organization.id, assignmentId: assignment.id, createdAt },
         });
       }
-      const revisionData = answersFor(fields, vendor, index);
+
+      // Drop prior demo uploads for this assignment so re-runs stay clean.
+      await tx.document.updateMany({
+        where: { organizationId: organization.id, assignmentId: assignment.id, deletedAt: null },
+        data: { deletedAt: new Date(), status: "ARCHIVED" },
+      });
+
+      const revisionData: Record<string, unknown> = {};
+      for (const field of fields) {
+        if (field.type === "heading" || field.type === "info") continue;
+        if (field.type === "repeater") {
+          revisionData[field.id] = [];
+          continue;
+        }
+        if (field.type === "file" || field.type === "image" || field.type === "files" || field.type === "reupload") {
+          if (!shouldFillFile(field, vendor, index)) continue;
+          const meta = fileMeta(field, vendor);
+          if (field.type === "files") {
+            const first = await attachFile({
+              vendorId: row.id,
+              assignmentId: assignment.id,
+              fieldId: field.id,
+              filename: meta.filename,
+              mimeType: meta.mimeType,
+              bytes: meta.bytes,
+            });
+            const second = await attachFile({
+              vendorId: row.id,
+              assignmentId: assignment.id,
+              fieldId: field.id,
+              filename: meta.filename.replace(/(\.[^.]+)$/, "-view2$1"),
+              mimeType: meta.mimeType,
+              bytes: meta.bytes,
+            });
+            revisionData[field.id] = [first, second];
+          } else {
+            revisionData[field.id] = await attachFile({
+              vendorId: row.id,
+              assignmentId: assignment.id,
+              fieldId: field.id,
+              filename: meta.filename,
+              mimeType: meta.mimeType,
+              bytes: meta.bytes,
+            });
+          }
+          continue;
+        }
+        if (vendor.status === "IN_PROGRESS") {
+          // Declaration contact block + a few early text answers only.
+          const earlyText = new Set(["client_name", "plot_number", "contractor_name", "contact_name", "mobile", "email"]);
+          if (!earlyText.has(field.key) && field.order > 15) continue;
+          if (!earlyText.has(field.key) && field.type !== "text" && field.type !== "tel" && field.type !== "email") continue;
+        }
+        revisionData[field.id] = textAnswerFor(field, vendor, index);
+      }
+
       let revision = await tx.submissionRevision.findFirst({ where: { submissionId: submission.id, revisionNumber: 1 } });
       if (!revision) {
         revision = await tx.submissionRevision.create({
@@ -610,13 +806,16 @@ async function main() {
             submissionId: submission.id,
             formVersionId: version.id,
             revisionNumber: 1,
-            data: revisionData,
+            data: revisionData as Prisma.InputJsonValue,
             createdById: admin.id,
             createdAt,
           },
         });
       } else {
-        revision = await tx.submissionRevision.update({ where: { id: revision.id }, data: { data: revisionData, formVersionId: version.id } });
+        revision = await tx.submissionRevision.update({
+          where: { id: revision.id },
+          data: { data: revisionData as Prisma.InputJsonValue, formVersionId: version.id },
+        });
       }
 
       await tx.correctionRequest.updateMany({
@@ -625,6 +824,7 @@ async function main() {
       });
       if (vendor.status === "CORRECTION_REQUESTED" && (fileField || textField)) {
         const note = vendor.correctionNote ?? "Please re-upload the requested compliance document so we can complete verification.";
+        const missing = fields.find((field) => (field.type === "file" || field.type === "reupload") && revisionData[field.id] === undefined);
         await tx.correctionRequest.create({
           data: {
             organizationId: organization.id,
@@ -634,7 +834,7 @@ async function main() {
             requestedById: admin.id,
             createdAt: daysFromNow(-1),
             fields: {
-              create: [{ organizationId: organization.id, fieldId: (fileField ?? textField)!.id, note }],
+              create: [{ organizationId: organization.id, fieldId: (missing ?? fileField ?? textField)!.id, note }],
             },
           },
         });
@@ -664,6 +864,7 @@ async function main() {
       form: { id: form.id, name: form.name, version: version.versionNumber },
       created,
       updated,
+      documentsCreated,
       linkedToEvent: linked,
       waitingForReview: byStatus.SUBMITTED_PENDING_REVIEW ?? 0,
       verified: byStatus.APPROVED ?? 0,
@@ -672,7 +873,7 @@ async function main() {
       invited: byStatus.INVITED ?? 0,
       checksum: createHash("sha256").update(JSON.stringify(version.schema)).digest("hex").slice(0, 12),
     };
-  }, { maxWait: 20_000, timeout: 180_000 });
+  }, { maxWait: 30_000, timeout: 300_000 });
 
   console.log(JSON.stringify(summary, null, 2));
 }
