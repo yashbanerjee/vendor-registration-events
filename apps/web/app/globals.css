@@ -943,6 +943,27 @@ input[type="file"]:disabled {
   }
 
   /* Sign-in, invitation, and password screens share one layout. */
+  .brand-page--auth {
+    position: relative;
+    isolation: isolate;
+    background: #0a0c0e;
+  }
+  .auth-hero {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background:
+      linear-gradient(180deg, rgba(10, 12, 14, 0.55) 0%, rgba(10, 12, 14, 0.72) 55%, rgba(10, 12, 14, 0.88) 100%),
+      url("/login-hero.webp") center / cover no-repeat;
+    pointer-events: none;
+  }
+  .brand-page--auth > :not(.auth-hero) {
+    position: relative;
+    z-index: 1;
+  }
+  .brand-nav--auth {
+    background: rgba(10, 12, 14, 0.55);
+  }
   .auth-screen {
     display: grid;
     place-items: start center;

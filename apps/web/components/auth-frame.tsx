@@ -21,9 +21,11 @@ export function AuthFrame({
   children: React.ReactNode;
 }) {
   return (
-    <div className="dark brand-page font-form">
+    <div className="dark brand-page brand-page--auth font-form">
+      {/* Hero still from forum.iktva.sa — the same poster the homepage video uses. */}
+      <div className="auth-hero" aria-hidden="true" />
       {overlay}
-      <nav className="brand-nav" aria-label="iktva Forum 2027">
+      <nav className="brand-nav brand-nav--auth" aria-label="iktva Forum 2027">
         <img src={BRAND_LOGO} alt="iktva Forum 2027" className="brand-nav-logo" />
       </nav>
       <main className="auth-screen">
