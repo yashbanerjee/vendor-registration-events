@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { PrismaClient, type AssignmentStatus } from "@prisma/client";
 import { formSchemaDefinition, type FormField } from "@vmp/shared";
 import { assignVendorCategoryNames } from "../src/catalog/categories";
@@ -25,6 +25,7 @@ type DemoVendor = {
   contactName: string;
   email: string;
   phone: string;
+  website: string;
   addressLine1: string;
   city: string;
   region: string;
@@ -36,15 +37,25 @@ type DemoVendor = {
   deadlineInDays: number | null;
   blurb: string;
   booth: string;
+  correctionNote?: string;
 };
 
+/**
+ * Client-demo mix (20 companies):
+ * - 10 submitted forms
+ *   - 4 verified (APPROVED)
+ *   - 6 sent back for document re-upload (CORRECTION_REQUESTED)
+ * - 10 still in progress / invited for a live pipeline
+ */
 const vendors: DemoVendor[] = [
+  // 4 verified
   {
     reference: "VND-MARINA",
-    companyName: "Marina Booth Works",
+    companyName: "Marina Booth Works LLC",
     contactName: "Omar Al Hashimi",
-    email: "omar.hashimi@marinabooth.example",
+    email: "omar.hashimi@marinabooth.ae",
     phone: "+971 4 355 2180",
+    website: "https://www.marinabooth.ae",
     addressLine1: "Warehouse 14, Al Quoz Industrial Area 3",
     city: "Dubai",
     region: "Dubai",
@@ -54,69 +65,16 @@ const vendors: DemoVendor[] = [
     status: "APPROVED",
     daysAgo: 16,
     deadlineInDays: null,
-    blurb: "Double-deck stands with in-house joinery. Crew of eight on site for build and dismantle.",
+    blurb: "Custom double-deck stands with in-house joinery. Eight technicians cover build-up and dismantle.",
     booth: "A-12",
   },
   {
-    reference: "VND-LUMEN",
-    companyName: "Lumen & Co. Lighting",
-    contactName: "Huda Al Marzouqi",
-    email: "huda.marzouqi@lumenandco.example",
-    phone: "+971 2 441 9033",
-    addressLine1: "Office 506, Al Wahda Tower",
-    city: "Abu Dhabi",
-    region: "Abu Dhabi",
-    postalCode: "109808",
-    categories: ["Lighting"],
-    exhibitionCode: "DOWNTOWN-2026",
-    status: "SUBMITTED_PENDING_REVIEW",
-    daysAgo: 2,
-    deadlineInDays: 6,
-    blurb: "Track, pendant, and facade lighting packages for exhibitor stands.",
-    booth: "B-04",
-  },
-  {
-    reference: "VND-GULFPLATE",
-    companyName: "Gulf Plate Catering",
-    contactName: "Rami Nassar",
-    email: "rami.nassar@gulfplate.example",
-    phone: "+971 6 574 2201",
-    addressLine1: "Kitchen 3, Al Nahda Street",
-    city: "Sharjah",
-    region: "Sharjah",
-    postalCode: "61111",
-    categories: ["Catering"],
-    exhibitionCode: "DOWNTOWN-2026",
-    status: "SUBMITTED_PENDING_REVIEW",
-    daysAgo: 1,
-    deadlineInDays: 4,
-    blurb: "Hot and cold hospitality for exhibitor lounges, including halal and vegetarian service.",
-    booth: "H-18",
-  },
-  {
-    reference: "VND-ATLAS",
-    companyName: "Atlas Freight Logistics",
-    contactName: "Sara Qureshi",
-    email: "sara.qureshi@atlasfreight.example",
-    phone: "+971 4 881 6400",
-    addressLine1: "Plot 22, Jebel Ali Industrial Area",
-    city: "Dubai",
-    region: "Dubai",
-    postalCode: "17000",
-    categories: ["Logistics"],
-    exhibitionCode: "WOC-2027",
-    status: "IN_PROGRESS",
-    daysAgo: 6,
-    deadlineInDays: 5,
-    blurb: "Door-to-stand freight, customs clearance, and empty-case storage.",
-    booth: "D-09",
-  },
-  {
     reference: "VND-SANDCEDAR",
-    companyName: "Sand & Cedar Furniture",
+    companyName: "Sand & Cedar Furniture Trading",
     contactName: "Yousef Rahman",
-    email: "yousef.rahman@sandcedar.example",
+    email: "yousef.rahman@sandcedar.ae",
     phone: "+971 4 228 7715",
+    website: "https://www.sandcedar.ae",
     addressLine1: "Showroom 2, Al Ittihad Road",
     city: "Dubai",
     region: "Dubai",
@@ -126,87 +84,16 @@ const vendors: DemoVendor[] = [
     status: "APPROVED",
     daysAgo: 12,
     deadlineInDays: null,
-    blurb: "Lounge furniture hire: sofas, counters, and meeting tables finished in oak and walnut.",
+    blurb: "Lounge furniture hire including sofas, counters, and oak meeting tables finished for exhibition use.",
     booth: "C-21",
   },
   {
-    reference: "VND-BRIGHTLINE",
-    companyName: "Brightline Signage",
-    contactName: "Noor Al Suwaidi",
-    email: "noor.suwaidi@brightline.example",
-    phone: "+971 6 742 1184",
-    addressLine1: "Unit 8, Ajman Free Zone",
-    city: "Ajman",
-    region: "Ajman",
-    postalCode: "30000",
-    categories: ["Signage and print"],
-    exhibitionCode: "DOWNTOWN-2026",
-    status: "CORRECTION_REQUESTED",
-    daysAgo: 4,
-    deadlineInDays: -1,
-    blurb: "Fascia lettering, fabric lightboxes, and floor stickers produced in house.",
-    booth: "A-07",
-  },
-  {
-    reference: "VND-HORIZON",
-    companyName: "Horizon AV Systems",
-    contactName: "Daniel Okonkwo",
-    email: "daniel.okonkwo@horizonav.example",
-    phone: "+971 4 514 6620",
-    addressLine1: "Office 1204, Aspect Tower, Business Bay",
-    city: "Dubai",
-    region: "Dubai",
-    postalCode: "113234",
-    categories: ["Audio visual"],
-    exhibitionCode: "DOWNTOWN-2026",
-    status: "RESUBMITTED_PENDING_REVIEW",
-    daysAgo: 3,
-    deadlineInDays: 3,
-    blurb: "LED walls, PA, and presentation laptops with an on-site technician.",
-    booth: "B-16",
-  },
-  {
-    reference: "VND-PALMCOURT",
-    companyName: "Palm Court Florals",
-    contactName: "Maya Fernandes",
-    email: "maya.fernandes@palmcourt.example",
-    phone: "+971 4 330 9055",
-    addressLine1: "Shop 4, Al Wasl Road",
-    city: "Dubai",
-    region: "Dubai",
-    postalCode: "127221",
-    categories: ["Florals"],
-    exhibitionCode: "WOC-2027",
-    status: "INVITED",
-    daysAgo: 1,
-    deadlineInDays: 10,
-    blurb: "Fresh and dried arrangements for reception desks and evening receptions.",
-    booth: "F-02",
-  },
-  {
-    reference: "VND-NIMBUS",
-    companyName: "Nimbus Security Services",
-    contactName: "Khalid Al Blooshi",
-    email: "khalid.blooshi@nimbussecurity.example",
-    phone: "+971 2 667 4410",
-    addressLine1: "Building 19, Mussafah Industrial",
-    city: "Abu Dhabi",
-    region: "Abu Dhabi",
-    postalCode: "20600",
-    categories: ["Security"],
-    exhibitionCode: "DOWNTOWN-2026",
-    status: "IN_PROGRESS",
-    daysAgo: 5,
-    deadlineInDays: 7,
-    blurb: "Licensed event security and overnight stand guarding.",
-    booth: "S-01",
-  },
-  {
     reference: "VND-QASR",
-    companyName: "Qasr Flooring",
+    companyName: "Qasr Flooring Systems",
     contactName: "Leila Haddad",
-    email: "leila.haddad@qasrflooring.example",
+    email: "leila.haddad@qasrflooring.ae",
     phone: "+971 6 555 0192",
+    website: "https://www.qasrflooring.ae",
     addressLine1: "Warehouse B, Industrial Area 10",
     city: "Sharjah",
     region: "Sharjah",
@@ -216,69 +103,176 @@ const vendors: DemoVendor[] = [
     status: "APPROVED",
     daysAgo: 14,
     deadlineInDays: null,
-    blurb: "Raised platform floors and carpet tiles, including cable-managed walkways.",
+    blurb: "Raised platform floors and carpet tiles with cable-managed walkways for aisle transitions.",
     booth: "C-03",
   },
   {
-    reference: "VND-SAFFRON",
-    companyName: "Saffron & Salt Catering",
-    contactName: "Amina Farooq",
-    email: "amina.farooq@saffronsalt.example",
-    phone: "+971 4 294 7730",
-    addressLine1: "Kitchen 11, Al Quoz 1",
+    reference: "VND-PEARL",
+    companyName: "Pearl Guard Security Services",
+    contactName: "Majid Al Kaabi",
+    email: "majid.kaabi@pearlguard.ae",
+    phone: "+971 2 641 8800",
+    website: "https://www.pearlguard.ae",
+    addressLine1: "Office 214, Al Markaziyah",
+    city: "Abu Dhabi",
+    region: "Abu Dhabi",
+    postalCode: "3798",
+    categories: ["Security"],
+    exhibitionCode: "DOWNTOWN-2026",
+    status: "APPROVED",
+    daysAgo: 11,
+    deadlineInDays: null,
+    blurb: "Licensed event security, night guarding, and access control for exhibitor stands.",
+    booth: "S-08",
+  },
+  // 6 sent for re-document upload
+  {
+    reference: "VND-BRIGHTLINE",
+    companyName: "Brightline Signage & Print",
+    contactName: "Noor Al Suwaidi",
+    email: "noor.suwaidi@brightlinesign.ae",
+    phone: "+971 6 742 1184",
+    website: "https://www.brightlinesign.ae",
+    addressLine1: "Unit 8, Ajman Free Zone",
+    city: "Ajman",
+    region: "Ajman",
+    postalCode: "30000",
+    categories: ["Signage and print"],
+    exhibitionCode: "DOWNTOWN-2026",
+    status: "CORRECTION_REQUESTED",
+    daysAgo: 4,
+    deadlineInDays: 2,
+    blurb: "Fascia lettering, fabric lightboxes, and floor graphics produced in-house.",
+    booth: "A-07",
+    correctionNote: "Please re-upload a clear PDF of your trade license. The previous scan is cropped and the expiry date is unreadable.",
+  },
+  {
+    reference: "VND-LUMEN",
+    companyName: "Lumen & Co. Lighting",
+    contactName: "Huda Al Marzouqi",
+    email: "huda.marzouqi@lumenandco.ae",
+    phone: "+971 2 441 9033",
+    website: "https://www.lumenandco.ae",
+    addressLine1: "Office 506, Al Wahda Tower",
+    city: "Abu Dhabi",
+    region: "Abu Dhabi",
+    postalCode: "109808",
+    categories: ["Lighting"],
+    exhibitionCode: "DOWNTOWN-2026",
+    status: "CORRECTION_REQUESTED",
+    daysAgo: 3,
+    deadlineInDays: 3,
+    blurb: "Track, pendant, and facade lighting packages for exhibitor stands.",
+    booth: "B-04",
+    correctionNote: "Please upload an updated public liability insurance certificate covering the show dates.",
+  },
+  {
+    reference: "VND-GULFPLATE",
+    companyName: "Gulf Plate Catering LLC",
+    contactName: "Rami Nassar",
+    email: "rami.nassar@gulfplate.ae",
+    phone: "+971 6 574 2201",
+    website: "https://www.gulfplate.ae",
+    addressLine1: "Kitchen 3, Al Nahda Street",
+    city: "Sharjah",
+    region: "Sharjah",
+    postalCode: "61111",
+    categories: ["Catering"],
+    exhibitionCode: "DOWNTOWN-2026",
+    status: "CORRECTION_REQUESTED",
+    daysAgo: 2,
+    deadlineInDays: 4,
+    blurb: "Hot and cold hospitality for exhibitor lounges, including halal and vegetarian menus.",
+    booth: "H-18",
+    correctionNote: "Re-upload your municipality food-handler certificates for the named kitchen team.",
+  },
+  {
+    reference: "VND-HORIZON",
+    companyName: "Horizon AV Systems FZCO",
+    contactName: "Daniel Okonkwo",
+    email: "daniel.okonkwo@horizonav.ae",
+    phone: "+971 4 514 6620",
+    website: "https://www.horizonav.ae",
+    addressLine1: "Office 1204, Aspect Tower, Business Bay",
     city: "Dubai",
     region: "Dubai",
-    postalCode: "26111",
-    categories: ["Catering"],
+    postalCode: "113234",
+    categories: ["Audio visual"],
+    exhibitionCode: "DOWNTOWN-2026",
+    status: "CORRECTION_REQUESTED",
+    daysAgo: 5,
+    deadlineInDays: 1,
+    blurb: "LED walls, PA systems, and presentation kits with an on-site technician.",
+    booth: "B-16",
+    correctionNote: "The trade license PDF is password-protected. Please upload an unlocked copy.",
+  },
+  {
+    reference: "VND-ATLAS",
+    companyName: "Atlas Freight Logistics",
+    contactName: "Sara Qureshi",
+    email: "sara.qureshi@atlasfreight.ae",
+    phone: "+971 4 881 6400",
+    website: "https://www.atlasfreight.ae",
+    addressLine1: "Plot 22, Jebel Ali Industrial Area",
+    city: "Dubai",
+    region: "Dubai",
+    postalCode: "17000",
+    categories: ["Logistics"],
     exhibitionCode: "WOC-2027",
-    status: "SUBMITTED_PENDING_REVIEW",
-    daysAgo: 1,
-    deadlineInDays: 8,
-    blurb: "Coffee-service counters and tasting menus for exhibitor meetings.",
-    booth: "H-06",
+    status: "CORRECTION_REQUESTED",
+    daysAgo: 6,
+    deadlineInDays: 2,
+    blurb: "Door-to-stand freight, customs clearance, and empty-case storage for exhibitors.",
+    booth: "D-09",
+    correctionNote: "Please re-upload your customs brokerage authorization on company letterhead.",
   },
   {
     reference: "VND-CRESCENT",
     companyName: "Crescent Print Studio",
     contactName: "Faris Al Mulla",
-    email: "faris.mulla@crescentprint.example",
+    email: "faris.mulla@crescentprint.ae",
     phone: "+971 4 398 2217",
+    website: "https://www.crescentprint.ae",
     addressLine1: "Unit 6, Ras Al Khor Industrial 2",
     city: "Dubai",
     region: "Dubai",
     postalCode: "47400",
     categories: ["Signage and print"],
     exhibitionCode: "DOWNTOWN-2026",
-    status: "REJECTED",
-    daysAgo: 9,
-    deadlineInDays: null,
-    blurb: "Large-format fabric print. This submission was turned down because the artwork arrived after the print deadline.",
+    status: "CORRECTION_REQUESTED",
+    daysAgo: 3,
+    deadlineInDays: 3,
+    blurb: "Large-format fabric print, vinyl wraps, and booth graphics finished overnight.",
     booth: "P-11",
+    correctionNote: "Upload a higher-resolution copy of the signed stand drawings for compliance review.",
   },
+  // 5 in progress
   {
-    reference: "VND-DUNE",
-    companyName: "Dune Electrical",
-    contactName: "Hassan Al Shehhi",
-    email: "hassan.shehhi@duneelectrical.example",
-    phone: "+971 7 233 4800",
-    addressLine1: "Shop 15, Al Nakheel",
-    city: "Ras Al Khaimah",
-    region: "Ras Al Khaimah",
-    postalCode: "72500",
-    categories: ["Electrical"],
-    exhibitionCode: "WOC-2027",
-    status: "INVITED",
-    daysAgo: 8,
-    deadlineInDays: -2,
-    blurb: "Temporary power distribution and certified electricians for stand fit-out.",
-    booth: "E-14",
+    reference: "VND-NIMBUS",
+    companyName: "Nimbus Event Security",
+    contactName: "Khalid Al Blooshi",
+    email: "khalid.blooshi@nimbussecurity.ae",
+    phone: "+971 2 667 4410",
+    website: "https://www.nimbussecurity.ae",
+    addressLine1: "Building 19, Mussafah Industrial",
+    city: "Abu Dhabi",
+    region: "Abu Dhabi",
+    postalCode: "20600",
+    categories: ["Security"],
+    exhibitionCode: "DOWNTOWN-2026",
+    status: "IN_PROGRESS",
+    daysAgo: 5,
+    deadlineInDays: 7,
+    blurb: "Event security and overnight stand guarding with SIRA-compliant officers.",
+    booth: "S-01",
   },
   {
     reference: "VND-BAYAN",
-    companyName: "Bayan Hosts",
+    companyName: "Bayan Hosts & Interiors",
     contactName: "Lina Mansour",
-    email: "lina.mansour@bayanhosts.example",
+    email: "lina.mansour@bayanhosts.ae",
     phone: "+971 4 452 9088",
+    website: "https://www.bayanhosts.ae",
     addressLine1: "Office 903, Jumeirah Bay Tower X3",
     city: "Dubai",
     region: "Dubai",
@@ -287,9 +281,162 @@ const vendors: DemoVendor[] = [
     exhibitionCode: "DOWNTOWN-2026",
     status: "IN_PROGRESS",
     daysAgo: 4,
-    deadlineInDays: 2,
-    blurb: "Hostess teams and furnished meeting rooms inside the stand.",
+    deadlineInDays: 5,
+    blurb: "Host teams and furnished meeting rooms fitted inside the exhibitor stand.",
     booth: "A-19",
+  },
+  {
+    reference: "VND-SAFFRON",
+    companyName: "Saffron & Salt Hospitality",
+    contactName: "Amina Farooq",
+    email: "amina.farooq@saffronsalt.ae",
+    phone: "+971 4 294 7730",
+    website: "https://www.saffronsalt.ae",
+    addressLine1: "Kitchen 11, Al Quoz 1",
+    city: "Dubai",
+    region: "Dubai",
+    postalCode: "26111",
+    categories: ["Catering"],
+    exhibitionCode: "WOC-2027",
+    status: "IN_PROGRESS",
+    daysAgo: 2,
+    deadlineInDays: 9,
+    blurb: "Coffee-service counters and tasting menus for exhibitor meeting lounges.",
+    booth: "H-06",
+  },
+  {
+    reference: "VND-EMIRATELECT",
+    companyName: "Emiratelect Power Solutions",
+    contactName: "Hassan Al Shehhi",
+    email: "hassan.shehhi@emiratelect.ae",
+    phone: "+971 7 233 4800",
+    website: "https://www.emiratelect.ae",
+    addressLine1: "Shop 15, Al Nakheel",
+    city: "Ras Al Khaimah",
+    region: "Ras Al Khaimah",
+    postalCode: "72500",
+    categories: ["Electrical"],
+    exhibitionCode: "WOC-2027",
+    status: "IN_PROGRESS",
+    daysAgo: 7,
+    deadlineInDays: 6,
+    blurb: "Temporary power distribution and certified electricians for stand fit-out.",
+    booth: "E-14",
+  },
+  {
+    reference: "VND-OASISFLORAL",
+    companyName: "Oasis Floral Design",
+    contactName: "Maya Fernandes",
+    email: "maya.fernandes@oasisfloral.ae",
+    phone: "+971 4 330 9055",
+    website: "https://www.oasisfloral.ae",
+    addressLine1: "Shop 4, Al Wasl Road",
+    city: "Dubai",
+    region: "Dubai",
+    postalCode: "127221",
+    categories: ["Florals"],
+    exhibitionCode: "DOWNTOWN-2026",
+    status: "IN_PROGRESS",
+    daysAgo: 3,
+    deadlineInDays: 8,
+    blurb: "Fresh and dried arrangements for reception desks and evening receptions.",
+    booth: "F-02",
+  },
+  // 5 invited
+  {
+    reference: "VND-DESERTLINE",
+    companyName: "Desertline Stand Builders",
+    contactName: "Tariq Al Mazrouei",
+    email: "tariq.mazrouei@desertline.ae",
+    phone: "+971 4 885 1102",
+    website: "https://www.desertline.ae",
+    addressLine1: "Plot 41, Dubai Investment Park 1",
+    city: "Dubai",
+    region: "Dubai",
+    postalCode: "282222",
+    categories: ["Stand building"],
+    exhibitionCode: "DOWNTOWN-2026",
+    status: "INVITED",
+    daysAgo: 1,
+    deadlineInDays: 12,
+    blurb: "Shell-scheme upgrades and custom modular stands for mid-size exhibitors.",
+    booth: "A-28",
+  },
+  {
+    reference: "VND-CLEARSOUND",
+    companyName: "Clearsound Productions",
+    contactName: "Elena Petrova",
+    email: "elena.petrova@clearsound.ae",
+    phone: "+971 4 368 4421",
+    website: "https://www.clearsound.ae",
+    addressLine1: "Warehouse 9, Al Quoz 4",
+    city: "Dubai",
+    region: "Dubai",
+    postalCode: "37555",
+    categories: ["Audio visual"],
+    exhibitionCode: "WOC-2027",
+    status: "INVITED",
+    daysAgo: 2,
+    deadlineInDays: 14,
+    blurb: "Stage audio, wireless microphones, and compact LED screens for product demos.",
+    booth: "B-22",
+  },
+  {
+    reference: "VND-GOLDENSPOON",
+    companyName: "Golden Spoon Culinary",
+    contactName: "Karim Haddad",
+    email: "karim.haddad@goldenspoon.ae",
+    phone: "+971 4 277 6509",
+    website: "https://www.goldenspoon.ae",
+    addressLine1: "Kitchen Suite 5, Dubai Production City",
+    city: "Dubai",
+    region: "Dubai",
+    postalCode: "478828",
+    categories: ["Catering"],
+    exhibitionCode: "WOC-2027",
+    status: "INVITED",
+    daysAgo: 1,
+    deadlineInDays: 11,
+    blurb: "Live cooking counters and plated hospitality for VIP exhibitor lounges.",
+    booth: "H-12",
+  },
+  {
+    reference: "VND-NORTHSTAR",
+    companyName: "Northstar Lighting Hire",
+    contactName: "Priya Menon",
+    email: "priya.menon@northstarlight.ae",
+    phone: "+971 4 321 7780",
+    website: "https://www.northstarlight.ae",
+    addressLine1: "Unit 12, Dubai Industrial City",
+    city: "Dubai",
+    region: "Dubai",
+    postalCode: "3004",
+    categories: ["Lighting"],
+    exhibitionCode: "DOWNTOWN-2026",
+    status: "INVITED",
+    daysAgo: 3,
+    deadlineInDays: 10,
+    blurb: "Architectural lighting kits and DMX control for branded exhibitor environments.",
+    booth: "B-09",
+  },
+  {
+    reference: "VND-SILKROUTE",
+    companyName: "Silk Route Logistics DWC",
+    contactName: "Ahmed Mansoor",
+    email: "ahmed.mansoor@silkroutelogistics.ae",
+    phone: "+971 4 870 3355",
+    website: "https://www.silkroutelogistics.ae",
+    addressLine1: "Warehouse A4, Dubai South Logistics District",
+    city: "Dubai",
+    region: "Dubai",
+    postalCode: "390667",
+    categories: ["Logistics"],
+    exhibitionCode: "WOC-2027",
+    status: "INVITED",
+    daysAgo: 2,
+    deadlineInDays: 13,
+    blurb: "Air freight handling, on-site delivery, and return shipping for exhibition cargo.",
+    booth: "D-17",
   },
 ];
 
@@ -300,7 +447,7 @@ function daysFromNow(days: number) {
 function answerFor(field: FormField, vendor: DemoVendor, index: number): unknown {
   if (field.type === "email") return vendor.email;
   if (field.type === "tel") return vendor.phone;
-  if (field.type === "url") return "https://www.example.com";
+  if (field.type === "url") return vendor.website;
   if (field.type === "number") return 12 + index;
   if (field.type === "currency") return 4800 + index * 250;
   if (field.type === "date") return "2026-11-11";
@@ -317,6 +464,7 @@ function answerFor(field: FormField, vendor: DemoVendor, index: number): unknown
     return option ? [option.value] : [];
   }
   if (field.type === "textarea") return vendor.blurb;
+  if (field.type === "file" || field.type === "image" || field.type === "files" || field.type === "reupload") return undefined;
   const label = `${field.key} ${field.label}`.toLowerCase();
   if (label.includes("booth")) return vendor.booth;
   if (label.includes("company")) return vendor.companyName;
@@ -329,7 +477,7 @@ function answerFor(field: FormField, vendor: DemoVendor, index: number): unknown
 function answersFor(fields: FormField[], vendor: DemoVendor, index: number) {
   const values: Record<string, unknown> = {};
   for (const field of fields) {
-    if (field.type === "heading" || field.type === "info" || field.type === "file" || field.type === "image" || field.type === "files") continue;
+    if (field.type === "heading" || field.type === "info" || field.type === "file" || field.type === "image" || field.type === "files" || field.type === "reupload") continue;
     if (field.type === "repeater") {
       values[field.id] = [];
       continue;
@@ -340,12 +488,19 @@ function answersFor(fields: FormField[], vendor: DemoVendor, index: number) {
 }
 
 async function main() {
+  if (vendors.length !== 20) throw new Error(`Expected 20 demo companies, found ${vendors.length}.`);
+  const approved = vendors.filter((item) => item.status === "APPROVED").length;
+  const corrections = vendors.filter((item) => item.status === "CORRECTION_REQUESTED").length;
+  if (approved !== 4 || corrections !== 6) {
+    throw new Error(`Expected 4 approved and 6 correction-requested companies (got ${approved}/${corrections}).`);
+  }
+
   const summary = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`;
     const organization = await tx.organization.findUnique({ where: { slug: "vehda" } });
-    if (!organization) throw new Error("The Vehda organization was not found.");
+    if (!organization) throw new Error("The Vehda organization was not found. Run prisma:seed first.");
     const admin = await tx.user.findFirst({
-      where: { organizationId: organization.id, roles: { some: { role: { name: "ORG_ADMIN" } } }, status: "ACTIVE" },
+      where: { organizationId: organization.id, status: "ACTIVE", roles: { some: { role: { name: "ORG_ADMIN" } } } },
       orderBy: { createdAt: "asc" },
     });
     if (!admin) throw new Error("An organization admin was not found.");
@@ -355,13 +510,6 @@ async function main() {
         where: { organizationId: organization.id, name: { equals: name, mode: "insensitive" } },
       });
       if (!existing) await tx.vendorCategory.create({ data: { organizationId: organization.id, name } });
-    }
-
-    const labeled = await tx.vendor.findMany({
-      where: { organizationId: organization.id, archivedAt: null, category: { not: "" }, categories: { none: {} } },
-    });
-    for (const vendor of labeled) {
-      await assignVendorCategoryNames(tx, organization.id, vendor.id, vendor.category.split(","));
     }
 
     const exhibitions = [
@@ -391,8 +539,12 @@ async function main() {
     }
 
     const sectionId = "6a1c0b7e-1f4a-4c2d-9a10-0b5e8f2a11c3";
+    const docsSectionId = "7b2d1c8f-2e5b-5d3e-0b21-1c6f9a3b22d4";
     const schema = formSchemaDefinition.parse({
-      sections: [{ id: sectionId, title: "Stand details", description: "Tell us how you will use the stand.", order: 0 }],
+      sections: [
+        { id: sectionId, title: "Stand details", description: "Tell us how you will use the stand.", order: 0 },
+        { id: docsSectionId, title: "Compliance documents", description: "Upload the documents required for on-site approval.", order: 1 },
+      ],
       fields: [
         field(sectionId, "8c2d4e10-6b7a-4f11-9c22-1a2b3c4d5e6f", "company_name", "text", "Company name on the fascia", 0),
         field(sectionId, "9d3e5f21-7c8b-4012-8d33-2b3c4d5e6f70", "booth_number", "text", "Booth number", 1),
@@ -402,6 +554,8 @@ async function main() {
         field(sectionId, "d1729365-b0cf-4456-8177-6f708192a3b4", "power", "select", "Power requirement", 5, ["None", "13A", "32A", "63A"]),
         field(sectionId, "e283a476-c1d0-4567-9288-708192a3b4c5", "exhibit", "textarea", "What you will exhibit", 6),
         field(sectionId, "f394b587-d2e1-4678-a399-8192a3b4c5d6", "website", "url", "Website", 7, undefined, false),
+        field(docsSectionId, "a4b5c6d7-e8f9-4012-9123-456789abcde0", "trade_license", "file", "Trade license", 8),
+        field(docsSectionId, "b5c6d7e8-f9a0-4123-a234-56789abcdef1", "insurance_certificate", "file", "Public liability insurance", 9),
       ],
     });
     let template = await tx.formTemplate.findFirst({ where: { organizationId: organization.id, name: "Exhibitor registration" } });
@@ -410,15 +564,21 @@ async function main() {
         data: {
           organizationId: organization.id,
           name: "Exhibitor registration",
-          description: "Stand, power, and on-site contact details for the show.",
+          description: "Stand, power, documents, and on-site contact details for the show.",
           scope: "GLOBAL",
           status: "PUBLISHED",
           draftSchema: schema,
           createdById: admin.id,
         },
       });
+    } else {
+      template = await tx.formTemplate.update({
+        where: { id: template.id },
+        data: { description: "Stand, power, documents, and on-site contact details for the show.", status: "PUBLISHED", draftSchema: schema },
+      });
     }
     let version = await tx.formVersion.findFirst({ where: { templateId: template.id, versionNumber: 1 } });
+    const checksum = createHash("sha256").update(JSON.stringify(schema)).digest("hex");
     if (!version) {
       version = await tx.formVersion.create({
         data: {
@@ -426,132 +586,187 @@ async function main() {
           templateId: template.id,
           versionNumber: 1,
           schema,
-          checksum: createHash("sha256").update(JSON.stringify(schema)).digest("hex"),
+          checksum,
           publishedById: admin.id,
         },
       });
-      await tx.formTemplate.update({ where: { id: template.id }, data: { status: "PUBLISHED", draftSchema: schema } });
+    } else {
+      version = await tx.formVersion.update({ where: { id: version.id }, data: { schema, checksum } });
     }
     const fields = formSchemaDefinition.parse(version.schema).fields;
-    const textField = fields.find((item) => item.type === "text");
+    const textField = fields.find((item) => item.key === "company_name") ?? fields.find((item) => item.type === "text");
+    const tradeLicenseField = fields.find((item) => item.key === "trade_license");
+    const insuranceField = fields.find((item) => item.key === "insurance_certificate");
 
     let createdVendors = 0;
+    let updatedVendors = 0;
+    const demoRefs = vendors.map((item) => item.reference);
+
     for (const [index, vendor] of vendors.entries()) {
-      const existing = await tx.vendor.findFirst({ where: { organizationId: organization.id, email: vendor.email } });
-      if (existing) continue;
       const createdAt = daysFromNow(-vendor.daysAgo);
-      const row = await tx.vendor.create({
-        data: {
-          organizationId: organization.id,
-          reference: vendor.reference,
-          companyName: vendor.companyName,
-          contactName: vendor.contactName,
-          email: vendor.email,
-          phone: vendor.phone,
-          addressLine1: vendor.addressLine1,
-          city: vendor.city,
-          region: vendor.region,
-          postalCode: vendor.postalCode,
-          country: "AE",
-          status: vendor.status === "INVITED" ? "INVITED" : "ACTIVE",
-          createdAt,
-        },
-      });
+      const submitted = ["SUBMITTED_PENDING_REVIEW", "RESUBMITTED_PENDING_REVIEW", "APPROVED", "REJECTED", "CORRECTION_REQUESTED"].includes(vendor.status);
+      let row = await tx.vendor.findFirst({ where: { organizationId: organization.id, reference: vendor.reference } });
+      if (!row) {
+        row = await tx.vendor.findFirst({ where: { organizationId: organization.id, email: vendor.email } });
+      }
+      if (row) {
+        row = await tx.vendor.update({
+          where: { id: row.id },
+          data: {
+            reference: vendor.reference,
+            companyName: vendor.companyName,
+            contactName: vendor.contactName,
+            email: vendor.email,
+            phone: vendor.phone,
+            addressLine1: vendor.addressLine1,
+            city: vendor.city,
+            region: vendor.region,
+            postalCode: vendor.postalCode,
+            country: "AE",
+            status: vendor.status === "INVITED" ? "INVITED" : "ACTIVE",
+            archivedAt: null,
+          },
+        });
+        updatedVendors += 1;
+      } else {
+        row = await tx.vendor.create({
+          data: {
+            organizationId: organization.id,
+            reference: vendor.reference,
+            companyName: vendor.companyName,
+            contactName: vendor.contactName,
+            email: vendor.email,
+            phone: vendor.phone,
+            addressLine1: vendor.addressLine1,
+            city: vendor.city,
+            region: vendor.region,
+            postalCode: vendor.postalCode,
+            country: "AE",
+            status: vendor.status === "INVITED" ? "INVITED" : "ACTIVE",
+            createdAt,
+          },
+        });
+        createdVendors += 1;
+      }
       await assignVendorCategoryNames(tx, organization.id, row.id, vendor.categories);
       const exhibition = await tx.exhibition.findUniqueOrThrow({
         where: { organizationId_code: { organizationId: organization.id, code: vendor.exhibitionCode } },
       });
-      await tx.vendorExhibition.create({
-        data: { organizationId: organization.id, vendorId: row.id, exhibitionId: exhibition.id, createdAt },
+      await tx.vendorExhibition.upsert({
+        where: { vendorId_exhibitionId: { vendorId: row.id, exhibitionId: exhibition.id } },
+        update: {},
+        create: { organizationId: organization.id, vendorId: row.id, exhibitionId: exhibition.id, createdAt },
       });
-      const submitted = ["SUBMITTED_PENDING_REVIEW", "RESUBMITTED_PENDING_REVIEW", "APPROVED", "REJECTED", "CORRECTION_REQUESTED"].includes(vendor.status);
-      const assignment = await tx.formAssignment.create({
-        data: {
-          organizationId: organization.id,
-          vendorId: row.id,
-          exhibitionId: exhibition.id,
-          formVersionId: version.id,
-          status: vendor.status,
-          deadline: vendor.deadlineInDays === null ? null : daysFromNow(vendor.deadlineInDays),
-          submittedAt: submitted ? daysFromNow(-Math.max(vendor.daysAgo - 1, 0)) : null,
-          approvedAt: vendor.status === "APPROVED" ? daysFromNow(-Math.max(vendor.daysAgo - 2, 0)) : null,
-          approvedById: vendor.status === "APPROVED" ? admin.id : null,
-          createdById: admin.id,
-          createdAt,
-        },
+
+      let assignment = await tx.formAssignment.findFirst({
+        where: { organizationId: organization.id, vendorId: row.id, exhibitionId: exhibition.id, formVersionId: version.id },
       });
-      if (vendor.status !== "INVITED") {
-        const submission = await tx.submission.create({
+      if (!assignment) {
+        assignment = await tx.formAssignment.create({
+          data: {
+            organizationId: organization.id,
+            vendorId: row.id,
+            exhibitionId: exhibition.id,
+            formVersionId: version.id,
+            status: vendor.status,
+            deadline: vendor.deadlineInDays === null ? null : daysFromNow(vendor.deadlineInDays),
+            submittedAt: submitted ? daysFromNow(-Math.max(vendor.daysAgo - 1, 0)) : null,
+            approvedAt: vendor.status === "APPROVED" ? daysFromNow(-Math.max(vendor.daysAgo - 2, 0)) : null,
+            approvedById: vendor.status === "APPROVED" ? admin.id : null,
+            createdById: admin.id,
+            createdAt,
+          },
+        });
+      } else {
+        assignment = await tx.formAssignment.update({
+          where: { id: assignment.id },
+          data: {
+            status: vendor.status,
+            deadline: vendor.deadlineInDays === null ? null : daysFromNow(vendor.deadlineInDays),
+            submittedAt: submitted ? daysFromNow(-Math.max(vendor.daysAgo - 1, 0)) : null,
+            approvedAt: vendor.status === "APPROVED" ? daysFromNow(-Math.max(vendor.daysAgo - 2, 0)) : null,
+            approvedById: vendor.status === "APPROVED" ? admin.id : null,
+          },
+        });
+      }
+
+      if (vendor.status === "INVITED") continue;
+
+      let submission = await tx.submission.findUnique({ where: { assignmentId: assignment.id } });
+      if (!submission) {
+        submission = await tx.submission.create({
           data: { organizationId: organization.id, assignmentId: assignment.id, createdAt },
         });
-        const revision = await tx.submissionRevision.create({
+      }
+      const revisionData = answersFor(fields, vendor, index);
+      let revision = await tx.submissionRevision.findFirst({
+        where: { submissionId: submission.id, revisionNumber: 1 },
+      });
+      if (!revision) {
+        revision = await tx.submissionRevision.create({
           data: {
             organizationId: organization.id,
             submissionId: submission.id,
             formVersionId: version.id,
             revisionNumber: 1,
-            data: answersFor(fields, vendor, index),
+            data: revisionData,
             createdById: admin.id,
             createdAt,
           },
         });
-        let currentRevisionId = revision.id;
-        if (vendor.status === "RESUBMITTED_PENDING_REVIEW" && textField) {
-          const correction = await tx.correctionRequest.create({
-            data: {
-              organizationId: organization.id,
-              submissionId: submission.id,
-              revisionId: revision.id,
-              status: "RESOLVED",
-              requestedById: admin.id,
-              createdAt: daysFromNow(-vendor.daysAgo),
-              resolvedAt: daysFromNow(-1),
-              fields: { create: { organizationId: organization.id, fieldId: textField.id, note: "Please use the booth number from the floor plan." } },
+      } else {
+        revision = await tx.submissionRevision.update({ where: { id: revision.id }, data: { data: revisionData } });
+      }
+      await tx.correctionRequest.updateMany({
+        where: { submissionId: submission.id, status: "OPEN" },
+        data: { status: "RESOLVED", resolvedAt: new Date() },
+      });
+      if (vendor.status === "CORRECTION_REQUESTED" && (tradeLicenseField || textField)) {
+        const note =
+          vendor.correctionNote ??
+          "Please re-upload the requested compliance document so we can complete verification.";
+        await tx.correctionRequest.create({
+          data: {
+            organizationId: organization.id,
+            submissionId: submission.id,
+            revisionId: revision.id,
+            status: "OPEN",
+            requestedById: admin.id,
+            createdAt: daysFromNow(-1),
+            fields: {
+              create: [
+                tradeLicenseField
+                  ? { organizationId: organization.id, fieldId: tradeLicenseField.id, note }
+                  : { organizationId: organization.id, fieldId: textField!.id, note },
+                ...(insuranceField && /insurance/i.test(note)
+                  ? [{ organizationId: organization.id, fieldId: insuranceField.id, note: "Please upload the renewed insurance certificate for the show dates." }]
+                  : []),
+              ],
             },
-          });
-          void correction;
-          const second = await tx.submissionRevision.create({
-            data: {
-              organizationId: organization.id,
-              submissionId: submission.id,
-              formVersionId: version.id,
-              revisionNumber: 2,
-              data: { ...answersFor(fields, vendor, index), [textField.id]: vendor.booth },
-              createdById: admin.id,
-              createdAt: daysFromNow(-1),
-            },
-          });
-          currentRevisionId = second.id;
-        }
-        if (vendor.status === "CORRECTION_REQUESTED" && textField) {
-          await tx.correctionRequest.create({
-            data: {
-              organizationId: organization.id,
-              submissionId: submission.id,
-              revisionId: revision.id,
-              status: "OPEN",
-              requestedById: admin.id,
-              createdAt: daysFromNow(-1),
-              fields: { create: { organizationId: organization.id, fieldId: textField.id, note: "The fascia name does not match the company on the contract. Please confirm it." } },
-            },
-          });
-        }
-        await tx.submission.update({ where: { id: submission.id }, data: { currentRevisionId } });
-        if (vendor.status === "APPROVED") {
-          await tx.formAssignment.update({ where: { id: assignment.id }, data: { approvedRevisionId: currentRevisionId } });
+          },
+        });
+      }
+      await tx.submission.update({ where: { id: submission.id }, data: { currentRevisionId: revision.id } });
+      if (vendor.status === "APPROVED") {
+        await tx.formAssignment.update({ where: { id: assignment.id }, data: { approvedRevisionId: revision.id } });
+        const existingNote = await tx.reviewNote.findFirst({ where: { submissionId: submission.id } });
+        if (!existingNote) {
           await tx.reviewNote.create({
             data: {
               organizationId: organization.id,
               submissionId: submission.id,
               authorId: admin.id,
-              body: "Stand drawings and the requested power load are accepted.",
+              body: "Documents and stand details verified. Registration accepted.",
               createdAt: daysFromNow(-Math.max(vendor.daysAgo - 2, 0)),
             },
           });
         }
       }
-      await tx.emailMessage.create({
-        data: {
+
+      await tx.emailMessage.upsert({
+        where: { idempotencyKey: `demo-invite:${row.id}` },
+        update: { toAddress: vendor.email, subject: `${exhibition.name}: complete your exhibitor form`, status: "SENT" },
+        create: {
           organizationId: organization.id,
           toAddress: vendor.email,
           template: "invitation",
@@ -562,8 +777,10 @@ async function main() {
         },
       });
       if (submitted) {
-        await tx.emailMessage.create({
-          data: {
+        await tx.emailMessage.upsert({
+          where: { idempotencyKey: `demo-ack:${row.id}` },
+          update: { toAddress: vendor.email, subject: `We received ${vendor.companyName}'s exhibitor form`, status: "SENT" },
+          create: {
             organizationId: organization.id,
             toAddress: vendor.email,
             template: "submission-ack",
@@ -574,56 +791,49 @@ async function main() {
           },
         });
       }
-      await tx.auditLog.create({
-        data: {
-          organizationId: organization.id,
-          actorId: admin.id,
-          actorRole: "ORG_ADMIN",
-          action: "vendor.created",
-          resourceType: "vendor",
-          resourceId: row.id,
-          vendorId: row.id,
-          newValue: { reference: vendor.reference },
-          createdAt,
-        },
-      });
-      if (submitted) {
-        await tx.auditLog.create({
-          data: {
-            organizationId: organization.id,
-            actorId: admin.id,
-            actorRole: "ORG_ADMIN",
-            action: vendor.status === "APPROVED" ? "submission.approved" : vendor.status === "REJECTED" ? "submission.rejected" : vendor.status === "CORRECTION_REQUESTED" ? "correction.requested" : "assignment.created",
-            resourceType: "assignment",
-            resourceId: assignment.id,
-            vendorId: row.id,
-            createdAt: daysFromNow(-Math.max(vendor.daysAgo - 1, 0)),
-          },
-        });
-      }
-      if (vendor.status === "SUBMITTED_PENDING_REVIEW" || vendor.status === "RESUBMITTED_PENDING_REVIEW") {
+      if (vendor.status === "CORRECTION_REQUESTED") {
         await tx.notification.create({
           data: {
             organizationId: organization.id,
             userId: admin.id,
-            title: `${vendor.companyName} is waiting for review`,
-            body: `${vendor.contactName} submitted the exhibitor form for ${exhibition.name}.`,
+            title: `${vendor.companyName} needs document re-upload`,
+            body: `${vendor.contactName} was asked to re-upload compliance documents for ${exhibition.name}.`,
             link: `/admin/reviews/${assignment.id}`,
-            createdAt: daysFromNow(-Math.max(vendor.daysAgo - 1, 0)),
+            createdAt: daysFromNow(-1),
           },
-        });
+        }).catch(() => undefined);
       }
-      createdVendors += 1;
     }
 
+    const statuses = await tx.formAssignment.groupBy({
+      by: ["status"],
+      where: {
+        organizationId: organization.id,
+        vendor: { reference: { in: demoRefs } },
+      },
+      _count: { _all: true },
+    });
+    const byStatus = Object.fromEntries(statuses.map((row) => [row.status, row._count._all]));
     const [vendorCount, categoryCount, exhibitionCount] = await Promise.all([
-      tx.vendor.count({ where: { organizationId: organization.id, archivedAt: null } }),
+      tx.vendor.count({ where: { organizationId: organization.id, archivedAt: null, reference: { in: demoRefs } } }),
       tx.vendorCategory.count({ where: { organizationId: organization.id } }),
       tx.exhibition.count({ where: { organizationId: organization.id, status: "PUBLISHED" } }),
     ]);
-    return { createdVendors, vendorCount, categoryCount, exhibitionCount };
-  }, { maxWait: 20_000, timeout: 120_000 });
-  console.log(JSON.stringify(summary));
+    return {
+      createdVendors,
+      updatedVendors,
+      vendorCount,
+      categoryCount,
+      exhibitionCount,
+      submitted: (byStatus.APPROVED ?? 0) + (byStatus.CORRECTION_REQUESTED ?? 0) + (byStatus.SUBMITTED_PENDING_REVIEW ?? 0) + (byStatus.RESUBMITTED_PENDING_REVIEW ?? 0),
+      verified: byStatus.APPROVED ?? 0,
+      reuploadRequested: byStatus.CORRECTION_REQUESTED ?? 0,
+      inProgress: byStatus.IN_PROGRESS ?? 0,
+      invited: byStatus.INVITED ?? 0,
+    };
+  }, { maxWait: 20_000, timeout: 180_000 });
+
+  console.log(JSON.stringify(summary, null, 2));
 }
 
 function field(sectionId: string, id: string, key: string, type: FormField["type"], label: string, order: number, options?: string[], required = true): FormField {
