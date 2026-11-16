@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { BadgeCheck, Briefcase, Building2, ClipboardList, FileText, History, Landmark, Megaphone, Package, SquareCheckBig, Store, Users, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FormValidationError, validateSubmission, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { FormRenderer } from "@/components/form-renderer";
@@ -9,7 +10,6 @@ import { friendlyErrorMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorNote, LoadingState, Notice, StatusBadge } from "@/components/ui";
 
 export type VendorAssignment = {
@@ -124,17 +124,25 @@ export function VendorAssignmentForm({
   const currentStage = Math.min(stage, Math.max(sections.length - 1, 0));
   const editable = assignment.status === "INVITED" || assignment.status === "IN_PROGRESS" || assignment.status === "CORRECTION_REQUESTED";
   const staged = sections.length > 1;
-  // Phones keep the action bar on one row: one equal column per button (Back, Save, and Next or Send).
-  const actionCount = 1 + (staged && currentStage > 0 ? 1 : 0) + (assignment.status !== "CORRECTION_REQUESTED" ? 1 : 0);
-  const actionColumns = actionCount === 3 ? "grid-cols-3" : actionCount === 2 ? "grid-cols-2" : "grid-cols-1";
+  const lastStage = !staged || currentStage === sections.length - 1;
+  // A form sent back for correction is not saved as a draft: the vendor fixes the marked fields and sends again.
+  const canDraft = assignment.status !== "CORRECTION_REQUESTED";
+  const cardId = `assignment-${assignment.id}`;
 
   function showStageForField(fieldId?: string) {
     const field = assignment.form.schema.fields.find((item) => item.id === fieldId);
     const index = sections.findIndex((section) => section.id === field?.sectionId);
     if (index >= 0) setStage(index);
   }
+
+  /** Opens a step and brings the top of the card back into view, like a page change. */
+  function goToStage(index: number) {
+    setStage(index);
+    requestAnimationFrame(() => document.getElementById(cardId)?.scrollIntoView({ block: "start" }));
+  }
+
   return (
-    <section id={`assignment-${assignment.id}`} className="scroll-mt-20 grid min-w-0 grid-cols-1 gap-4">
+    <section id={cardId} className="brand-card min-w-0 scroll-mt-4">
       {save.isPending ? (
         <LoadingState
           variant="overlay"
@@ -142,41 +150,56 @@ export function VendorAssignmentForm({
           description="Please wait a moment."
         />
       ) : null}
-      {compact ? null : (
-        <Card>
-          <CardHeader className="flex-row flex-wrap items-start justify-between gap-3 space-y-0">
-            <div className="min-w-0">
-              <CardTitle className="break-words" title={assignment.form.name}>{assignment.form.name}</CardTitle>
-              <CardDescription>
-                {assignment.exhibition.name}
-                {assignment.deadline ? ` · Due ${formatDate(assignment.deadline)}` : ""}
-              </CardDescription>
-            </div>
-            <StatusBadge status={assignment.status} />
-          </CardHeader>
-        </Card>
-      )}
-      <ErrorNote message={error} />
-      <Notice message={message} />
-      {assignment.status === "SUBMITTED_PENDING_REVIEW" || assignment.status === "RESUBMITTED_PENDING_REVIEW" ? (
-        <Alert><AlertDescription>Sent. The organizer will look at it.</AlertDescription></Alert>
-      ) : null}
-      {assignment.status === "CORRECTION_REQUESTED" ? (
-        <Alert variant="warning"><AlertDescription>Please fix the marked questions, then press Send again.</AlertDescription></Alert>
-      ) : null}
-      {assignment.status === "APPROVED" ? (
-        <Alert variant="success"><AlertDescription>Accepted. This part cannot be changed.</AlertDescription></Alert>
-      ) : null}
+      <div className="brand-card-head">
+        <span className="brand-kicker">
+          <Store size={15} aria-hidden />
+          <span className="min-w-0 break-words">{assignment.exhibition.name}</span>
+        </span>
+        {staged ? <span className="brand-counter">Step {currentStage + 1} of {sections.length}</span> : null}
+      </div>
       {staged ? (
-        <nav aria-label="Form stages" className="grid gap-2 sm:flex sm:flex-wrap">
-          {sections.map((section, index) => (
-            <Button key={section.id} size="sm" variant={index === currentStage ? "primary" : "outline"} aria-current={index === currentStage ? "step" : undefined} className="h-auto min-h-11 w-full whitespace-normal px-3 py-2 text-left sm:h-8 sm:w-auto sm:whitespace-nowrap" onClick={() => setStage(index)}>
-              {index + 1}. {section.title}
-            </Button>
-          ))}
-        </nav>
+        <ol className="steps" aria-label="Form stages">
+          {sections.map((section, index) => {
+            const Icon = stepIcon(section.title, index);
+            return (
+              <li key={section.id} className={`step ${index === currentStage ? "is-active" : index < currentStage ? "is-filled" : "is-todo"}`} aria-current={index === currentStage ? "step" : undefined}>
+                <button type="button" className="step-button" title={section.title} aria-label={`Step ${index + 1}: ${section.title}`} onClick={() => goToStage(index)}>
+                  <span className="step-icon"><Icon aria-hidden /></span>
+                  <span className="step-label">{section.title}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
       ) : null}
+      {compact ? null : (
+        <div className="brand-callout">
+          <span className="brand-callout-icon"><ClipboardList size={20} aria-hidden /></span>
+          <span className="brand-callout-text">
+            <strong title={assignment.form.name}>{assignment.form.name}</strong>
+            <span>
+              <b>{assignment.vendor.companyName}</b>
+              {assignment.deadline ? ` – Due ${formatDate(assignment.deadline)}` : ""}
+            </span>
+          </span>
+          <StatusBadge status={assignment.status} />
+        </div>
+      )}
+      <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 empty:hidden">
+        <ErrorNote message={error} />
+        <Notice message={message} />
+        {assignment.status === "SUBMITTED_PENDING_REVIEW" || assignment.status === "RESUBMITTED_PENDING_REVIEW" ? (
+          <Alert><AlertDescription>Sent. The organizer will look at it.</AlertDescription></Alert>
+        ) : null}
+        {assignment.status === "CORRECTION_REQUESTED" ? (
+          <Alert variant="warning"><AlertDescription>Please fix the marked questions, then press Send again.</AlertDescription></Alert>
+        ) : null}
+        {assignment.status === "APPROVED" ? (
+          <Alert variant="success"><AlertDescription>Accepted. This part cannot be changed.</AlertDescription></Alert>
+        ) : null}
+      </div>
       <FormRenderer
+        bare
         schema={assignment.form.schema}
         values={values}
         editableFieldIds={assignment.editableFieldIds}
@@ -190,17 +213,41 @@ export function VendorAssignmentForm({
         onUpload={upload}
       />
       {editable ? (
-        <Card className="sticky bottom-0 z-10 -mx-4 rounded-none border-x-0 border-b-0 shadow-[0_-4px_12px_rgba(16,24,40,0.06)] sm:static sm:mx-0 sm:rounded-xl sm:border sm:shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
-          <CardContent className={`grid ${actionColumns} gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:flex sm:flex-wrap sm:items-center sm:py-4`}>
-            {staged && currentStage > 0 ? <Button className="w-full sm:w-auto" variant="outline" onClick={() => setStage(currentStage - 1)}>Back</Button> : null}
-            {assignment.status !== "CORRECTION_REQUESTED" ? <Button className="w-full sm:w-auto" variant="outline" onClick={() => save.mutate("draft")} disabled={save.isPending}>{save.isPending && save.variables === "draft" ? "Saving…" : "Save"}</Button> : null}
-            {staged && currentStage < sections.length - 1 ? <Button className="w-full sm:w-auto" variant="primary" onClick={() => setStage(currentStage + 1)}>Next</Button> : null}
-            {!staged || currentStage === sections.length - 1 ? (
-              <Button className="w-full sm:w-auto" variant="primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{save.isPending && save.variables === "submit" ? "Sending…" : assignment.status === "CORRECTION_REQUESTED" ? "Send again" : "Send"}</Button>
-            ) : null}
-          </CardContent>
-        </Card>
+        <div className="form-actions">
+          {staged && currentStage > 0 ? <Button size="xl" variant="secondary" onClick={() => goToStage(currentStage - 1)}>Back</Button> : null}
+          {lastStage && canDraft ? (
+            <Button size="xl" variant="secondary" onClick={() => save.mutate("draft")} disabled={save.isPending}>{save.isPending && save.variables === "draft" ? "Saving…" : "Save"}</Button>
+          ) : null}
+          {lastStage ? (
+            <Button size="xl" variant="primary" className="is-primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{save.isPending && save.variables === "submit" ? "Sending…" : assignment.status === "CORRECTION_REQUESTED" ? "Send again" : "Send"}</Button>
+          ) : canDraft ? (
+            // Like the parent site: each step is saved as a draft before the next one opens.
+            <Button size="xl" variant="primary" className="is-primary" onClick={() => save.mutate("draft", { onSuccess: () => goToStage(currentStage + 1) })} disabled={save.isPending}>Save and continue</Button>
+          ) : (
+            <Button size="xl" variant="primary" className="is-primary" onClick={() => goToStage(currentStage + 1)}>Next</Button>
+          )}
+        </div>
       ) : null}
     </section>
   );
+}
+
+const STEP_ICONS: { match: RegExp; icon: LucideIcon }[] = [
+  { match: /declar|consent|agree|terms|confirm|\bsign/i, icon: SquareCheckBig },
+  { match: /document|\bfile|upload|attach|certificate/i, icon: FileText },
+  { match: /contact|people|team|staff|person/i, icon: Users },
+  { match: /market|brand|promot|media/i, icon: Megaphone },
+  { match: /previous|history|past|experience/i, icon: History },
+  { match: /eligib|registration|licen|complian|verif/i, icon: BadgeCheck },
+  { match: /bank|payment|financ|invoice|billing/i, icon: Landmark },
+  { match: /product|service|item/i, icon: Package },
+  { match: /booth|stand|exhibit|space/i, icon: Store },
+  { match: /business|profile|activity|sector/i, icon: Briefcase },
+  { match: /company|organi[sz]ation|entity|vendor|general/i, icon: Building2 },
+];
+const STEP_FALLBACK: LucideIcon[] = [Building2, BadgeCheck, Briefcase, History, Users, Megaphone, SquareCheckBig];
+
+/** Picks the square's icon from the section title, so a "Contacts" step shows people and so on. */
+function stepIcon(title: string, index: number): LucideIcon {
+  return STEP_ICONS.find((item) => item.match.test(title))?.icon ?? STEP_FALLBACK[index % STEP_FALLBACK.length]!;
 }

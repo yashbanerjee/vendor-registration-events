@@ -70,7 +70,7 @@ function SignOutButton({ labelled, onBeforeOpen }: { labelled?: boolean; onBefor
 const THEME_NAMES: Record<ThemeChoice, string> = { light: "Light", dark: "Dark", system: "Auto" };
 
 function ThemeToggle({ labelled }: { labelled?: boolean }) {
-  const [theme, setTheme] = useState<ThemeChoice>("light");
+  const [theme, setTheme] = useState<ThemeChoice>("dark");
   useEffect(() => {
     const sync = () => setTheme(readTheme());
     sync();
@@ -88,7 +88,7 @@ function ThemeToggle({ labelled }: { labelled?: boolean }) {
     );
   }
   return (
-    <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-secondary" aria-label={`Theme ${theme}. Activate to switch.`} onClick={() => applyTheme(next)}>
+    <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--nav-link)] hover:bg-[var(--hover)] hover:text-[var(--heading)]" aria-label={`Theme ${theme}. Activate to switch.`} onClick={() => applyTheme(next)}>
       {icon}
     </button>
   );
@@ -213,7 +213,7 @@ function NavLinks({
         return (
           <div key={item.href}>
             {showMore ? (
-              <p className={cn("px-2 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wide text-muted", collapsed ? "md:sr-only" : "")}>
+              <p className={cn("px-3 pb-1.5 pt-5 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-dim", collapsed ? "md:sr-only" : "")}>
                 More
               </p>
             ) : null}
@@ -222,8 +222,12 @@ function NavLinks({
               aria-current={active ? "page" : undefined}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm md:gap-2 md:px-2 md:py-2",
-                active ? "bg-[var(--badge-info-bg)] font-semibold text-[var(--badge-info-fg)]" : "text-foreground hover:bg-secondary",
+                // Capitals with wide tracking, like the parent site's nav. The current page gets a blue edge.
+                "flex items-center gap-3 rounded-md px-3 py-2.5 text-[0.7rem] font-medium uppercase tracking-[0.12em] transition-colors",
+                collapsed ? "md:justify-center md:px-0" : "",
+                active
+                  ? "bg-[color-mix(in_srgb,var(--brand)_13%,transparent)] font-bold text-[var(--heading)] shadow-[inset_2px_0_0_var(--brand)] [&_svg]:text-brand"
+                  : "text-[var(--nav-link)] hover:bg-[var(--hover)] hover:text-[var(--heading)]",
                 item.secondary && !active ? "text-muted" : "",
               )}
             >
@@ -259,17 +263,18 @@ function ShellNav({
     <>
       <aside
         className={cn(
-          "hidden border-r border-t-4 border-t-brand border-border bg-surface md:flex md:h-dvh md:flex-col md:overflow-y-auto md:overscroll-contain",
+          "hidden border-r border-border bg-[var(--nav-bg)] backdrop-blur md:flex md:h-dvh md:flex-col md:overflow-y-auto md:overscroll-contain",
           collapsed ? "md:w-20" : "md:w-60",
         )}
       >
-        <div className="flex h-14 shrink-0 items-center justify-between px-3">
-          <Link href={home} aria-label="iktva Forum 2027" className="flex items-center text-brand">
-            <BrandMark compact className="h-9 w-9" />
+        {/* Same height as the top bar, so the copper-to-blue hairline runs across the whole screen. */}
+        <div className="brand-hairline mb-3 flex h-14 shrink-0 items-center justify-between px-3">
+          <Link href={home} aria-label="iktva Forum 2027" className="flex min-w-0 items-center text-brand">
+            {collapsed ? <BrandMark compact className="h-9 w-9" /> : <BrandMark className="h-10" />}
           </Link>
           <button
             type="button"
-            className="rounded p-1 hover:bg-secondary"
+            className="rounded p-1 text-[var(--nav-link)] hover:bg-[var(--hover)] hover:text-[var(--heading)]"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             onClick={() => onCollapsedChange(!collapsed)}
           >
@@ -281,7 +286,7 @@ function ShellNav({
 
       <div
         className={cn(
-          "fixed inset-0 z-40 bg-[#111111]/45 transition md:hidden",
+          "fixed inset-0 z-40 bg-[#0a0c0e]/70 transition md:hidden",
           drawerOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
         )}
         aria-hidden={!drawerOpen}
@@ -295,15 +300,15 @@ function ShellNav({
         aria-hidden={!drawerOpen}
         inert={!drawerOpen}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[min(20rem,86vw)] flex-col border-r border-t-4 border-t-brand border-border bg-surface shadow-panel transition-transform duration-200 md:hidden",
+          "fixed inset-y-0 left-0 z-50 flex w-[min(20rem,86vw)] flex-col border-r border-border bg-surface shadow-panel transition-transform duration-200 md:hidden",
           drawerOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-3">
-          <Link href={home} id={titleId} aria-label="iktva Forum 2027" className="flex items-center text-brand" onClick={onDrawerClose}>
-            <BrandMark compact className="h-9 w-9" />
+        <div className="brand-hairline flex h-16 shrink-0 items-center justify-between px-3">
+          <Link href={home} id={titleId} aria-label="iktva Forum 2027" className="flex min-w-0 items-center text-brand" onClick={onDrawerClose}>
+            <BrandMark className="h-11" />
           </Link>
-          <button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-secondary" aria-label="Close menu" onClick={onDrawerClose}>
+          <button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--nav-link)] hover:bg-[var(--hover)] hover:text-[var(--heading)]" aria-label="Close menu" onClick={onDrawerClose}>
             <X size={18} />
           </button>
         </div>
@@ -312,7 +317,7 @@ function ShellNav({
         </div>
         <div className="shrink-0 border-t border-border px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
           <div className="mb-3 flex items-center gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--badge-info-bg)] text-sm font-semibold text-[var(--badge-info-fg)]" aria-hidden>
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-[color-mix(in_srgb,var(--brand)_55%,transparent)] bg-[var(--badge-info-bg)] text-sm font-bold text-[var(--badge-info-fg)]" aria-hidden>
               {initial}
             </span>
             <div className="min-w-0">
@@ -361,10 +366,10 @@ function ShellMain({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <header className="z-20 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 sm:gap-3 sm:px-6 lg:px-8">
+      <header className="brand-hairline z-20 flex h-14 shrink-0 items-center gap-2 bg-[var(--nav-bg)] px-3 backdrop-blur sm:gap-3 sm:px-6 lg:px-8">
         <button
           type="button"
-          className="-ml-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md hover:bg-secondary md:hidden"
+          className="-ml-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md hover:bg-[var(--hover)] md:hidden"
           aria-label="Open menu"
           aria-controls="mobile-nav-drawer"
           aria-expanded={drawerOpen}
@@ -380,7 +385,7 @@ function ShellMain({
             <span className="sr-only">Search</span>
             <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" size={16} />
             <input
-              className="h-10 w-full min-w-0 rounded-md border border-border bg-secondary pl-9 pr-3 text-base leading-10 placeholder:text-muted sm:text-sm"
+              className="h-10 w-full min-w-0 rounded-md border border-[var(--field-border)] bg-field pl-9 pr-3 text-base leading-10 transition-[border-color,box-shadow] placeholder:text-dim focus:border-[#009ef0] focus:shadow-[0_0_0_3px_rgba(0,158,240,0.22)] focus:outline-none sm:text-sm"
               placeholder={home.startsWith("/vendor") ? "Search" : "Search a company or event"}
               value={query}
               onChange={(event) => {
@@ -412,7 +417,7 @@ function ShellMain({
           <ThemeToggle />
         </div>
         <div ref={notesRef} className="relative">
-          <button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-secondary md:h-9 md:w-9" aria-label="Notifications" aria-expanded={openNotes} onClick={() => setOpenNotes((value) => !value)}>
+          <button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--nav-link)] hover:bg-[var(--hover)] hover:text-[var(--heading)] md:h-9 md:w-9" aria-label="Notifications" aria-expanded={openNotes} onClick={() => setOpenNotes((value) => !value)}>
             <Bell size={18} />
           </button>
           {openNotes ? (
@@ -435,7 +440,7 @@ function ShellMain({
             </IsolatedScroll>
           ) : null}
         </div>
-        <span className="hidden max-w-[14rem] truncate text-sm md:inline">{session?.name}</span>
+        <span className="hidden max-w-[14rem] truncate text-[0.7rem] font-medium uppercase tracking-[0.12em] text-[var(--nav-link)] md:inline">{session?.name}</span>
         <div className="hidden md:block">
           <SignOutButton />
         </div>
@@ -443,7 +448,7 @@ function ShellMain({
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {/* Every page sits in this one container, so all views share the same width and gutters. */}
         <div className={PAGE_CONTAINER}>
-          <nav className="mb-3 text-xs leading-4 text-muted" aria-label="Breadcrumb">
+          <nav className="mb-3 text-[0.64rem] font-bold uppercase leading-4 tracking-[0.16em] text-dim" aria-label="Breadcrumb">
             <Link className="hover:text-foreground" href={home}>Home</Link>
             {crumbs.slice(1).map((crumb) => {
               const label = crumbLabel(crumb);

@@ -1,15 +1,21 @@
 "use client";
 
+import { Lock } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { COUNTRIES, isFieldVisible, type FormField, type FormSchemaDefinition } from "@vmp/shared";
-import { FileLink, InlineFilePreview, RemoteFileLink } from "./file-preview";
+import { FileLink, RemoteFileLink } from "./file-preview";
 import { isEditable } from "@/lib/locking";
 import { friendlyErrorMessage } from "@/lib/errors";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { UploadStatus, UploadTick, inputClass, textareaClass } from "@/components/ui";
+import { UploadStatus, UploadTick } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
+type Upload = (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
+
+/**
+ * Draws a form the way the parent registration site does: a centered section title with the
+ * copper-to-blue rule, then a two-column grid of floating-label fields, choice pills, and dashed upload rows.
+ * `bare` leaves out the panel around each section, for a host that already supplies the card.
+ */
 export function FormRenderer({
   schema,
   values,
@@ -24,6 +30,7 @@ export function FormRenderer({
   idPrefix,
   visibleSectionId,
   documentTable,
+  bare,
 }: {
   schema: FormSchemaDefinition;
   values: Record<string, unknown>;
@@ -32,56 +39,69 @@ export function FormRenderer({
   notes?: { fieldId: string; note: string }[];
   errors?: { fieldId: string; message: string }[];
   disabled?: boolean;
-  onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
+  onUpload?: Upload;
   selectedFieldId?: string | null;
   onSelectField?: (fieldId: string) => void;
   idPrefix?: string;
   visibleSectionId?: string | null;
   documentTable?: boolean;
+  bare?: boolean;
 }) {
   const byId = new Map(schema.fields.map((field) => [field.id, field]));
   const sections = [...schema.sections].sort((a, b) => a.order - b.order).filter((section) => !visibleSectionId || section.id === visibleSectionId);
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-4">
+    <div className={cn("grid min-w-0 grid-cols-1", bare ? "" : "gap-4")}>
       {sections.map((section) => {
         const visible = schema.fields
           .filter((field) => field.sectionId === section.id)
           .sort((a, b) => a.order - b.order)
           .filter((field) => isFieldVisible(field, values, byId));
         const groups = groupFields(visible, Boolean(documentTable));
+        const hasRequired = visible.some((field) => field.required);
         return (
-          <Card key={section.id} className="min-w-0 overflow-hidden">
-            <CardHeader>
-              <CardTitle>{section.title}</CardTitle>
-              {section.description ? <CardDescription>{section.description}</CardDescription> : null}
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-3">
-              {groups.map((group) => group.table ? (
-                <DocumentTable
-                  key={group.fields[0]?.id}
-                  fields={group.fields}
-                  values={values}
-                  notes={notes}
-                  errors={errors}
-                  disabled={disabled}
-                  editableFieldIds={editableFieldIds}
-                  idPrefix={idPrefix}
-                  selectedFieldId={selectedFieldId}
-                  onSelectField={onSelectField}
-                  onChange={onChange}
-                  onUpload={onUpload}
-                />
-              ) : group.fields.map((field) => (
-                <div
-                  key={field.id}
-                  onClick={() => onSelectField?.(field.id)}
-                  className={onSelectField ? `min-w-0 rounded-md p-1 ${selectedFieldId === field.id ? "ring-2 ring-brand" : "ring-1 ring-transparent hover:ring-border"}` : "min-w-0"}
-                >
-                  <FieldControl id={`${idPrefix ? `${idPrefix}-` : ""}${field.id}`} field={field} value={values[field.id]} note={notes?.find((item) => item.fieldId === field.id)?.note} error={errors?.find((item) => item.fieldId === field.id)?.message} editable={isEditable(field.id, editableFieldIds, disabled)} onChange={onChange} onUpload={onUpload} />
-                </div>
-              )))}
-            </CardContent>
-          </Card>
+          <section key={section.id} className={bare ? "min-w-0" : "panel min-w-0 px-4 pb-6 sm:px-6 sm:pb-8"}>
+            <h2 className="brand-title">{section.title}</h2>
+            {section.description ? <p className="brand-lead">{section.description}</p> : null}
+            {hasRequired ? (
+              <p className={cn("brand-legend", section.description ? "mt-3" : "")}>Fields marked with <span className="req">*</span> are mandatory.</p>
+            ) : (
+              <div className="mb-8" />
+            )}
+            <div className="form-fields">
+              <div className="form-grid">
+                {groups.map((group) => group.table ? (
+                  <div key={group.fields[0]?.id} className="is-wide min-w-0">
+                    <DocumentTable
+                      fields={group.fields}
+                      values={values}
+                      notes={notes}
+                      errors={errors}
+                      disabled={disabled}
+                      editableFieldIds={editableFieldIds}
+                      idPrefix={idPrefix}
+                      selectedFieldId={selectedFieldId}
+                      onSelectField={onSelectField}
+                      onChange={onChange}
+                      onUpload={onUpload}
+                    />
+                  </div>
+                ) : group.fields.map((field) => (
+                  <div
+                    key={field.id}
+                    onClick={() => onSelectField?.(field.id)}
+                    className={cn(
+                      "min-w-0",
+                      isWide(field) ? "is-wide" : "",
+                      onSelectField ? "cursor-pointer rounded-md outline-offset-[6px]" : "",
+                      onSelectField ? (selectedFieldId === field.id ? "outline outline-2 outline-[var(--brand)]" : "hover:outline hover:outline-1 hover:outline-[var(--field-border)]") : "",
+                    )}
+                  >
+                    <FieldControl id={`${idPrefix ? `${idPrefix}-` : ""}${field.id}`} field={field} value={values[field.id]} note={notes?.find((item) => item.fieldId === field.id)?.note} error={errors?.find((item) => item.fieldId === field.id)?.message} editable={isEditable(field.id, editableFieldIds, disabled)} onChange={onChange} onUpload={onUpload} />
+                  </div>
+                )))}
+              </div>
+            </div>
+          </section>
         );
       })}
     </div>
@@ -99,8 +119,45 @@ function groupFields(fields: FormField[], table: boolean) {
   return groups;
 }
 
+/**
+ * Only a "download, fill in, upload again" field gets the boxed document card, because it carries a template.
+ * A plain upload is drawn inline: label, dashed upload row, hint.
+ */
 function isDocumentField(field: FormField) {
-  return field.type === "reupload" || field.type === "file" || field.type === "files";
+  return field.type === "reupload";
+}
+
+/** The line under an upload row: which files are accepted and how large they may be. */
+function fileHint(field: FormField) {
+  const formats = field.file?.accept?.map((item) => item.replace(/^\./, "").replace(/^.*\//, "").toUpperCase()).filter(Boolean) ?? [];
+  const base = field.type === "image" ? "Images only" : formats.length ? `Accepted formats: ${formats.join(", ")}` : field.type === "files" ? "Add one or more files" : "PDF or image";
+  const megabytes = field.file?.maxSizeBytes ? Math.max(1, Math.round(field.file.maxSizeBytes / 1_000_000)) : 0;
+  return megabytes ? `${base} – max. ${megabytes} MB` : base;
+}
+
+// A floating label is one line inside the box. A longer question goes above its field instead, so it can wrap.
+const FLOATING_LABEL_MAX = 56;
+
+/** Text-like fields and dropdowns that take the floating-label box. */
+function isBoxField(field: FormField) {
+  return !["heading", "info", "radio", "multiselect", "checkbox", "toggle", "file", "image", "files", "reupload"].includes(field.type);
+}
+
+function isFloating(field: FormField) {
+  return isBoxField(field) && field.label.length <= FLOATING_LABEL_MAX;
+}
+
+/** Half-width fields sit two to a row. Everything else takes the whole row. */
+function isWide(field: FormField) {
+  return field.type === "textarea" || !isFloating(field);
+}
+
+function RequiredMark({ field }: { field: FormField }) {
+  return field.required ? <span className="req"> *</span> : null;
+}
+
+function LockedTag() {
+  return <span className="ml-2 whitespace-nowrap text-xs font-medium text-dim">Locked</span>;
 }
 
 function DocumentTable({
@@ -126,11 +183,11 @@ function DocumentTable({
   selectedFieldId?: string | null;
   onSelectField?: (fieldId: string) => void;
   onChange?: (fieldId: string, value: unknown) => void;
-  onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
+  onUpload?: Upload;
 }) {
   // grid-cols-1 is minmax(0, 1fr): a long file name must truncate, not widen the card past the screen.
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-3">
+    <div className="grid min-w-0 grid-cols-1 gap-4">
       {fields.map((field) => {
         const id = `${idPrefix ? `${idPrefix}-` : ""}${field.id}`;
         const note = notes?.find((item) => item.fieldId === field.id)?.note;
@@ -145,36 +202,31 @@ function DocumentTable({
             id={id}
             onClick={() => onSelectField?.(field.id)}
             className={cn(
-              "min-w-0 rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-5",
-              error || note ? "border-[var(--warning)] bg-[var(--badge-warning-bg)]" : "",
-              selectedFieldId === field.id ? "ring-2 ring-brand" : "",
+              "brand-note",
+              error ? "brand-note--danger" : note ? "brand-note--copper" : "",
+              selectedFieldId === field.id ? "outline outline-2 outline-offset-2 outline-[var(--brand)]" : "",
             )}
           >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Document required</p>
-            <h3 className="mt-1 break-words text-base font-semibold leading-6">
+            <p className="eyebrow">Document required</p>
+            <h3 className="mt-1.5 break-words text-base font-semibold leading-6 text-[var(--heading)]">
               {field.label}
-              {field.required ? <span className="text-danger"> *</span> : null}
+              <RequiredMark field={field} />
+              {!editable ? <LockedTag /> : null}
             </h3>
-            {!editable ? <p className="mt-1 text-xs font-medium text-muted">Locked</p> : null}
 
-            {field.description ? (
-              <div className="mt-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Note</p>
-                <p className="mt-1 break-words text-sm leading-5 text-muted">{field.description}</p>
-              </div>
-            ) : null}
+            {field.description ? <p className="form-help">{field.description}</p> : null}
 
             {template?.assetId && template.filename ? (
-              <div className="mt-3 min-w-0 rounded-lg border border-border bg-secondary/60 px-3 py-2.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Template</p>
+              <div className="mt-3 min-w-0 rounded-md border border-border bg-[var(--tint)] px-3 py-2.5">
+                <p className="eyebrow">Template</p>
                 <div className="mt-1 min-w-0">
                   <RemoteFileLink path={`/form-assets/${template.assetId}/content`} filename={template.filename} />
                 </div>
               </div>
             ) : null}
 
-            {error ? <p id={`${id}-error`} className="mt-3 break-words text-sm text-danger">{error}</p> : null}
-            {note ? <p id={`${id}-note`} className="mt-3 break-words text-sm text-[var(--badge-warning-fg)]">Correction: {note}</p> : null}
+            {error ? <p id={`${id}-error`} className="form-error mt-3">{error}</p> : null}
+            {note ? <p id={`${id}-note`} className="form-correction mt-3">Correction: {note}</p> : null}
 
             <div className="mt-4">
               <FileField
@@ -183,7 +235,6 @@ function DocumentTable({
                 value={values[field.id]}
                 editable={editable}
                 describedBy={describedBy}
-                zone
                 uploaded={uploaded}
                 onChange={(next) => onChange?.(field.id, next)}
                 onUpload={onUpload}
@@ -213,59 +264,152 @@ function FieldControl({
   error?: string;
   editable: boolean;
   onChange?: (fieldId: string, value: unknown) => void;
-  onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
+  onUpload?: Upload;
 }) {
-  // Phones drop the inner gutter so inputs use the full card width.
-  if (field.type === "heading") return <h3 className="text-sm font-semibold leading-6 sm:px-3">{field.label}</h3>;
-  if (field.type === "info") return <p className="text-sm leading-5 text-muted sm:px-3">{field.description || field.label}</p>;
-  const describedBy = [note ? `${id}-note` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
-  const shell = note || error
-    ? "rounded-md border border-[var(--warning)] bg-[var(--badge-warning-bg)] px-3 py-3"
-    : "rounded-md border border-transparent py-2 sm:px-3 sm:py-3";
-  const body = (
+  if (field.type === "heading") return <h3 className="form-subhead">{field.label}</h3>;
+  if (field.type === "info") return <p className="form-info">{field.description || field.label}</p>;
+
+  const describedBy = [field.description ? `${id}-help` : "", note ? `${id}-note` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
+  const change = (next: unknown) => onChange?.(field.id, next);
+  const state = { invalid: Boolean(error), flagged: Boolean(note) };
+  const footer = (
     <>
-      <span className="flex items-baseline justify-between gap-3">
-        <span className="font-medium leading-5">
-          {field.label}
-          {field.required ? <span className="text-danger"> *</span> : null}
-        </span>
-        {!editable ? <span className="shrink-0 text-xs font-medium leading-5 text-muted">Locked</span> : null}
-      </span>
-      {field.description ? <span className="text-sm leading-5 text-muted">{field.description}</span> : null}
+      {field.description ? <p id={`${id}-help`} className="form-help">{field.description}</p> : null}
+      {error ? <p id={`${id}-error`} className="form-error">{error}</p> : null}
+      {note ? <p id={`${id}-note`} className="form-correction">Correction: {note}</p> : null}
     </>
   );
-  if (field.type === "reupload") {
+
+  if (isFloating(field)) {
     return (
-      <div className={shell}>
-        <div className="grid grid-cols-1 gap-1.5 text-sm">
-          {body}
-          <ReuploadField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
-        </div>
-        {error ? <p id={`${id}-error`} className="mt-2 text-sm leading-5 text-danger">{error}</p> : null}
-        {note ? <p id={`${id}-note`} className="mt-2 text-sm leading-5 text-[var(--badge-warning-fg)]">Correction: {note}</p> : null}
-      </div>
+      <>
+        <BoxControl id={id} field={field} value={value} editable={editable} describedBy={describedBy} floating onChange={change} {...state} />
+        {footer}
+      </>
     );
   }
+
+  if (isBoxField(field)) {
+    return (
+      <>
+        <label htmlFor={id} className="field-label field-label--tight">
+          {field.label}
+          <RequiredMark field={field} />
+          {!editable ? <LockedTag /> : null}
+        </label>
+        <BoxControl id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={change} {...state} />
+        {footer}
+      </>
+    );
+  }
+
+  const isFile = field.type === "file" || field.type === "image" || field.type === "files" || field.type === "reupload";
+  const heading = (
+    <>
+      {field.label}
+      <RequiredMark field={field} />
+      {!editable ? <LockedTag /> : null}
+    </>
+  );
+
+  if (isFile) {
+    return (
+      <>
+        <label htmlFor={id} className="field-label field-label--file">{heading}</label>
+        {field.type === "reupload" ? (
+          <ReuploadField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={change} onUpload={onUpload} />
+        ) : (
+          <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={change} onUpload={onUpload} />
+        )}
+        {footer}
+      </>
+    );
+  }
+
   return (
-    <div className={shell}>
-      <label className="grid grid-cols-1 gap-1.5 text-sm" htmlFor={id}>
-        {body}
-        <Control id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={(next) => onChange?.(field.id, next)} onUpload={onUpload} />
+    <>
+      <span id={`${id}-label`} className="field-label">{heading}</span>
+      <ChoicePills id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={change} />
+      {footer}
+    </>
+  );
+}
+
+/** Input, text area, or dropdown in the 58px box. With `floating` the label lives inside the box. */
+function BoxControl({
+  id,
+  field,
+  value,
+  editable,
+  describedBy,
+  floating,
+  invalid,
+  flagged,
+  onChange,
+}: {
+  id: string;
+  field: FormField;
+  value: unknown;
+  editable: boolean;
+  describedBy?: string;
+  floating?: boolean;
+  invalid?: boolean;
+  flagged?: boolean;
+  onChange: (value: unknown) => void;
+}) {
+  const text = typeof value === "string" || typeof value === "number" ? String(value) : "";
+  const isSelect = field.type === "select" || field.type === "country";
+  const type = field.type === "number" || field.type === "currency" ? "number" : field.type === "datetime" ? "datetime-local" : field.type === "tel" ? "tel" : field.type === "email" ? "email" : field.type === "url" ? "url" : field.type === "date" ? "date" : field.type === "time" ? "time" : "text";
+  // Date and time inputs always show their own format hint, so their label stays raised.
+  const alwaysRaised = type === "date" || type === "time" || type === "datetime-local";
+  const className = cn("ff-control", floating ? "" : "ff-control--plain", invalid ? "is-invalid" : flagged ? "is-flagged" : "");
+  const shared = { id, className, disabled: !editable, "aria-describedby": describedBy, "aria-invalid": invalid || undefined };
+  // A space keeps the placeholder "shown" state working when the field has no placeholder of its own.
+  const placeholder = field.placeholder || (floating ? " " : undefined);
+
+  let control: React.ReactNode;
+  if (field.type === "textarea") {
+    control = <textarea {...shared} placeholder={placeholder} value={text} onChange={(event) => onChange(event.target.value)} />;
+  } else if (isSelect) {
+    const options = field.type === "country" ? COUNTRIES.map((country) => ({ value: country.code, label: country.name })) : field.options ?? [];
+    control = (
+      <select {...shared} value={text} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{floating ? "" : "Select"}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    );
+  } else {
+    control = <input {...shared} type={type} placeholder={placeholder} value={text} onChange={(event) => onChange(event.target.value)} />;
+  }
+
+  if (!floating) return <div className="ff">{control}</div>;
+  return (
+    <div className={cn("ff", isSelect ? "ff--select" : "", editable ? "" : "ff--locked")} data-filled={text !== "" || alwaysRaised ? "true" : undefined}>
+      {control}
+      <label htmlFor={id}>
+        {field.label}
+        <RequiredMark field={field} />
       </label>
-      {error ? <p id={`${id}-error`} className="mt-2 text-sm leading-5 text-danger">{error}</p> : null}
-      {note ? <p id={`${id}-note`} className="mt-2 text-sm leading-5 text-[var(--badge-warning-fg)]">Correction: {note}</p> : null}
+      {!editable ? (
+        <span className="ff-lock" title="Locked">
+          <Lock size={14} aria-hidden />
+          <span className="sr-only">Locked</span>
+        </span>
+      ) : null}
     </div>
   );
 }
 
-function Control({
+/** One choice, several choices, or yes/no, drawn as pills. */
+function ChoicePills({
   id,
   field,
   value,
   editable,
   describedBy,
   onChange,
-  onUpload,
 }: {
   id: string;
   field: FormField;
@@ -273,65 +417,41 @@ function Control({
   editable: boolean;
   describedBy?: string;
   onChange: (value: unknown) => void;
-  onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
 }) {
-  const text = typeof value === "string" || typeof value === "number" ? String(value) : "";
-  if (field.type === "textarea") {
-    return <textarea id={id} className={textareaClass} disabled={!editable} aria-describedby={describedBy} placeholder={field.placeholder} value={text} onChange={(event) => onChange(event.target.value)} />;
-  }
-  if (field.type === "select" || field.type === "country") {
-    const options = field.type === "country" ? COUNTRIES.map((country) => ({ value: country.code, label: country.name })) : field.options ?? [];
+  const group = { id, role: "group", "aria-labelledby": `${id}-label`, "aria-describedby": describedBy, className: "pill-group" } as const;
+  if (field.type === "toggle") {
     return (
-      <select id={id} className={inputClass} disabled={!editable} aria-describedby={describedBy} value={text} onChange={(event) => onChange(event.target.value)}>
-        <option value="">Select</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>{option.label}</option>
-        ))}
-      </select>
+      <div {...group}>
+        <button type="button" className="pill pill--yes" disabled={!editable} aria-pressed={value === true} onClick={() => onChange(true)}>Yes</button>
+        <button type="button" className="pill pill--no" disabled={!editable} aria-pressed={value === false} onClick={() => onChange(false)}>No</button>
+      </div>
     );
   }
   if (field.type === "radio") {
+    const text = typeof value === "string" || typeof value === "number" ? String(value) : "";
     return (
-      <div className="grid gap-1" role="radiogroup" aria-describedby={describedBy}>
+      <div {...group}>
         {(field.options ?? []).map((option) => (
-          <label key={option.value} className="flex min-h-10 items-center gap-2.5 break-words leading-5">
-            <input className="shrink-0" type="radio" name={id} disabled={!editable} checked={text === option.value} onChange={() => onChange(option.value)} />
+          <button key={option.value} type="button" className="pill" disabled={!editable} aria-pressed={text === option.value} onClick={() => onChange(option.value)}>
             {option.label}
-          </label>
+          </button>
         ))}
       </div>
     );
   }
-  if (field.type === "multiselect" || field.type === "checkbox") {
-    const selected = Array.isArray(value) ? value.map(String) : [];
-    return (
-      <div className="grid gap-1">
-        {(field.options ?? []).map((option) => (
-          <label key={option.value} className="flex min-h-10 items-center gap-2.5 leading-5">
-            <input
-              type="checkbox"
-              disabled={!editable}
-              checked={selected.includes(option.value)}
-              onChange={(event) => onChange(event.target.checked ? [...selected, option.value] : selected.filter((item) => item !== option.value))}
-            />
+  const selected = Array.isArray(value) ? value.map(String) : [];
+  return (
+    <div {...group}>
+      {(field.options ?? []).map((option) => {
+        const on = selected.includes(option.value);
+        return (
+          <button key={option.value} type="button" className="pill" disabled={!editable} aria-pressed={on} onClick={() => onChange(on ? selected.filter((item) => item !== option.value) : [...selected, option.value])}>
             {option.label}
-          </label>
-        ))}
-      </div>
-    );
-  }
-  if (field.type === "toggle") {
-    return (
-      <span className="flex min-h-10 items-center">
-        <input id={id} type="checkbox" disabled={!editable} checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />
-      </span>
-    );
-  }
-  if (field.type === "file" || field.type === "image" || field.type === "files") {
-    return <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} zone onChange={onChange} onUpload={onUpload} />;
-  }
-  const type = field.type === "number" || field.type === "currency" ? "number" : field.type === "datetime" ? "datetime-local" : field.type === "tel" ? "tel" : field.type === "email" ? "email" : field.type === "url" ? "url" : field.type === "date" ? "date" : field.type === "time" ? "time" : "text";
-  return <input id={id} className={inputClass} type={type} disabled={!editable} aria-describedby={describedBy} placeholder={field.placeholder} value={text} onChange={(event) => onChange(event.target.value)} />;
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function ReuploadField({
@@ -349,35 +469,36 @@ function ReuploadField({
   editable: boolean;
   describedBy?: string;
   onChange: (value: unknown) => void;
-  onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
+  onUpload?: Upload;
 }) {
   const template = field.template;
   return (
     <div className="grid min-w-0 grid-cols-1 gap-3">
-      <div className="min-w-0 break-all rounded-md border border-border bg-secondary p-3 [&_button]:whitespace-normal [&_button]:text-left">
-        <p className="text-xs font-medium uppercase text-muted">Download this file</p>
+      <div className="min-w-0 break-all rounded-md border border-border bg-[var(--tint)] p-3 [&_button]:whitespace-normal [&_button]:text-left">
+        <p className="eyebrow">Download this file</p>
         {template?.assetId && template.filename ? (
-          <RemoteFileLink path={`/form-assets/${template.assetId}/content`} filename={template.filename} />
+          <div className="mt-1 min-w-0">
+            <RemoteFileLink path={`/form-assets/${template.assetId}/content`} filename={template.filename} />
+          </div>
         ) : (
           <p className="mt-1 text-sm text-muted">No file has been uploaded yet.</p>
         )}
       </div>
       <div className="grid min-w-0 grid-cols-1 gap-2">
-        <p className="text-xs font-medium uppercase text-muted">Upload your completed file</p>
-        <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} zone onChange={onChange} onUpload={onUpload} />
+        <p className="eyebrow">Upload your completed file</p>
+        <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={onChange} onUpload={onUpload} />
       </div>
     </div>
   );
 }
 
+/** Upload row: a dashed box with a "Choose file" button, then the uploaded files in green. */
 function FileField({
   id,
   field,
   value,
   editable,
   describedBy,
-  dense,
-  zone,
   uploaded: uploadedHint,
   onChange,
   onUpload,
@@ -387,11 +508,9 @@ function FileField({
   value: unknown;
   editable: boolean;
   describedBy?: string;
-  dense?: boolean;
-  zone?: boolean;
   uploaded?: boolean;
   onChange: (value: unknown) => void;
-  onUpload?: (field: FormField, file: File) => Promise<{ documentId: string; filename: string }>;
+  onUpload?: Upload;
 }) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -402,6 +521,7 @@ function FileField({
   const multiple = field.type === "files";
   const accept = field.type === "image" ? "image/*" : field.file?.accept?.join(",");
   const hasFiles = files.length > 0 || Boolean(uploadedHint);
+  const blocked = !editable || !onUpload || pending;
 
   useEffect(() => () => {
     for (const url of previews.current) URL.revokeObjectURL(url);
@@ -428,153 +548,55 @@ function FileField({
     }
   }
 
-  const chooseLabel = pending ? "Uploading…" : hasFiles ? (multiple ? "Add another file" : "Reupload") : "Upload file";
-  const fileInput = (
-    <input
-      ref={inputRef}
-      id={id}
-      className="sr-only"
-      type="file"
-      accept={accept || undefined}
-      disabled={!editable || !onUpload || pending}
-      aria-describedby={describedBy}
-      onChange={(event) => void pick(event)}
-    />
-  );
-
-  if (zone) {
-    return (
-      <div className="grid min-w-0 grid-cols-1 gap-3">
-        {hasFiles ? (
-          <div className="grid min-w-0 grid-cols-1 gap-2 rounded-xl border border-[color-mix(in_srgb,var(--success)_35%,var(--border))] bg-[var(--badge-success-bg)]/40 px-3 py-3">
-            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--badge-success-fg)]">
-              <UploadTick />
-              Uploaded
-            </span>
-            {files.map((file) => (
-              <div key={file.documentId || file.filename} className="min-w-0">
-                {localPreview[file.documentId] ? (
-                  <img src={localPreview[file.documentId]} alt={file.filename} className="max-h-40 w-full rounded-md border border-border bg-white object-contain" />
-                ) : null}
-                {file.documentId && isStoredDocument(file.documentId) ? (
-                  <FileLink documentId={file.documentId} filename={file.filename} />
-                ) : (
-                  <span className="block truncate text-sm font-medium" title={file.filename}>{file.filename}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <button
-            type="button"
-            disabled={!editable || !onUpload || pending}
-            className={cn(
-              "grid min-h-[7.5rem] place-items-center rounded-xl border-2 border-dashed border-border bg-secondary/40 px-4 py-6 text-center transition",
-              editable && onUpload && !pending ? "hover:border-brand hover:bg-secondary/70" : "opacity-70",
-            )}
-            onClick={() => inputRef.current?.click()}
-          >
-            <span className="grid gap-1">
-              <span className="text-sm font-semibold text-foreground">{pending ? "Uploading…" : "Tap to upload"}</span>
-              <span className="text-xs text-muted">
-                {field.type === "image" ? "Images only" : multiple ? "Add one or more files" : "PDF or image"}
-              </span>
-            </span>
-          </button>
-        )}
-        {error ? <p className="break-words text-sm text-danger">{error}</p> : null}
-        {editable ? (
-          <div className="grid gap-2">
-            {fileInput}
-            {hasFiles || pending ? (
-              <Button
-                type="button"
-                size="lg"
-                variant={hasFiles ? "outline" : "primary"}
-                className="h-11 w-full"
-                disabled={!onUpload || pending}
-                onClick={() => inputRef.current?.click()}
-              >
-                {chooseLabel}
-              </Button>
-            ) : null}
-            <UploadStatus pending={pending} />
-          </div>
-        ) : null}
-      </div>
-    );
-  }
+  const buttonLabel = pending ? "Uploading…" : hasFiles ? (multiple ? "Add file" : "Replace file") : "Choose file";
+  const statusText = pending ? "Please wait" : hasFiles ? (files.length > 1 ? `${files.length} files uploaded` : "File uploaded") : "No file chosen";
 
   return (
-    <div className="grid min-w-0 max-w-full gap-2">
-      {dense ? (
-        hasFiles ? (
-          <span className="inline-flex w-fit max-w-full items-center gap-1.5 text-sm font-semibold text-[var(--success)]">
-            <UploadTick />
-            <span>Uploaded</span>
-          </span>
-        ) : pending ? null : (
-          <span className="text-sm text-muted">Not uploaded</span>
-        )
+    <div className="grid min-w-0 grid-cols-1 gap-1">
+      <input
+        ref={inputRef}
+        id={id}
+        className="sr-only"
+        type="file"
+        accept={accept || undefined}
+        disabled={blocked}
+        aria-describedby={describedBy}
+        onChange={(event) => void pick(event)}
+      />
+      <button type="button" className="file-drop" disabled={blocked} onClick={() => inputRef.current?.click()}>
+        <span className="file-drop-button">{buttonLabel}</span>
+        <span className={cn("file-drop-text", hasFiles && !pending ? "text-success" : "")}>{statusText}</span>
+      </button>
+      <p className="form-help">{fileHint(field)}</p>
+      {files.length > 0 ? (
+        <ul className="mt-1 grid min-w-0 grid-cols-1 gap-2">
+          {files.map((file) => (
+            <li key={file.documentId || file.filename} className="file-current grid min-w-0 grid-cols-1 gap-2">
+              {localPreview[file.documentId] ? (
+                <img src={localPreview[file.documentId]} alt={file.filename} className="max-h-40 w-full rounded-md border border-border bg-white object-contain" />
+              ) : null}
+              <span className="flex min-w-0 items-center gap-2">
+                <UploadTick />
+                <span className="min-w-0 flex-1">
+                  {file.documentId && isStoredDocument(file.documentId) ? (
+                    <FileLink documentId={file.documentId} filename={file.filename} />
+                  ) : (
+                    <span className="block truncate text-sm font-medium" title={file.filename}>{file.filename}</span>
+                  )}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
       ) : null}
-      {files.map((file) => (
-        <div key={file.documentId || file.filename} className="flex min-w-0 max-w-full items-start gap-2">
-          {dense ? null : <span className="mt-1 shrink-0"><UploadTick /></span>}
-          <div className="min-w-0 max-w-full flex-1 overflow-hidden">
-            {dense ? (
-              file.documentId && isStoredDocument(file.documentId) ? (
-                <FileLink documentId={file.documentId} filename={file.filename} />
-              ) : (
-                <span className="block truncate text-sm" title={file.filename}>{file.filename}</span>
-              )
-            ) : localPreview[file.documentId] ? (
-              <img src={localPreview[file.documentId]} alt={file.filename} className="max-h-48 w-full rounded-md border border-border bg-white object-contain" />
-            ) : file.documentId && isStoredDocument(file.documentId) ? (
-              isImageName(file.filename) ? (
-                <InlineFilePreview documentId={file.documentId} filename={file.filename} />
-              ) : (
-                <FileLink documentId={file.documentId} filename={file.filename} />
-              )
-            ) : (
-              <span className="block truncate text-xs text-muted" title={file.filename}>{file.filename}</span>
-            )}
-          </div>
-        </div>
-      ))}
-      {error ? <p className="break-words text-sm text-danger">{error}</p> : null}
-      {editable ? (
-        dense ? (
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {fileInput}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-9 w-full sm:h-8 sm:w-auto"
-              disabled={!onUpload || pending}
-              onClick={() => inputRef.current?.click()}
-            >
-              {chooseLabel}
-            </Button>
-            <UploadStatus pending={pending} />
-          </div>
-        ) : (
-          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-hidden">
-            <input id={id} className="block min-w-0 flex-1 text-sm" type="file" accept={accept || undefined} disabled={!onUpload || pending} aria-describedby={describedBy} onChange={(event) => void pick(event)} />
-            <UploadStatus pending={pending} />
-          </div>
-        )
-      ) : null}
+      {error ? <p className="form-error">{error}</p> : null}
+      <UploadStatus pending={pending} />
     </div>
   );
 }
 
 function isStoredDocument(id: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
-}
-
-function isImageName(filename: string) {
-  return /\.(png|jpe?g|jpe|jfif|gif|webp|bmp|avif|tiff?)$/i.test(filename);
 }
 
 function fileItems(value: unknown): { documentId: string; filename: string }[] {

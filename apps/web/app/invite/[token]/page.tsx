@@ -4,8 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
-import { BrandMark } from "@/components/brand-mark";
-import { Button, ErrorNote, Field, inputClass } from "@/components/ui";
+import { AuthFrame, FloatingInput } from "@/components/auth-frame";
+import { Button, ErrorNote } from "@/components/ui";
 import { useSession } from "@/components/providers";
 
 export default function InvitePage() {
@@ -42,24 +42,19 @@ export default function InvitePage() {
   }
 
   return (
-    <main className="auth-screen">
-      <form onSubmit={(event) => void continueInvitation(event)} className="auth-card">
-        <div>
-          <BrandMark className="mb-4 h-12 w-auto max-w-[220px]" />
-          <h1 className="text-2xl font-semibold tracking-tight">Invitation</h1>
-          <p className="mt-1 break-words text-sm leading-5 text-muted">{preview ? `${preview.companyName || "Your company"} · ${preview.email}` : "Checking the invitation…"}</p>
-        </div>
-        <ErrorNote message={error} />
-        {preview?.needsPassword ? (
-          <>
-            <Field label="Your name"><input className={inputClass} required value={name} onChange={(event) => setName(event.target.value)} /></Field>
-            <Field label="Password">
-              <input className={inputClass} type="password" required value={password} onChange={(event) => setPassword(event.target.value)} />
-            </Field>
-          </>
-        ) : null}
-        <Button type="submit" variant="primary" disabled={!preview}>Continue</Button>
-      </form>
-    </main>
+    <AuthFrame
+      title="Invitation"
+      description={preview ? `${preview.companyName || "Your company"} · ${preview.email}` : "Checking the invitation…"}
+      onSubmit={(event) => void continueInvitation(event)}
+    >
+      <ErrorNote message={error} />
+      {preview?.needsPassword ? (
+        <>
+          <FloatingInput label="Your name" required value={name} onChange={(event) => setName(event.target.value)} />
+          <FloatingInput label="Password" type="password" required value={password} onChange={(event) => setPassword(event.target.value)} />
+        </>
+      ) : null}
+      <Button type="submit" variant="primary" size="xl" className="max-sm:px-4" disabled={!preview}>Continue</Button>
+    </AuthFrame>
   );
 }

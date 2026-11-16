@@ -41,7 +41,7 @@ export function RemoteFileLink({ path, filename }: { path: string; filename: str
   const src = `/api/v1${path}${path.includes("?") ? "&" : "?"}disposition=inline`;
   return (
     <>
-      <button type="button" className="block max-w-full truncate text-left text-sm font-semibold text-brand underline" title={filename} onClick={() => setOpen(true)}>
+      <button type="button" className="block max-w-full truncate text-left text-sm font-semibold text-[var(--link)] underline underline-offset-2" title={filename} onClick={() => setOpen(true)}>
         {filename}
       </button>
       <Modal open={open} title={filename} wide onClose={() => setOpen(false)}>

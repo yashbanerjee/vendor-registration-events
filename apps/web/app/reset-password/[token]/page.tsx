@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
-import { BrandMark } from "@/components/brand-mark";
-import { Button, ErrorNote, Field, inputClass } from "@/components/ui";
+import { AuthFrame, FloatingInput } from "@/components/auth-frame";
+import { Button, ErrorNote } from "@/components/ui";
 
 export default function ResetPasswordPage() {
   const params = useParams<{ token: string }>();
@@ -28,20 +28,15 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="auth-screen">
-      <form onSubmit={(event) => void submit(event)} className="auth-card">
-        <div>
-          <BrandMark className="mb-4 h-12 w-auto max-w-[220px]" />
-          <h1 className="text-2xl font-semibold tracking-tight">Choose a new password</h1>
-          <p className="mt-1 text-sm leading-5 text-muted">Use at least 12 characters, with an uppercase letter, a lowercase letter, and a number.</p>
-        </div>
-        <ErrorNote message={error} />
-        <Field label="New password">
-          <input className={inputClass} type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-        </Field>
-        <Button type="submit" variant="primary">Update password</Button>
-        <Link className="justify-self-center py-1 text-sm underline" href="/login">Back to sign in</Link>
-      </form>
-    </main>
+    <AuthFrame
+      title="Choose a new password"
+      description="Use at least 12 characters, with an uppercase letter, a lowercase letter, and a number."
+      onSubmit={(event) => void submit(event)}
+    >
+      <ErrorNote message={error} />
+      <FloatingInput label="New password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+      <Button type="submit" variant="primary" size="xl" className="max-sm:px-4">Update password</Button>
+      <Link className="auth-link" href="/login">Back to sign in</Link>
+    </AuthFrame>
   );
 }

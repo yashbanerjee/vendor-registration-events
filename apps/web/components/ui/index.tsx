@@ -27,8 +27,9 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   );
 }
 
-export const inputClass = "h-10 w-full min-w-0 rounded-md border border-border bg-surface px-3 text-sm leading-10 text-foreground placeholder:text-muted disabled:cursor-not-allowed disabled:bg-secondary disabled:text-foreground max-sm:h-11 max-sm:text-base max-sm:leading-[2.75rem]";
-export const textareaClass = "min-h-28 w-full min-w-0 resize-y rounded-md border border-border bg-surface px-3 py-2.5 text-sm leading-5 text-foreground placeholder:text-muted disabled:cursor-not-allowed disabled:bg-secondary disabled:text-foreground max-sm:text-base";
+const controlClass = "w-full min-w-0 rounded-md border border-[var(--field-border)] bg-field text-foreground transition-[border-color,box-shadow] placeholder:text-dim focus:border-[#009ef0] focus:shadow-[0_0_0_3px_rgba(0,158,240,0.22)] focus:outline-none disabled:cursor-not-allowed disabled:bg-[var(--field-disabled)] disabled:text-muted";
+export const inputClass = `h-10 px-3 text-sm leading-10 max-sm:h-11 max-sm:text-base max-sm:leading-[2.75rem] ${controlClass}`;
+export const textareaClass = `min-h-28 resize-y px-3 py-2.5 text-sm leading-5 max-sm:text-base ${controlClass}`;
 
 export function Badge({ tone, children }: { tone: "success" | "warning" | "danger" | "info" | "neutral"; children: React.ReactNode }) {
   return <ShadcnBadge variant={tone}>{children}</ShadcnBadge>;
@@ -67,10 +68,10 @@ export function Modal({ open, title, onClose, wide, children }: { open: boolean;
   return (
     <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-[#111111]/50 backdrop-blur-md" />
-        <Dialog.Content className={cn("fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface p-4 shadow-[0_8px_16px_rgba(28,30,22,0.25),0_0_1px_rgba(28,30,22,0.31)] sm:max-h-[calc(100dvh-4rem)] sm:p-5", wide ? "w-[min(960px,calc(100%-1.5rem))]" : "w-[min(560px,calc(100%-1.5rem))]")}>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-[#0a0c0e]/70 backdrop-blur-md" />
+        <Dialog.Content className={cn("fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-lg border border-[var(--field-border)] border-t-2 border-t-brand bg-surface p-4 shadow-panel sm:max-h-[calc(100dvh-4rem)] sm:p-5", wide ? "w-[min(960px,calc(100%-1.5rem))]" : "w-[min(560px,calc(100%-1.5rem))]")}>
           <div className="mb-4 flex items-start justify-between gap-3">
-            <Dialog.Title className="min-w-0 flex-1 truncate text-lg font-semibold leading-7" title={title}>{title}</Dialog.Title>
+            <Dialog.Title className="min-w-0 flex-1 truncate text-base font-bold uppercase leading-7 tracking-[0.06em] text-[var(--heading)]" title={title}>{title}</Dialog.Title>
             <Dialog.Close className="-mr-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-secondary sm:h-8 sm:w-8" aria-label="Close">
               <X size={16} />
             </Dialog.Close>
@@ -89,8 +90,8 @@ export function ModalActions({ children }: { children: React.ReactNode }) {
 
 export function EmptyState({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-border bg-surface px-5 py-10 text-center">
-      <h2 className="text-base font-semibold">{title}</h2>
+    <div className="rounded-lg border border-dashed border-[var(--field-border)] bg-[var(--tint)] px-5 py-10 text-center">
+      <h2 className="text-sm font-bold uppercase tracking-[0.1em] text-[var(--heading)]">{title}</h2>
       <p className="mx-auto mt-1 max-w-md text-sm text-muted">{body}</p>
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
@@ -102,7 +103,7 @@ export function StatCard({ label, value, hint }: { label: string; value: React.R
   return (
     <div className="panel flex min-w-0 flex-col px-3.5 py-3.5 sm:px-4 sm:py-4">
       <p className="eyebrow">{label}</p>
-      <p className="mt-1.5 text-2xl font-semibold leading-8 tracking-tight sm:text-3xl sm:leading-9">{value}</p>
+      <p className="mt-1.5 text-2xl font-bold leading-8 tracking-tight text-[var(--heading)] sm:text-3xl sm:leading-9">{value}</p>
       {hint ? <p className="mt-1 text-xs leading-5 text-muted">{hint}</p> : null}
     </div>
   );
@@ -132,8 +133,9 @@ export function PageHeader({ title, description, eyebrow, actions }: { title: st
     <div className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:mb-5">
       <div className="min-w-0 max-w-2xl">
         {eyebrow ? <p className="eyebrow mb-1">{eyebrow}</p> : null}
-        <h1 className="break-words text-xl font-semibold leading-7 tracking-tight">{title}</h1>
-        {description ? <p className="mt-1 break-words text-sm leading-5 text-muted">{description}</p> : null}
+        <h1 className="break-words text-xl font-bold uppercase leading-7 tracking-[0.02em] text-[var(--heading)]">{title}</h1>
+        <span className="brand-rule mt-2" aria-hidden />
+        {description ? <p className="mt-2.5 break-words text-sm leading-5 text-muted">{description}</p> : null}
       </div>
       {/* Phones give actions their own full-width row under the title so every page lines up the same way. */}
       {actions ? <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:max-w-full">{actions}</div> : null}

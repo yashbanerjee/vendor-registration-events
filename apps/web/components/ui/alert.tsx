@@ -2,13 +2,14 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const alertVariants = cva("relative w-full rounded-md border px-3 py-2.5 text-sm [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-3 [&>svg]:top-3 [&>svg]:text-foreground [&>svg~*]:pl-7", {
+// iktva notice: faint tinted box, hairline border, a 2px coloured left edge for its kind.
+const alertVariants = cva("relative w-full rounded-md border border-l-2 px-4 py-3 text-sm text-foreground [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-3 [&>svg]:top-3 [&>svg]:text-foreground [&>svg~*]:pl-7", {
   variants: {
     variant: {
-      default: "border-border bg-surface text-foreground",
-      destructive: "border-[color-mix(in_srgb,var(--danger)_28%,transparent)] bg-[var(--badge-danger-bg)] text-[var(--badge-danger-fg)] [&>svg]:text-[var(--badge-danger-fg)]",
-      warning: "border-[color-mix(in_srgb,var(--warning)_28%,transparent)] bg-[var(--badge-warning-bg)] text-[var(--badge-warning-fg)] [&>svg]:text-[var(--badge-warning-fg)]",
-      success: "border-[color-mix(in_srgb,var(--success)_28%,transparent)] bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)] [&>svg]:text-[var(--badge-success-fg)]",
+      default: "border-[color-mix(in_srgb,var(--brand)_32%,transparent)] border-l-brand bg-[color-mix(in_srgb,var(--brand)_7%,transparent)]",
+      destructive: "border-[color-mix(in_srgb,var(--danger)_45%,transparent)] border-l-danger bg-[color-mix(in_srgb,var(--danger)_7%,transparent)] [&>svg]:text-danger",
+      warning: "border-[color-mix(in_srgb,var(--warning)_40%,transparent)] border-l-warning bg-[color-mix(in_srgb,var(--warning)_8%,transparent)] [&>svg]:text-warning",
+      success: "border-[color-mix(in_srgb,var(--success)_40%,transparent)] border-l-success bg-[color-mix(in_srgb,var(--success)_10%,transparent)] [&>svg]:text-success",
     },
   },
   defaultVariants: {

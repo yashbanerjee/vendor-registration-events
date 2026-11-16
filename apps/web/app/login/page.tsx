@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/errors";
-import { BrandMark } from "@/components/brand-mark";
-import { Button, ErrorNote, Field, LoadingState, Spinner, inputClass } from "@/components/ui";
+import { AuthFrame, FloatingInput } from "@/components/auth-frame";
+import { Button, ErrorNote, LoadingState, Spinner } from "@/components/ui";
 import { useSession } from "@/components/providers";
 
 export default function LoginPage() {
@@ -48,33 +48,25 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="auth-screen">
-      {pending ? <LoadingState variant="overlay" label="Signing you in…" description="Preparing your workspace." /> : null}
-      <form onSubmit={(event) => void submit(event)} className="auth-card">
-        <div>
-          <BrandMark className="mb-4 h-12 w-auto max-w-[220px]" />
-          <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>        </div>
-        <ErrorNote message={error} />
-        {mfaToken ? (
-          <Field label="Authentication code">
-            <input className={inputClass} inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} required disabled={pending} />
-          </Field>
-        ) : (
-          <>
-            <Field label="Email">
-              <input className={inputClass} type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required disabled={pending} />
-            </Field>
-            <Field label="Password">
-              <input className={inputClass} type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={pending} />
-            </Field>
-          </>
-        )}
-        <Button type="submit" variant="primary" disabled={pending}>
-          {pending ? <Spinner size="sm" /> : null}
-          {pending ? "Signing in…" : "Continue"}
-        </Button>
-        <Link className="justify-self-center py-1 text-sm underline" href="/forgot-password">Forgot password?</Link>
-      </form>
-    </main>
+    <AuthFrame
+      title="Sign in"
+      onSubmit={(event) => void submit(event)}
+      overlay={pending ? <LoadingState variant="overlay" label="Signing you in…" description="Preparing your workspace." /> : null}
+    >
+      <ErrorNote message={error} />
+      {mfaToken ? (
+        <FloatingInput label="Authentication code" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} required disabled={pending} />
+      ) : (
+        <>
+          <FloatingInput label="Email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required disabled={pending} />
+          <FloatingInput label="Password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={pending} />
+        </>
+      )}
+      <Button type="submit" variant="primary" size="xl" className="max-sm:px-4" disabled={pending}>
+        {pending ? <Spinner size="sm" /> : null}
+        {pending ? "Signing in…" : "Continue"}
+      </Button>
+      <Link className="auth-link" href="/forgot-password">Forgot password?</Link>
+    </AuthFrame>
   );
 }

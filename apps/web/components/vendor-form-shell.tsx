@@ -6,11 +6,14 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { BrandMark } from "./brand-mark";
+import { BRAND_LOGO } from "./brand-mark";
 import { useSession } from "./providers";
-import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loader";
 
+/**
+ * The page a vendor fills a form on. It copies the parent registration site: a dark page with
+ * the logo bar on top and one centered card. It stays dark even when the portal theme is light.
+ */
 export function VendorFormShell({ children }: { children: React.ReactNode }) {
   const { session, loading } = useSession();
   const router = useRouter();
@@ -22,24 +25,30 @@ export function VendorFormShell({ children }: { children: React.ReactNode }) {
     else if (session.mustChangePassword) router.replace("/change-password");
   }, [loading, session, router]);
 
-  if (loading) return <LoadingState label="Loading form…" description="Getting your registration ready." />;
+  if (loading) {
+    return (
+      <div className="dark brand-page font-form">
+        <LoadingState label="Loading form…" description="Getting your registration ready." />
+      </div>
+    );
+  }
   if (!session) return null;
 
   return (
-    <div className="min-h-dvh bg-[var(--background)]">
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-surface px-4 sm:px-6 lg:px-8">
-        <Link href="/vendor" className="inline-flex items-center gap-2 text-sm font-semibold text-foreground hover:text-brand">
-          <ArrowLeft size={16} aria-hidden />
-          Back
+    <div className="dark brand-page font-form">
+      <nav className="brand-nav" aria-label="Form">
+        <Link href="/vendor" aria-label="iktva Forum 2027, back to My form" className="shrink-0">
+          <img src={BRAND_LOGO} alt="iktva Forum 2027" className="brand-nav-logo" />
         </Link>
-        <div className="mx-auto flex items-center text-brand">
-          <BrandMark compact className="h-8 w-8" />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="hidden text-sm text-muted sm:inline">{session.name}</span>
-          <Button
-            size="sm"
-            variant="ghost"
+        <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
+          <span className="hidden max-w-[16rem] truncate px-2 text-[0.78rem] tracking-[0.04em] text-muted md:inline">{session.name}</span>
+          <Link href="/vendor" className="brand-nav-link">
+            <ArrowLeft size={14} aria-hidden />
+            Back
+          </Link>
+          <button
+            type="button"
+            className="brand-nav-link"
             aria-label="Sign out"
             onClick={async () => {
               await api("/auth/logout", { method: "POST" });
@@ -47,11 +56,14 @@ export function VendorFormShell({ children }: { children: React.ReactNode }) {
               router.replace("/login");
             }}
           >
-            <LogOut size={16} />
-          </Button>
+            <LogOut size={14} aria-hidden />
+            <span className="hidden sm:inline">Sign out</span>
+          </button>
         </div>
-      </header>
-      <main className="mx-auto w-full max-w-4xl px-4 py-4 sm:px-6 sm:pb-10 lg:px-8">{children}</main>
+      </nav>
+      <main className="px-[4%] pb-16">
+        <div className="brand-shell">{children}</div>
+      </main>
     </div>
   );
 }

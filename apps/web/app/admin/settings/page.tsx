@@ -79,7 +79,7 @@ export default function SettingsPage() {
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [theme, setTheme] = useState<ThemeChoice>("light");
+  const [theme, setTheme] = useState<ThemeChoice>("dark");
   const [testTo, setTestTo] = useState("");
   const [testNote, setTestNote] = useState("");
   const [testError, setTestError] = useState("");
@@ -349,7 +349,7 @@ export default function SettingsPage() {
           </div>
         </form>
         <aside className="grid min-w-0 content-start gap-4">
-          <Card title="Appearance" description="Light is the default. This choice is saved in this browser.">
+          <Card title="Appearance" description="Dark is the default. This choice is saved in this browser.">
             <Field label="Theme">
               <select
                 className={inputClass}
