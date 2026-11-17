@@ -129,9 +129,9 @@ export default function EmailTemplatesPage() {
       <ErrorNote className="mb-3" message={error} />
       {query.isLoading ? <LoadingState label="Loading templates…" description="Fetching email templates." /> : null}
       {selected ? (
-        <div className="grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="grid items-start gap-4 xl:grid-cols-[240px_minmax(0,1fr)_minmax(280px,360px)]">
           {/* Phones and tablets pick the template from one menu instead of scrolling past the whole list. */}
-          <div className="lg:hidden">
+          <div className="xl:hidden">
             <Field label="Template">
               <select className={inputClass} value={selected.key} onChange={(event) => setSelectedKey(event.target.value)}>
                 {vendorTemplates.length ? (
@@ -147,14 +147,14 @@ export default function EmailTemplatesPage() {
               </select>
             </Field>
           </div>
-          <aside className="hidden gap-4 lg:grid">
+          <aside className="hidden gap-4 xl:grid">
             <TemplateGroup title="Company emails" items={vendorTemplates} selectedKey={selected.key} onSelect={setSelectedKey} />
             <TemplateGroup title="Admin emails" items={adminTemplates} selectedKey={selected.key} onSelect={setSelectedKey} />
           </aside>
           <section className="panel grid min-w-0 gap-4 p-4 sm:p-5">
             <div className="grid gap-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-semibold">{selected.label}</h2>
+                <h2 className="text-base font-bold uppercase tracking-[0.04em] text-[var(--heading)]">{selected.label}</h2>
                 {selected.customized ? <Badge tone="info">Customized</Badge> : <Badge tone="neutral">Default</Badge>}
                 <Badge tone="neutral">{selected.audience === "admin" ? "Admin" : "Company"}</Badge>
               </div>
@@ -173,17 +173,25 @@ export default function EmailTemplatesPage() {
               <input className={inputClass} value={draft.actionLabel} onChange={(event) => setDraft((current) => ({ ...current, actionLabel: event.target.value }))} />
             </Field>
             <div className="grid gap-2">
-              <h3 className="text-sm font-semibold">Available variables</h3>
+              <h3 className="section-title mb-0">Available variables</h3>
               <ul className="grid gap-1 sm:grid-cols-2">
                 {selected.variables.map((variable) => (
-                  <li key={variable.key} className="min-w-0 rounded-md border border-border bg-secondary px-2.5 py-2 text-sm">
-                    <code className="break-all font-semibold">{`{{${variable.key}}}`}</code>
+                  <li key={variable.key} className="min-w-0 rounded-md border border-[var(--field-border)] bg-field px-2.5 py-2 text-sm">
+                    <code className="break-all font-semibold text-[var(--link)]">{`{{${variable.key}}}`}</code>
                     <span className="mt-0.5 block text-xs text-muted">{variable.label}</span>
                   </li>
                 ))}
               </ul>
             </div>
           </section>
+          <EmailPreview
+            organizationName="iktva Forum 2027"
+            audience={selected.audience}
+            title={draft.title || "Email title"}
+            body={draft.body || "Email body"}
+            actionLabel={draft.actionLabel || "Open the portal"}
+            subject={draft.subject}
+          />
         </div>
       ) : null}
     </div>
@@ -214,7 +222,9 @@ function TemplateGroup({
               type="button"
               onClick={() => onSelect(item.key)}
               className={`rounded-md border px-3 py-2 text-left text-sm transition ${
-                active ? "border-brand bg-brand/10 font-semibold text-foreground" : "border-border bg-surface text-foreground hover:bg-secondary"
+                active
+                  ? "border-[color-mix(in_srgb,var(--brand)_55%,transparent)] bg-[color-mix(in_srgb,var(--brand)_13%,transparent)] font-semibold text-[var(--heading)] shadow-[inset_2px_0_0_var(--brand)]"
+                  : "border-border bg-surface text-foreground hover:bg-secondary"
               }`}
             >
               <span className="block">{item.label}</span>
@@ -224,5 +234,65 @@ function TemplateGroup({
         })}
       </div>
     </div>
+  );
+}
+
+/** Live preview of the dark branded email that recipients will receive. */
+function EmailPreview({
+  organizationName,
+  audience,
+  title,
+  body,
+  actionLabel,
+  subject,
+}: {
+  organizationName: string;
+  audience: "vendor" | "admin";
+  title: string;
+  body: string;
+  actionLabel: string;
+  subject: string;
+}) {
+  const paragraphs = body
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+  const audienceLabel = audience === "admin" ? "an administrator" : "a company";
+
+  return (
+    <aside className="grid min-w-0 gap-3 xl:sticky xl:top-4">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <h2 className="section-title mb-0">Email preview</h2>
+        {subject ? <p className="max-w-full truncate text-xs text-muted" title={subject}>Subject: {subject}</p> : null}
+      </div>
+      <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[#0a0c0e] p-3 sm:p-4">
+        <div className="overflow-hidden rounded-md border border-[rgba(255,255,255,0.1)] bg-[#111519] shadow-[0_30px_70px_rgba(0,0,0,0.45)]">
+          <div className="h-[3px] bg-[linear-gradient(90deg,#dda36c,#ad642d_30%,#4a7cb9_70%,#009ef0)]" aria-hidden />
+          <div className="space-y-4 p-5 font-form sm:p-6">
+            <div>
+              <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-accent">{organizationName}</p>
+              <h3 className="mt-2 text-[1.15rem] font-bold uppercase leading-snug tracking-[0.02em] text-white">{title}</h3>
+              <span className="brand-rule mt-3" aria-hidden />
+            </div>
+            <div className="space-y-3 text-[0.95rem] leading-6 text-[#eef2f5]">
+              {paragraphs.length ? paragraphs.map((paragraph, index) => (
+                <p key={index} className="whitespace-pre-wrap break-words">{paragraph}</p>
+              )) : (
+                <p className="text-dim">Email body</p>
+              )}
+            </div>
+            <div>
+              <span className="inline-flex h-[44px] items-center rounded border border-[rgba(0,158,240,0.7)] bg-primary px-5 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-white shadow-[0_14px_30px_rgba(0,100,173,0.35)]">
+                {actionLabel}
+              </span>
+              <p className="mt-3 break-all text-xs text-dim">Or open this link: https://example.com/action</p>
+            </div>
+            <p className="border-t border-[rgba(255,255,255,0.1)] pt-4 text-xs leading-5 text-dim">
+              This message was sent to {audienceLabel} about a form or account with {organizationName}.
+            </p>
+          </div>
+        </div>
+      </div>
+    </aside>
   );
 }

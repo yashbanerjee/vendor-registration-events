@@ -52,6 +52,10 @@ function isLoopback(url: string) {
   }
 }
 
+/**
+ * HTML email layout matched to the portal brand: dark page, dark card,
+ * copper-to-blue rule, and a blue uppercase action button.
+ */
 export function renderEmail(input: {
   template: string;
   audience: EmailAudience;
@@ -71,10 +75,17 @@ export function renderEmail(input: {
   const actionLine = input.actionUrl && !input.body.includes(input.actionUrl) ? `\n${action}: ${input.actionUrl}` : "";
   const text = [input.organizationName, input.title, "", input.body, actionLine].filter((line) => line !== undefined).join("\n");
   const bodyHtml = paragraphs
-    .map((paragraph) => `<p style="margin:0 0 12px;">${linkify(escapeHtml(paragraph).replace(/\n/g, "<br>"))}</p>`)
+    .map((paragraph) => `<p style="margin:0 0 14px;color:#eef2f5;font-size:15px;line-height:1.6;">${linkify(escapeHtml(paragraph).replace(/\n/g, "<br>"))}</p>`)
     .join("");
-  const extraLink = input.actionUrl && !input.body.includes(input.actionUrl)
-    ? `<p style="margin:0 0 12px;"><a href="${escapeHtml(input.actionUrl)}">${escapeHtml(input.actionUrl)}</a></p>`
+  const buttonHtml = input.actionUrl
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 8px;">
+        <tr>
+          <td style="border-radius:4px;background:#0064ad;border:1px solid rgba(0,158,240,0.7);">
+            <a href="${escapeHtml(input.actionUrl)}" style="display:inline-block;padding:14px 28px;color:#ffffff;font-family:Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.16em;line-height:1;text-decoration:none;text-transform:uppercase;">${escapeHtml(action)}</a>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0 0 12px;color:#6b7885;font-size:12px;line-height:1.5;word-break:break-all;">Or open this link:<br><a href="${escapeHtml(input.actionUrl)}" style="color:#a3d9f6;text-decoration:underline;">${escapeHtml(input.actionUrl)}</a></p>`
     : "";
   const audience = input.audience === "admin" ? "an administrator" : "a company";
   const sender = input.fromAddress ? ` It was sent from ${escapeHtml(input.fromAddress)}.` : "";
@@ -83,16 +94,32 @@ export function renderEmail(input: {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="supported-color-schemes" content="dark">
     <title>${escapeHtml(input.title)}</title>
   </head>
-  <body style="margin:0;padding:24px;background:#f5f8fb;color:#0a0d0d;font-family:Montserrat,sans-serif;font-size:15px;line-height:1.5;">
-    <div style="max-width:560px;margin:0 auto;padding:28px 24px;background:#ffffff;border:1px solid #d2dee8;border-radius:8px;">
-      <p style="margin:0 0 4px;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#0ca4dd;font-weight:600;">${escapeHtml(input.organizationName)}</p>
-      <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;font-weight:700;color:#111b2c;">${escapeHtml(input.title)}</h1>
-      ${bodyHtml}
-      ${extraLink}
-      <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#566774;">This message was sent to ${audience} about a form or account with ${escapeHtml(input.organizationName)}.${sender}</p>
-    </div>
+  <body style="margin:0;padding:0;background:#0a0c0e;color:#eef2f5;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0a0c0e;">
+      <tr>
+        <td align="center" style="padding:32px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#111519;border:1px solid rgba(255,255,255,0.1);border-radius:6px;">
+            <tr>
+              <td style="height:3px;line-height:3px;font-size:0;background:linear-gradient(90deg,#dda36c,#ad642d 30%,#4a7cb9 70%,#009ef0);">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding:28px 28px 32px;">
+                <p style="margin:0 0 10px;color:#dda36c;font-size:11px;font-weight:700;letter-spacing:0.18em;line-height:1.2;text-transform:uppercase;">${escapeHtml(input.organizationName)}</p>
+                <h1 style="margin:0 0 10px;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.02em;line-height:1.25;text-transform:uppercase;">${escapeHtml(input.title)}</h1>
+                <div style="width:44px;height:2px;margin:0 0 20px;background:linear-gradient(90deg,#dda36c,#ad642d 30%,#4a7cb9 70%,#009ef0);">&nbsp;</div>
+                ${bodyHtml}
+                ${buttonHtml}
+                <p style="margin:28px 0 0;padding-top:18px;border-top:1px solid rgba(255,255,255,0.1);color:#6b7885;font-size:12px;line-height:1.5;">This message was sent to ${audience} about a form or account with ${escapeHtml(input.organizationName)}.${sender}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>`;
   return { html, text };
@@ -102,6 +129,6 @@ function linkify(escaped: string) {
   return escaped.replace(/https?:\/\/[^\s<]+/g, (url) => {
     const clean = url.replace(/[).,]+$/, "");
     const tail = url.slice(clean.length);
-    return `<a href="${clean}">${clean}</a>${tail}`;
+    return `<a href="${clean}" style="color:#a3d9f6;text-decoration:underline;">${clean}</a>${tail}`;
   });
 }
