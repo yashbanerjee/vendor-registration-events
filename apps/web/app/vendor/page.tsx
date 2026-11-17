@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/errors";
 import { PacketCard, type Packet } from "@/components/vendor-packets";
 import type { VendorAssignment } from "@/components/vendor-assignment-form";
-import { Button, EmptyState, ErrorNote, LoadingState, Notice, PageHeader, StatusBadge } from "@/components/ui";
+import { Button, EmptyState, ErrorNote, LoadingState, Notice, StatusBadge } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 
 export default function VendorHomePage() {
@@ -32,9 +32,12 @@ function MasterForm() {
   const failed = assignments.isError || packets.isError;
 
   return (
-    <div>
-      <PageHeader title="Your form" description="Each form shows how many questions are finished. Press Continue to fill one in, then Send when it is ready." />
-      <div className="grid gap-4 [&>*]:min-w-0">
+    <div className="grid gap-5 [&>*]:min-w-0">
+      <header className="grid gap-2">
+        <h1 className="brand-page-title">Your form</h1>
+        <p className="text-sm leading-6 text-muted">Each form shows how many questions are finished. Press Continue to fill one in, then Send when it is ready.</p>
+      </header>
+
       <Notice message={submitted ? "Your form was submitted." : ""} />
       <ErrorNote
         message={
@@ -44,11 +47,13 @@ function MasterForm() {
         }
       />
       {loading ? <LoadingState label="Loading your form…" description="Fetching your registration details." /> : null}
+
       {profile ? (
-        <section className="panel p-4 sm:p-5">
-          <p className="eyebrow">{profile.vendor.reference}</p>
-          <h2 className="mt-1 break-words text-xl font-semibold tracking-tight">{profile.vendor.companyName}</h2>
-          <dl className="mt-4 grid grid-cols-2 items-start gap-x-4 gap-y-4 border-t border-border pt-4 sm:gap-x-6 lg:grid-cols-4">
+        <section className="brand-list-card">
+          <p className="eyebrow text-accent">{profile.vendor.reference}</p>
+          <h2 className="brand-list-title mt-2">{profile.vendor.companyName}</h2>
+          <span className="brand-rule mt-3" aria-hidden />
+          <dl className="mt-5 grid grid-cols-2 items-start gap-x-4 gap-y-4 border-t border-[var(--border)] pt-5 sm:gap-x-6 lg:grid-cols-4">
             <Detail label="Contact" value={profile.vendor.contactName} />
             <Detail label="Phone" value={profile.vendor.phone || "Not provided"} />
             <Detail wide label="Email" value={profile.vendor.email} />
@@ -56,17 +61,20 @@ function MasterForm() {
           </dl>
         </section>
       ) : null}
+
       {!loading && !failed && forms.length === 0 && pdfs.length === 0 ? (
         <EmptyState title="No form yet" body="When an organizer assigns your registration form, the fields will appear here." />
       ) : null}
+
       {forms.map((assignment) => (
         <FormCard key={assignment.id} assignment={assignment} />
       ))}
+
       {pdfs.length > 0 ? (
         <section className="grid gap-4">
           <div>
-            <h2 className="text-base font-semibold">PDF files</h2>
-            <p className="mt-1 text-sm text-muted">Download the blank file, fill it in, and upload it here. Add any extra papers with a name, then press Send.</p>
+            <h2 className="section-title mb-1">PDF files</h2>
+            <p className="text-sm text-muted">Download the blank file, fill it in, and upload it here. Add any extra papers with a name, then press Send.</p>
           </div>
           {pdfs.map((form) => (
             <div key={form.id} id={`pdf-${form.id}`} className="scroll-mt-20">
@@ -75,7 +83,6 @@ function MasterForm() {
           ))}
         </section>
       ) : null}
-      </div>
     </div>
   );
 }
@@ -85,7 +92,7 @@ function Detail({ label, value, wide }: { label: string; value: string; wide?: b
   return (
     <div className={wide ? "col-span-2 min-w-0 sm:col-span-1" : "min-w-0"}>
       <dt className="eyebrow">{label}</dt>
-      <dd className="mt-1 break-words text-sm font-medium leading-5">{value}</dd>
+      <dd className="mt-1 break-words text-sm font-medium leading-5 text-[var(--heading)]">{value}</dd>
     </div>
   );
 }
@@ -101,11 +108,14 @@ function FormCard({ assignment }: { assignment: VendorAssignment }) {
   const overdue = canContinue && assignment.deadline ? new Date(assignment.deadline).getTime() < Date.now() : false;
   const corrections = assignment.correction?.fields.length ?? 0;
   return (
-    <section className="panel p-4 sm:p-5">
+    <section className="brand-list-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="break-words text-base font-semibold">{assignment.form.name}{assignment.form.versionNumber ? ` v${assignment.form.versionNumber}` : ""}</h2>
-          <p className="mt-1 text-sm text-muted">
+          <h2 className="brand-list-title">
+            {assignment.form.name}
+            {assignment.form.versionNumber ? ` v${assignment.form.versionNumber}` : ""}
+          </h2>
+          <p className="mt-2 text-sm text-muted">
             {assignment.exhibition.name}
             {assignment.deadline ? ` · Due ${formatDate(assignment.deadline)}` : ""}
             {overdue ? " · Overdue" : ""}
@@ -113,16 +123,23 @@ function FormCard({ assignment }: { assignment: VendorAssignment }) {
         </div>
         <StatusBadge status={assignment.status} />
       </div>
-      <dl className="mt-4 grid grid-cols-2 items-start gap-x-4 gap-y-4 border-t border-border pt-4 sm:gap-x-6">
+      <dl className="mt-5 grid grid-cols-2 items-start gap-x-4 gap-y-4 border-t border-[var(--border)] pt-5 sm:gap-x-6">
         <div className="col-span-2 min-w-0">
           <dt className="eyebrow">ID</dt>
-          <dd className="mt-1 break-all text-xs leading-5">{assignment.id}</dd>
+          <dd className="mt-1 break-all text-xs leading-5 text-muted">{assignment.id}</dd>
         </div>
         <Detail label="Total fields" value={String(total)} />
         <Detail label="Completed" value={`${completed} of ${total}`} />
       </dl>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={`${assignment.form.name} progress`}>
-        <div className={`h-full ${percent === 100 ? "bg-[var(--success)]" : "bg-brand"}`} style={{ width: `${percent}%` }} />
+      <div
+        className={`brand-progress mt-5 ${percent === 100 ? "is-complete" : ""}`}
+        role="progressbar"
+        aria-valuenow={percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`${assignment.form.name} progress`}
+      >
+        <span style={{ width: `${percent}%` }} />
       </div>
       {assignment.status === "CORRECTION_REQUESTED" ? (
         <p className="mt-3 text-sm text-[var(--badge-warning-fg)]">{corrections === 1 ? "1 question needs a change." : `${corrections} questions need a change.`}</p>
@@ -132,8 +149,8 @@ function FormCard({ assignment }: { assignment: VendorAssignment }) {
       ) : null}
       {assignment.status === "APPROVED" ? <p className="mt-3 text-sm text-muted">Accepted. This form cannot be changed.</p> : null}
       {assignment.status === "REJECTED" ? <p className="mt-3 text-sm text-muted">Not accepted.</p> : null}
-      <div className="mt-4">
-        <Button className="w-full sm:w-auto" variant={canContinue ? "primary" : "secondary"} asChild>
+      <div className="mt-5">
+        <Button className="w-full sm:w-auto" variant={canContinue ? "primary" : "secondary"} size="xl" asChild>
           <Link href={`/vendor/assignments/${assignment.id}`}>{canContinue ? "Continue" : "View"}</Link>
         </Button>
       </div>

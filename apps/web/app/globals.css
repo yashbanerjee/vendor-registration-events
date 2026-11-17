@@ -394,12 +394,50 @@ input[type="file"]:disabled {
     transition: border-color 0.18s, color 0.18s;
   }
   .brand-nav-link:hover { color: var(--heading); border-bottom-color: #009ef0; }
+  .brand-nav-link.is-active {
+    color: var(--heading);
+    font-weight: 700;
+    border-bottom-color: #009ef0;
+  }
 
   @media (max-width: 575.98px) {
     .brand-nav { padding-top: 0.75rem; padding-bottom: 0.75rem; }
     .brand-nav-logo { height: 48px; }
     .brand-nav-link { padding: 0.4rem 0.5rem; font-size: 0.7rem; letter-spacing: 0.1em; }
   }
+
+  /* List cards on the vendor home / files pages: same surface as the form card, without corner brackets. */
+  .brand-list-card {
+    border-radius: 6px;
+    background: var(--card-bg);
+    box-shadow: var(--card-shadow);
+    padding: 1.5rem 1.5rem 1.65rem;
+  }
+  @media (min-width: 576px) {
+    .brand-list-card { padding: 1.75rem 2rem 1.9rem; }
+  }
+  .brand-list-title {
+    margin: 0;
+    color: var(--heading);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+    text-transform: uppercase;
+  }
+  .brand-progress {
+    height: 0.5rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .brand-progress > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--brand);
+  }
+  .brand-progress.is-complete > span { background: var(--success); }
 
   /* The registration card: soft top sheen, deep shadow, copper and blue corner brackets. */
   .brand-shell {
@@ -637,6 +675,25 @@ input[type="file"]:disabled {
     width: 44px;
     height: 2px;
     margin: 0.9rem auto 0;
+    background: linear-gradient(90deg, #dda36c, #ad642d 30%, #4a7cb9 70%, #009ef0);
+  }
+  /* Left-aligned page title for the vendor portal home and files pages. */
+  .brand-page-title {
+    margin: 0;
+    color: var(--heading);
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.15;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+  .brand-page-title::after {
+    content: "";
+    display: block;
+    width: 44px;
+    height: 2px;
+    margin: 0.9rem 0 0;
     background: linear-gradient(90deg, #dda36c, #ad642d 30%, #4a7cb9 70%, #009ef0);
   }
   .brand-lead {

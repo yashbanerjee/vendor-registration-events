@@ -62,11 +62,11 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
   }
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="flex-row flex-wrap items-start justify-between gap-3 space-y-0">
+    <Card className="brand-list-card overflow-hidden !border-0">
+      <CardHeader className="flex-row flex-wrap items-start justify-between gap-3 space-y-0 !p-0">
         <div className="min-w-0 basis-full sm:flex-1 sm:basis-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <CardTitle className="min-w-0 break-words" title={form.name}>{form.name}</CardTitle>
+            <CardTitle className="brand-list-title min-w-0 break-words" title={form.name}>{form.name}</CardTitle>
             <StatusBadge status={form.status === "AWAITING" && form.filledName ? "READY" : form.status} />
           </div>
           {form.exhibition.name ? <CardDescription>{form.exhibition.name}</CardDescription> : null}
@@ -81,7 +81,7 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
           Download form
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="!px-0 !pb-0 !pt-4">
       {form.filledName && form.returnId ? (
         <p className="mb-3 flex min-w-0 items-center gap-2 text-sm text-muted">
           <UploadTick />
