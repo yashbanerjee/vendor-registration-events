@@ -1,13 +1,12 @@
 "use client";
 
 import { fieldAnswers } from "@vmp/shared";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/errors";
-import { PacketCard, type Packet } from "@/components/vendor-packets";
 import type { VendorAssignment } from "@/components/vendor-assignment-form";
 import { Button, EmptyState, ErrorNote, LoadingState, Notice, StatusBadge } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
@@ -22,14 +21,11 @@ export default function VendorHomePage() {
 
 function MasterForm() {
   const submitted = useSearchParams().get("submitted") === "1";
-  const client = useQueryClient();
   const assignments = useQuery({ queryKey: ["my-assignments"], queryFn: () => api<{ data: VendorAssignment[] }>("/assignments") });
-  const packets = useQuery({ queryKey: ["my-pdf-forms"], queryFn: () => api<{ data: Packet[] }>("/my/pdf-forms") });
   const forms = (assignments.data?.data ?? []).filter((assignment) => assignment.status !== "REVOKED");
-  const pdfs = packets.data?.data ?? [];
   const profile = forms[0];
-  const loading = assignments.isLoading || packets.isLoading;
-  const failed = assignments.isError || packets.isError;
+  const loading = assignments.isLoading;
+  const failed = assignments.isError;
 
   return (
     <div className="grid gap-5 [&>*]:min-w-0">
@@ -42,7 +38,7 @@ function MasterForm() {
       <ErrorNote
         message={
           !loading && failed
-            ? friendlyErrorMessage(assignments.error ?? packets.error, "Could not load your form. Please refresh the page and try again.")
+            ? friendlyErrorMessage(assignments.error, "Could not load your form. Please refresh the page and try again.")
             : ""
         }
       />
@@ -62,27 +58,13 @@ function MasterForm() {
         </section>
       ) : null}
 
-      {!loading && !failed && forms.length === 0 && pdfs.length === 0 ? (
+      {!loading && !failed && forms.length === 0 ? (
         <EmptyState title="No form yet" body="When an organizer assigns your registration form, the fields will appear here." />
       ) : null}
 
       {forms.map((assignment) => (
         <FormCard key={assignment.id} assignment={assignment} />
       ))}
-
-      {pdfs.length > 0 ? (
-        <section className="grid gap-4">
-          <div>
-            <h2 className="section-title mb-1">PDF files</h2>
-            <p className="text-sm text-muted">Download the blank file, fill it in, and upload it here. Add any extra papers with a name, then press Send.</p>
-          </div>
-          {pdfs.map((form) => (
-            <div key={form.id} id={`pdf-${form.id}`} className="scroll-mt-20">
-              <PacketCard form={form} onChange={async () => { await client.invalidateQueries({ queryKey: ["my-pdf-forms"] }); }} />
-            </div>
-          ))}
-        </section>
-      ) : null}
     </div>
   );
 }
