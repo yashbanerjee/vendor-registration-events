@@ -9,7 +9,7 @@ import { scanBuffer } from "../documents/scan";
 import { EMAIL_HOLD_UNTIL, EMAIL_SEND_INTERVAL_MS, effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
 import { catalogKeyFor, composeEmailTemplate } from "./email-catalog";
-import { publicActionUrl, renderEmail, type EmailAudience } from "./email-templates";
+import { publicActionUrl, publicAssetUrl, renderEmail, type EmailAudience } from "./email-templates";
 import { beginMailSend, mailSendIntervalMs } from "./mail-pace";
 import { MailDeliveryError, addressIn, batchFailureKind, deliveryRoutes, senderIdentity, transactionalHeaders, type SmtpEndpoint } from "./mail-route";
 import { StorageService } from "../storage/storage.service";
@@ -443,11 +443,13 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
     const resolvedTitle = composed?.title || String(payload.title ?? subject);
     const resolvedText = composed?.body || text;
     const actionLabel = composed?.actionLabel || (typeof payload.actionLabel === "string" ? payload.actionLabel : undefined);
+    const config = env();
     const actionUrl = publicActionUrl({
       link: String(payload.actionUrl ?? payload.link ?? ""),
       text: resolvedText,
-      origin: env().WEB_ORIGIN,
+      origin: config.WEB_ORIGIN,
     });
+    const logoUrl = publicAssetUrl(config.WEB_ORIGIN, "/logo-iktva-forum.png");
     const renderedFor = (fromAddress: string) => renderEmail({
       template,
       audience,
@@ -457,8 +459,8 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
       actionUrl,
       actionLabel,
       fromAddress,
+      logoUrl,
     });
-    const config = env();
     const primary: SmtpEndpoint = {
       host: mail.smtpHost,
       port: mail.smtpPort,

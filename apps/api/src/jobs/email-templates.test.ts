@@ -15,8 +15,9 @@ test("email templates escape content and keep the action link", () => {
   assert.match(rendered.html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.match(rendered.html, /href="http:\/\/localhost:3000\/vendor\/assignments\/1"/);
   assert.match(rendered.html, /charset="utf-8"/);
-  assert.match(rendered.html, /background:#0a0c0e/);
+  assert.match(rendered.html, /background:#07090b/);
   assert.match(rendered.html, /View the approved form/);
+  assert.match(rendered.html, /If the button does not work/);
   assert.doesNotMatch(rendered.html, /cid:s7-logo/);
   assert.doesNotMatch(rendered.html, /<script>/);
 });

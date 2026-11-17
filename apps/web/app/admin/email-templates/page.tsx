@@ -265,33 +265,47 @@ function EmailPreview({
         <h2 className="section-title mb-0">Email preview</h2>
         {subject ? <p className="max-w-full truncate text-xs text-muted" title={subject}>Subject: {subject}</p> : null}
       </div>
-      <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[#0a0c0e] p-3 sm:p-4">
-        <div className="overflow-hidden rounded-md border border-[rgba(255,255,255,0.1)] bg-[#111519] shadow-[0_30px_70px_rgba(0,0,0,0.45)]">
-          <div className="h-[3px] bg-[linear-gradient(90deg,#dda36c,#ad642d_30%,#4a7cb9_70%,#009ef0)]" aria-hidden />
-          <div className="space-y-4 p-5 font-form sm:p-6">
-            <div>
-              <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-accent">{organizationName}</p>
-              <h3 className="mt-2 text-[1.15rem] font-bold uppercase leading-snug tracking-[0.02em] text-white">{title}</h3>
-              <span className="brand-rule mt-3" aria-hidden />
+      <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[#07090b] p-4 sm:p-5">
+        <div className="mb-4">
+          <img src="/logo-iktva-forum.png" alt={organizationName} className="h-10 w-auto" />
+        </div>
+        <div className="overflow-hidden rounded-lg border border-[rgba(255,255,255,0.12)] bg-[#111519] shadow-[0_30px_70px_rgba(0,0,0,0.55)]">
+          <div className="h-1 bg-[linear-gradient(90deg,#dda36c,#ad642d_28%,#4a7cb9_68%,#009ef0)]" aria-hidden />
+          <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_42%)] p-5 font-form sm:p-6">
+            <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-accent">{organizationName}</p>
+            <h3 className="mt-2 text-[1.25rem] font-bold uppercase leading-snug tracking-[0.03em] text-white">{title}</h3>
+            <span className="mt-4 block h-[3px] w-[52px] bg-[linear-gradient(90deg,#dda36c,#009ef0)]" aria-hidden />
+
+            <div className="mt-5 rounded-md border border-[rgba(255,255,255,0.08)] bg-[#1a2027] px-4 py-4">
+              <div className="space-y-3 text-[0.95rem] leading-6 text-[#d7e0e8]">
+                {paragraphs.length ? paragraphs.map((paragraph, index) => (
+                  <p key={index} className="whitespace-pre-wrap break-words">{paragraph}</p>
+                )) : (
+                  <p className="text-dim">Email body</p>
+                )}
+              </div>
             </div>
-            <div className="space-y-3 text-[0.95rem] leading-6 text-[#eef2f5]">
-              {paragraphs.length ? paragraphs.map((paragraph, index) => (
-                <p key={index} className="whitespace-pre-wrap break-words">{paragraph}</p>
-              )) : (
-                <p className="text-dim">Email body</p>
-              )}
-            </div>
-            <div>
-              <span className="inline-flex h-[44px] items-center rounded border border-[rgba(0,158,240,0.7)] bg-primary px-5 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-white shadow-[0_14px_30px_rgba(0,100,173,0.35)]">
+
+            <div className="mt-6 flex flex-col items-center text-center">
+              <span className="inline-flex h-[48px] items-center rounded border border-[#009ef0] bg-primary px-8 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-white shadow-[0_14px_30px_rgba(0,100,173,0.35)]">
                 {actionLabel}
               </span>
-              <p className="mt-3 break-all text-xs text-dim">Or open this link: https://example.com/action</p>
+              <p className="mt-4 max-w-full break-all text-[11px] leading-5 text-dim">
+                If the button does not work, copy and paste this link into your browser:
+                <br />
+                <span className="text-[var(--link)] underline">https://example.com/action</span>
+              </p>
             </div>
-            <p className="border-t border-[rgba(255,255,255,0.1)] pt-4 text-xs leading-5 text-dim">
-              This message was sent to {audienceLabel} about a form or account with {organizationName}.
-            </p>
+
+            <div className="mt-6 border-t border-[rgba(255,255,255,0.1)] pt-4">
+              <p className="text-xs leading-5 text-dim">
+                This message was sent to {audienceLabel} about a form or account with {organizationName}.
+              </p>
+            </div>
           </div>
+          <div className="h-[3px] bg-[linear-gradient(90deg,#009ef0,#4a7cb9_40%,#ad642d_75%,#dda36c)]" aria-hidden />
         </div>
+        <p className="mt-4 text-center text-[11px] uppercase tracking-[0.12em] text-[#566774]">{organizationName}</p>
       </div>
     </aside>
   );
