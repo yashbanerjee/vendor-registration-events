@@ -57,7 +57,7 @@ export default function VendorProfilePage() {
     mutationFn: () => current
       ? api(`/assignments/${current.id}/form`, { method: "POST", body: JSON.stringify({ formVersionId: nextFormId }) })
       : api("/assignments", { method: "POST", body: JSON.stringify({ vendorId: vendor?.id, exhibitionId: nextExhibitionId, formVersionId: nextFormId }) }),
-    onSuccess: async () => { setChanging(false); setNotice("The form was changed and a new invitation email was sent."); await client.invalidateQueries({ queryKey: ["vendor", params.id] }); },
+    onSuccess: async () => { setChanging(false); setNotice("The form was saved. Use Send mail on the Companies list to email the invitation once."); await client.invalidateQueries({ queryKey: ["vendor", params.id] }); },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not change the form."),
   });
   const saveCategory = useMutation({

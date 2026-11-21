@@ -22,6 +22,7 @@ type Assignment = {
   id: string;
   status: string;
   exhibitionId: string;
+  invitationSentAt: string | null;
   formVersion: { id: string; versionNumber: number; template: { name: string } };
 };
 
@@ -40,8 +41,6 @@ type Vendor = {
 type FormOption = { id: string; name: string; status: string; versions?: { id: string; versionNumber: number }[] };
 type ExhibitionOption = { id: string; name: string };
 type ImportResult = { id: string; filename: string; createdCount: number; skippedCount: number; errorCount: number; createdVendorIds: string[]; rows?: { rowNumber: number; status: string; messages: string[] }[] };
-type MailSummary = { transferred: number; sent: number; sending: number; failed: number; failedVendors: { id: string; companyName: string; email: string; error: string }[] };
-
 const emptyVendor = { companyName: "", contactName: "", email: "", categoryId: "", phone: "", exhibitionId: "", formVersionId: "" };
 const helper = createColumnHelper<Vendor>();
 
@@ -51,9 +50,23 @@ function formLabel(vendor: Vendor) {
   return `${assignment.formVersion.template.name} v${assignment.formVersion.versionNumber}`;
 }
 
-function VendorActions({ vendor, onChange, onDelete }: { vendor: Vendor; onChange: (vendor: Vendor) => void; onDelete: (vendor: Vendor) => void }) {
+function VendorActions({
+  vendor,
+  sending,
+  onSendMail,
+  onChange,
+  onDelete,
+}: {
+  vendor: Vendor;
+  sending: boolean;
+  onSendMail: (vendor: Vendor) => void;
+  onChange: (vendor: Vendor) => void;
+  onDelete: (vendor: Vendor) => void;
+}) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [menu, setMenu] = useState<{ top: number; left: number } | null>(null);
+  const assignment = vendor.assignments[0];
+  const canSend = Boolean(assignment) && !assignment.invitationSentAt;
 
   function toggle() {
     const node = anchorRef.current;
@@ -70,14 +83,26 @@ function VendorActions({ vendor, onChange, onDelete }: { vendor: Vendor; onChang
   }
 
   return (
-    <span ref={anchorRef} className="inline-flex">
-      <Button size="sm" aria-expanded={Boolean(menu)} aria-haspopup="menu" onClick={toggle}>Actions</Button>
-      {menu ? (
-        <div role="menu" className="fixed z-50 w-44 rounded-md border border-border bg-surface p-1 shadow-panel" style={{ top: menu.top, left: menu.left }}>
-          <button type="button" role="menuitem" className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-secondary" onClick={() => { setMenu(null); onChange(vendor); }}>Change form</button>
-          <button type="button" role="menuitem" className="block w-full rounded px-2 py-1.5 text-left text-sm text-danger hover:bg-secondary" onClick={() => { setMenu(null); onDelete(vendor); }}>Delete</button>
-        </div>
+    <span className="inline-flex flex-wrap items-center justify-end gap-2">
+      {assignment ? (
+        <Button
+          size="sm"
+          variant={canSend ? "primary" : "secondary"}
+          disabled={!canSend || sending}
+          onClick={() => onSendMail(vendor)}
+        >
+          {sending ? "Sending…" : assignment.invitationSentAt ? "Mail sent" : "Send mail"}
+        </Button>
       ) : null}
+      <span ref={anchorRef} className="inline-flex">
+        <Button size="sm" aria-expanded={Boolean(menu)} aria-haspopup="menu" onClick={toggle}>Actions</Button>
+        {menu ? (
+          <div role="menu" className="fixed z-50 w-44 rounded-md border border-border bg-surface p-1 shadow-panel" style={{ top: menu.top, left: menu.left }}>
+            <button type="button" role="menuitem" className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-secondary" onClick={() => { setMenu(null); onChange(vendor); }}>Change form</button>
+            <button type="button" role="menuitem" className="block w-full rounded px-2 py-1.5 text-left text-sm text-danger hover:bg-secondary" onClick={() => { setMenu(null); onDelete(vendor); }}>Delete</button>
+          </div>
+        ) : null}
+      </span>
     </span>
   );
 }
@@ -98,7 +123,8 @@ export default function VendorsPage() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [bulkFormId, setBulkFormId] = useState("");
   const [bulkExhibitionId, setBulkExhibitionId] = useState("");
-  const [formSent, setFormSent] = useState(false);
+  const [formAssigned, setFormAssigned] = useState(false);
+  const [sendingId, setSendingId] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ["vendors", q, categoryId],
     queryFn: () => api<{ data: Vendor[] }>(`/vendors?limit=100&q=${encodeURIComponent(q)}${categoryId ? `&categoryId=${encodeURIComponent(categoryId)}` : ""}`),
@@ -131,7 +157,7 @@ export default function VendorsPage() {
       setOpen(false);
       setForm(emptyVendor);
       setError("");
-      setNotice("Vendor created. An invitation email is on the way.");
+      setNotice("Company created. Use Send mail in the list to email the invitation once.");
       await refresh();
     },
     onError: (caught) => setError(fieldError(caught, "Could not create the vendor.")),
@@ -145,10 +171,21 @@ export default function VendorsPage() {
     },
     onSuccess: async () => {
       setChanging(null);
-      setNotice("The form was changed and a new invitation email was sent.");
+      setNotice("The form was saved. Use Send mail in the list to email the invitation once.");
       await refresh();
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not change the form."),
+  });
+  const sendMail = useMutation({
+    mutationFn: (assignmentId: string) => api(`/assignments/${assignmentId}/send-invite`, { method: "POST" }),
+    onMutate: (assignmentId) => setSendingId(assignmentId),
+    onSuccess: async () => {
+      setNotice("Invitation email queued. This company can only be emailed once for this form.");
+      setError("");
+      await refresh();
+    },
+    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not send the invitation email."),
+    onSettled: () => setSendingId(null),
   });
   const remove = useMutation({
     mutationFn: (id: string) => api("/vendors/archive", { method: "POST", body: JSON.stringify({ ids: [id] }) }),
@@ -168,46 +205,21 @@ export default function VendorsPage() {
     onSuccess: async (result) => {
       setBulkFormId("");
       setBulkExhibitionId("");
-      setFormSent(false);
+      setFormAssigned(false);
       setImportResult(result.data);
       setError("");
       await refresh();
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Import failed."),
   });
-  const sendImported = useMutation({
+  const assignImported = useMutation({
     mutationFn: () => api<{ data: { assigned: number; failed: number; failedVendorIds: string[] } }>("/assignments/bulk", { method: "POST", body: JSON.stringify({ vendorIds: importResult?.createdVendorIds ?? [], exhibitionId: bulkExhibitionId, formVersionId: bulkFormId }) }),
     onSuccess: async (result) => {
-      setFormSent(true);
-      setNotice(`${result.data.assigned} invitations were queued.${result.data.failed ? ` ${result.data.failed} could not be queued.` : ""}`);
-      await client.invalidateQueries({ queryKey: ["bulk-mail"] });
+      setFormAssigned(true);
+      setNotice(`${result.data.assigned} companies were assigned the form. Use Send mail in the list to email each invitation once.${result.data.failed ? ` ${result.data.failed} could not be assigned.` : ""}`);
       await refresh();
     },
-    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not send the form."),
-  });
-  const mailSummary = useQuery({
-    queryKey: ["bulk-mail", importResult?.id, formSent],
-    queryFn: () => api<{ data: MailSummary }>("/assignments/mail-summary", {
-      method: "POST",
-      body: JSON.stringify({ vendorIds: importResult?.createdVendorIds ?? [], expectInvitation: formSent }),
-    }),
-    enabled: Boolean(importResult?.createdVendorIds.length),
-    refetchInterval: (query) => (query.state.data?.data.sending ? 2000 : false),
-  });
-  const resendFailed = useMutation({
-    mutationFn: () => api<{ data: { resent: number } }>("/assignments/mail-resend", {
-      method: "POST",
-      body: JSON.stringify({
-        vendorIds: mailSummary.data?.data.failedVendors.map((vendor) => vendor.id) ?? [],
-        exhibitionId: bulkExhibitionId || undefined,
-        formVersionId: bulkFormId || undefined,
-      }),
-    }),
-    onSuccess: async (result) => {
-      setNotice(`Queued ${result.data.resent} failed ${result.data.resent === 1 ? "message" : "messages"} again.`);
-      await client.invalidateQueries({ queryKey: ["bulk-mail"] });
-    },
-    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not send the failed messages again."),
+    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not assign the form."),
   });
   const vendors = usePagedRows(query.data?.data ?? [], `${q}|${categoryId}`);
   const columns = [
@@ -239,13 +251,24 @@ export default function VendorsPage() {
     helper.display({
       id: "actions",
       header: "",
-      cell: (info) => (
-        <VendorActions
-          vendor={info.row.original}
-          onChange={(vendor) => { setError(""); const assignment = vendor.assignments[0]; setNextFormId(assignment?.formVersion.id ?? ""); setNextExhibitionId(assignment?.exhibitionId ?? ""); setChanging(vendor); }}
-          onDelete={(vendor) => { setError(""); setRemoving(vendor); }}
-        />
-      ),
+      cell: (info) => {
+        const vendor = info.row.original;
+        const assignment = vendor.assignments[0];
+        return (
+          <VendorActions
+            vendor={vendor}
+            sending={Boolean(assignment && sendingId === assignment.id)}
+            onSendMail={(row) => {
+              const target = row.assignments[0];
+              if (!target || target.invitationSentAt) return;
+              setError("");
+              sendMail.mutate(target.id);
+            }}
+            onChange={(row) => { setError(""); const current = row.assignments[0]; setNextFormId(current?.formVersion.id ?? ""); setNextExhibitionId(current?.exhibitionId ?? ""); setChanging(row); }}
+            onDelete={(row) => { setError(""); setRemoving(row); }}
+          />
+        );
+      },
     }),
   ];
   const table = useReactTable({ data: vendors.rows, columns, getCoreRowModel: getCoreRowModel(), autoResetPageIndex: false });
@@ -253,7 +276,7 @@ export default function VendorsPage() {
     <div>
       <PageHeader
         title="Companies"
-        description="Add a company, then send them the form for an event."
+        description="Add or import companies, assign a form, then press Send mail once per company."
         actions={
           <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
             <Button onClick={() => void download("/imports/template", "vendor-demo.csv").catch(() => setError("Could not download the demo CSV."))}>Demo CSV</Button>
@@ -332,13 +355,13 @@ export default function VendorsPage() {
               {(exhibitions.data?.data ?? []).map((exhibition) => <option key={exhibition.id} value={exhibition.id}>{exhibition.name}</option>)}
             </select>
           </Field>
-          <Field label="Form" hint="The vendor is emailed a one-time link to complete this form.">
+          <Field label="Form" hint="Assigns the form now. Use Send mail in the list to email the invitation once.">
             <select className={inputClass} required value={form.formVersionId} onChange={(event) => setForm({ ...form, formVersionId: event.target.value })}>
               <option value="">Select</option>
               {publishedForms.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
             </select>
           </Field>
-          {open && !forms.isLoading && publishedForms.length === 0 ? <p className="text-sm text-muted">Publish a form before inviting a vendor.</p> : null}
+          {open && !forms.isLoading && publishedForms.length === 0 ? <p className="text-sm text-muted">Publish a form before adding a company.</p> : null}
           <Button type="submit" variant="primary" disabled={create.isPending || publishedForms.length === 0}>Create vendor</Button>
         </form>
       </Modal>
@@ -353,7 +376,7 @@ export default function VendorsPage() {
               </select>
             </Field>
           ) : null}
-          <Field label="Form" hint="This replaces the current form, even after the company has sent it. They get an email and fill in the new one.">
+          <Field label="Form" hint="This replaces the current form. After saving, use Send mail once from the list.">
             <select className={inputClass} required value={nextFormId} onChange={(event) => setNextFormId(event.target.value)}>
               <option value="">Select</option>
               {publishedForms.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
@@ -372,9 +395,9 @@ export default function VendorsPage() {
           </ModalActions>
         </form>
       </Modal>
-      <Modal open={Boolean(importResult)} title="Upload summary" onClose={() => { setImportResult(null); setFormSent(false); }}>
+      <Modal open={Boolean(importResult)} title="Upload summary" onClose={() => { setImportResult(null); setFormAssigned(false); }}>
         {importResult ? (
-          <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); setError(""); sendImported.mutate(); }}>
+          <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); setError(""); assignImported.mutate(); }}>
             <ErrorNote message={error} />
             <p className="text-sm font-medium">{importResult.filename}</p>
             {importResult.rows?.length ? (
@@ -389,24 +412,9 @@ export default function VendorsPage() {
               <div className="flex min-w-0 flex-col justify-between rounded-md bg-secondary px-2.5 py-2 sm:px-3"><dt className="text-xs leading-4 text-muted sm:text-sm">Skipped</dt><dd className="text-lg font-semibold">{importResult.skippedCount}</dd></div>
               <div className="flex min-w-0 flex-col justify-between rounded-md bg-secondary px-2.5 py-2 sm:px-3"><dt className="text-xs leading-4 text-muted sm:text-sm">Not transferred</dt><dd className="text-lg font-semibold">{importResult.errorCount}</dd></div>
             </dl>
-            {mailSummary.data ? (
-              <div className="grid gap-2 rounded-md border border-border p-3 text-sm">
-                <p className="font-medium">Mail</p>
-                <p>{mailSummary.data.data.sent} sent, {mailSummary.data.data.sending} still sending, {mailSummary.data.data.failed} failed.</p>
-                {mailSummary.data.data.failedVendors.slice(0, 8).map((vendor) => (
-                  <p key={vendor.id} className="text-muted">{vendor.companyName} · {vendor.email}{vendor.error ? ` — ${vendor.error}` : ""}</p>
-                ))}
-                {mailSummary.data.data.failedVendors.length > 8 ? <p className="text-muted">And {mailSummary.data.data.failedVendors.length - 8} more.</p> : null}
-                {mailSummary.data.data.failed > 0 ? (
-                  <Button type="button" variant="primary" disabled={resendFailed.isPending} onClick={() => { setError(""); resendFailed.mutate(); }}>
-                    {resendFailed.isPending ? "Sending again…" : "Send again to failed"}
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
-            {importResult.createdVendorIds.length > 0 && !formSent ? (
+            {importResult.createdVendorIds.length > 0 && !formAssigned ? (
               <>
-                <p className="text-sm text-muted">Choose the form to email to everyone transferred in this file. Each vendor receives a one-time link.</p>
+                <p className="text-sm text-muted">Assign a form to everyone transferred in this file. Then use Send mail in the Companies list to email each invitation once.</p>
                 <Field label="Exhibition">
                   <select className={inputClass} required value={bulkExhibitionId} onChange={(event) => setBulkExhibitionId(event.target.value)}>
                     <option value="">Select</option>
@@ -419,10 +427,11 @@ export default function VendorsPage() {
                     {publishedForms.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
                   </select>
                 </Field>
-                <Button type="submit" variant="primary" disabled={sendImported.isPending || !bulkFormId || !bulkExhibitionId}>Send form</Button>
+                <Button type="submit" variant="primary" disabled={assignImported.isPending || !bulkFormId || !bulkExhibitionId}>Assign form</Button>
               </>
             ) : null}
-            {importResult.createdVendorIds.length === 0 ? <p className="text-sm text-muted">No new vendors were transferred, so there is nobody to email.</p> : null}
+            {formAssigned ? <p className="text-sm text-muted">Forms assigned. Close this window and press Send mail next to each company.</p> : null}
+            {importResult.createdVendorIds.length === 0 ? <p className="text-sm text-muted">No new vendors were transferred, so there is nobody to assign.</p> : null}
             {importResult.errorCount > 0 ? <Button type="button" onClick={() => void download(`/imports/${importResult.id}/errors.csv`, "import-errors.csv")}>Download error report</Button> : null}
           </form>
         ) : null}

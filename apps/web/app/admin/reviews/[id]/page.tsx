@@ -8,7 +8,7 @@ import { ApiError, api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { InlineFilePreview, RemoteFileLink } from "@/components/file-preview";
 import { Pager, usePagedRows } from "@/components/pager";
-import { Button, ErrorNote, Field, LoadingState, Notice, PageHeader, StatusBadge, textareaClass } from "@/components/ui";
+import { Button, ErrorNote, Field, LoadingState, Modal, ModalActions, Notice, PageHeader, StatusBadge, textareaClass } from "@/components/ui";
 import { COUNTRIES, isFieldVisible, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 
 type Review = {
@@ -35,6 +35,7 @@ export default function ReviewDetailPage() {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [confirmCorrection, setConfirmCorrection] = useState(false);
   const review = query.data?.data;
   const markedIds = Object.entries(marked).filter(([, on]) => on).map(([fieldId]) => fieldId);
   const readyFields = markedIds
@@ -54,6 +55,7 @@ export default function ReviewDetailPage() {
       });
     },
     onSuccess: async (result) => {
+      setConfirmCorrection(false);
       setError("");
       setMarked({});
       setComments({});
@@ -61,7 +63,10 @@ export default function ReviewDetailPage() {
       client.setQueryData(["assignment", params.id], result);
       await client.invalidateQueries({ queryKey: ["reviews"] });
     },
-    onError: (caught) => setError(caught instanceof ApiError ? caught.message : caught instanceof Error ? caught.message : "Correction request failed."),
+    onError: (caught) => {
+      setConfirmCorrection(false);
+      setError(caught instanceof ApiError ? caught.message : caught instanceof Error ? caught.message : "Correction request failed.");
+    },
   });
   const approve = useMutation({
     mutationFn: () => api<Review>(`/assignments/${params.id}/approve`, { method: "POST", body: JSON.stringify({ lockVersion: review?.lockVersion }) }),
@@ -114,10 +119,35 @@ export default function ReviewDetailPage() {
           {reviewable ? (
             <>
               <p className="text-xs text-muted">{markedIds.length === 0 ? "No fields marked." : `${readyFields.length} of ${markedIds.length} marked fields have a comment.`}</p>
-              <Button variant="primary" onClick={() => correct.mutate()} disabled={correct.isPending || markedIds.length === 0 || readyFields.length !== markedIds.length}>Request correction</Button>
+              <Button
+                variant="primary"
+                onClick={() => setConfirmCorrection(true)}
+                disabled={correct.isPending || markedIds.length === 0 || readyFields.length !== markedIds.length}
+              >
+                Request correction
+              </Button>
               <Button onClick={() => approve.mutate()} disabled={approve.isPending}>Approve submission</Button>
             </>
           ) : <p className="text-sm text-muted">This submission is not waiting for a decision.</p>}
+          <Modal
+            open={confirmCorrection}
+            title="Send correction email?"
+            onClose={() => { if (!correct.isPending) setConfirmCorrection(false); }}
+          >
+            <p className="text-sm leading-6 text-muted">
+              This will email {review.vendor.companyName} at {review.vendor.email} about {readyFields.length} field{readyFields.length === 1 ? "" : "s"} that need to be updated.
+            </p>
+            <div className="mt-4">
+              <ModalActions>
+                <Button type="button" disabled={correct.isPending} onClick={() => setConfirmCorrection(false)}>
+                  Cancel
+                </Button>
+                <Button type="button" variant="primary" disabled={correct.isPending} onClick={() => correct.mutate()}>
+                  {correct.isPending ? "Sending…" : "OK"}
+                </Button>
+              </ModalActions>
+            </div>
+          </Modal>
           <Link className="text-sm underline" href={`/admin/documents/vendors/${review.vendor.id}`}>Open document archive</Link>
           <h3 className="text-sm font-semibold">Internal notes</h3>
           <ul className="grid gap-2 text-sm">

@@ -130,7 +130,8 @@ export function effectiveSettings(stored: StoredSettings) {
     storageSecret,
     storageSecretSet: Boolean(stored.storageSecretEnc),
     storagePathStyle: stored.storagePathStyle ?? (railway.endpoint ? railway.pathStyle : false),
-    emailSendEnabled: stored.emailSendEnabled ?? true,
+    // Invitations are sent one-by-one from the Companies list; keep the mail queue open.
+    emailSendEnabled: true,
     emailTemplates: (stored.emailTemplates ?? {}) as EmailTemplateOverrides,
   };
 }

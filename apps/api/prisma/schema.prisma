@@ -500,6 +500,7 @@ model FormAssignment {
   formVersionId   String           @map("form_version_id") @db.Uuid
   status          AssignmentStatus @default(INVITED)
   deadline        DateTime?        @db.Timestamptz(6)
+  invitationSentAt DateTime?       @map("invitation_sent_at") @db.Timestamptz(6)
   lockVersion     Int              @default(0) @map("lock_version")
   submittedAt     DateTime?        @map("submitted_at") @db.Timestamptz(6)
   approvedAt      DateTime?        @map("approved_at") @db.Timestamptz(6)

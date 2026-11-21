@@ -70,7 +70,7 @@ export default function ReviewsPage() {
             </select>
           </Field>
           <Field label="Deadline"><input className={inputClass} type="datetime-local" value={form.deadline} onChange={(event) => setForm({ ...form, deadline: event.target.value })} /></Field>
-          <Button type="submit" variant="primary" disabled={assign.isPending}>Send invitation</Button>
+          <Button type="submit" variant="primary" disabled={assign.isPending}>Assign form</Button>
         </form>
       </Modal>
     </div>

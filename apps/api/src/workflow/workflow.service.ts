@@ -21,13 +21,6 @@ import { OutboxProcessor, OutboxService } from "../jobs/jobs.service";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
 
-function invitationPaceText() {
-  const paceMs = env().SMTP_MIN_INTERVAL_MS;
-  if (paceMs <= 0) return "The messages are sent steadily so a large batch is not rejected by the mail server.";
-  const seconds = Math.max(1, Math.round(paceMs / 1000));
-  return `Each message leaves the queue ${seconds} seconds after the previous one, so a large batch stays under the mail server limit.`;
-}
-
 const assignSchema = z.object({
   vendorId: z.string().uuid(),
   exhibitionId: z.string().uuid(),
@@ -149,8 +142,8 @@ export class WorkflowService {
       }
     }
     if (assigned > 0) {
-      const idempotencyKey = `bulk-invite:${input.exhibitionId}:${input.formVersionId}:${sha256([...input.vendorIds].sort().join(","))}`;
-      const bodyText = `${assigned} vendors were invited. ${invitationPaceText()}${failed.length ? ` ${failed.length} vendors could not be invited.` : ""}`;
+      const idempotencyKey = `bulk-assign:${input.exhibitionId}:${input.formVersionId}:${sha256([...input.vendorIds].sort().join(","))}`;
+      const bodyText = `${assigned} companies were assigned the form. Send each invitation from the Companies list.${failed.length ? ` ${failed.length} could not be assigned.` : ""}`;
       await this.tenant.transaction(user.organizationId, (tx) => this.notifyAdmins(tx, user.organizationId, {
         idempotencyKey,
         template: "invitations-queued",
@@ -195,7 +188,7 @@ export class WorkflowService {
     return { data: { resent } };
   }
 
-  async createAssignment(tx: Tx, user: AuthContext, input: z.infer<typeof assignSchema>, options?: { notifyAdmins?: boolean }) {
+  async createAssignment(tx: Tx, user: AuthContext, input: z.infer<typeof assignSchema>, _options?: { notifyAdmins?: boolean }) {
     const [vendor, exhibition, version] = await Promise.all([
       tx.vendor.findFirst({
         where: { id: input.vendorId, organizationId: user.organizationId, archivedAt: null },
@@ -225,16 +218,7 @@ export class WorkflowService {
       update: {},
       create: { organizationId: user.organizationId, vendorId: vendor.id, exhibitionId: exhibition.id },
     });
-    await this.issueInvitation(tx, user, {
-      vendor,
-      assignmentId: assignment.id,
-      purpose: "FORM_ASSIGNMENT",
-      kind: "invitation",
-      formName: version.template.name,
-      exhibitionName: exhibition.name,
-      intro: `${user.name} assigned ${version.template.name} for ${exhibition.name}.`,
-      notifyAdmins: options?.notifyAdmins,
-    });
+    // Invitation email is sent later from the Companies list (one-time Send mail button).
     await this.audit.record(tx, {
       organizationId: user.organizationId,
       actorId: user.id,
@@ -246,6 +230,42 @@ export class WorkflowService {
       newValue: { formVersionId: version.id, exhibitionId: exhibition.id },
     });
     return assignment.id;
+  }
+
+  /** Queues the invitation email once. After a successful send the button stays disabled. */
+  async sendInvite(user: AuthContext, id: string) {
+    await this.tenant.transaction(user.organizationId, async (tx) => {
+      const assignment = await this.load(tx, user, id);
+      if (assignment.invitationSentAt) {
+        throw new ConflictException("The invitation email was already sent for this form.");
+      }
+      if (["APPROVED", "REVOKED", "REJECTED"].includes(assignment.status)) {
+        throw new ConflictException("This assignment can no longer be invited.");
+      }
+      await this.issueInvitation(tx, user, {
+        vendor: assignment.vendor,
+        assignmentId: assignment.id,
+        purpose: "FORM_ASSIGNMENT",
+        kind: "invitation",
+        formName: assignment.formVersion.template.name,
+        exhibitionName: assignment.exhibition.name,
+        intro: `${user.name} assigned ${assignment.formVersion.template.name} for ${assignment.exhibition.name}.`,
+      });
+      await tx.formAssignment.update({
+        where: { id: assignment.id },
+        data: { invitationSentAt: new Date() },
+      });
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "invitation.sent",
+        resourceType: "assignment",
+        resourceId: id,
+        vendorId: assignment.vendorId,
+      });
+    });
+    return this.get(user, id);
   }
 
   async resend(user: AuthContext, id: string) {
@@ -304,6 +324,7 @@ export class WorkflowService {
             where: { id: taken.id },
             data: {
               status: "INVITED",
+              invitationSentAt: null,
               submittedAt: null,
               approvedAt: null,
               approvedById: null,
@@ -311,16 +332,13 @@ export class WorkflowService {
               lockVersion: { increment: 1 },
             },
           });
+        } else {
+          await tx.formAssignment.update({
+            where: { id: taken.id },
+            data: { invitationSentAt: null },
+          });
         }
-        await this.issueInvitation(tx, user, {
-          vendor: assignment.vendor,
-          assignmentId: taken.id,
-          purpose: "FORM_ASSIGNMENT",
-          kind: "invitation-changed",
-          formName: version.template.name,
-          exhibitionName: assignment.exhibition.name,
-          intro: `${user.name} changed the assigned form to ${version.template.name} for ${assignment.exhibition.name}.`,
-        });
+        // New form is ready; invitation is sent once from the Companies list.
         return taken.id;
       }
       if (assignment.submission) {
@@ -334,21 +352,13 @@ export class WorkflowService {
         data: {
           formVersionId: version.id,
           status: "INVITED",
+          invitationSentAt: null,
           submittedAt: null,
           approvedAt: null,
           approvedById: null,
           approvedRevisionId: null,
           lockVersion: { increment: 1 },
         },
-      });
-      await this.issueInvitation(tx, user, {
-        vendor: assignment.vendor,
-        assignmentId: assignment.id,
-        purpose: "FORM_ASSIGNMENT",
-        kind: "invitation-changed",
-        formName: version.template.name,
-        exhibitionName: assignment.exhibition.name,
-        intro: `${user.name} changed the assigned form to ${version.template.name} for ${assignment.exhibition.name}. The previous answers are no longer the form to complete.`,
       });
       await this.audit.record(tx, {
         organizationId: user.organizationId,

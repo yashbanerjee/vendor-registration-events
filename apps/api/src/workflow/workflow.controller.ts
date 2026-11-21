@@ -56,6 +56,12 @@ export class WorkflowController {
     return this.workflow.resendFailedMail(request.user!, body);
   }
 
+  @Post("assignments/:id/send-invite")
+  @RequirePermissions(PERMISSIONS.assignmentsWrite)
+  sendInvite(@Req() request: AuthedRequest, @Param("id") id: string) {
+    return this.workflow.sendInvite(request.user!, id);
+  }
+
   @Post("assignments/:id/resend")
   @RequirePermissions(PERMISSIONS.assignmentsWrite)
   resend(@Req() request: AuthedRequest, @Param("id") id: string) {

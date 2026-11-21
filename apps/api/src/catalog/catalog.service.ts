@@ -171,6 +171,7 @@ export class CatalogService {
               id: true,
               status: true,
               exhibitionId: true,
+              invitationSentAt: true,
               formVersion: { select: { id: true, versionNumber: true, template: { select: { name: true } } } },
             },
           },
