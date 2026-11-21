@@ -36,7 +36,7 @@ export default function FormsPage() {
   });
   return (
     <div>
-      <PageHeader title="Forms" description="Write the questions a company answers online. Publish a form when it is ready to send." actions={<Button variant="primary" onClick={() => setOpen(true)}>New form</Button>} />
+      <PageHeader title="Forms" description="Write the questions a vendor answers online. Publish a form when it is ready to send." actions={<Button variant="primary" onClick={() => setOpen(true)}>New form</Button>} />
       <ErrorNote className="mb-3" message={error} />
       <Notice message={notice} />
       {query.isLoading ? <LoadingState label="Loading forms…" description="Fetching form templates." /> : null}

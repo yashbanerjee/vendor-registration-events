@@ -6,7 +6,7 @@ import { ShellFrame } from "@/components/shell";
 const items = [
   { href: "/admin", label: "Home", icon: <LayoutDashboard size={16} /> },
   { href: "/admin/exhibitions", label: "Events", icon: <Tickets size={16} /> },
-  { href: "/admin/vendors", label: "Companies", icon: <Store size={16} /> },
+  { href: "/admin/vendors", label: "Vendors", icon: <Store size={16} /> },
   { href: "/admin/forms", label: "Forms", icon: <Workflow size={16} /> },
   { href: "/admin/reviews", label: "Check answers", icon: <ClipboardCheck size={16} /> },
   { href: "/admin/documents", label: "Files", icon: <Files size={16} />, secondary: true },

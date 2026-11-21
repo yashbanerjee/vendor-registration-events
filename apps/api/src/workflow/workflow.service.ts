@@ -143,7 +143,7 @@ export class WorkflowService {
     }
     if (assigned > 0) {
       const idempotencyKey = `bulk-assign:${input.exhibitionId}:${input.formVersionId}:${sha256([...input.vendorIds].sort().join(","))}`;
-      const bodyText = `${assigned} companies were assigned the form. Send each invitation from the Companies list.${failed.length ? ` ${failed.length} could not be assigned.` : ""}`;
+      const bodyText = `${assigned} vendors were assigned the form. Send each invitation from the Vendors list.${failed.length ? ` ${failed.length} could not be assigned.` : ""}`;
       await this.tenant.transaction(user.organizationId, (tx) => this.notifyAdmins(tx, user.organizationId, {
         idempotencyKey,
         template: "invitations-queued",
@@ -218,7 +218,7 @@ export class WorkflowService {
       update: {},
       create: { organizationId: user.organizationId, vendorId: vendor.id, exhibitionId: exhibition.id },
     });
-    // Invitation email is sent later from the Companies list (one-time Send mail button).
+    // Invitation email is sent later from the Vendors list (one-time Send mail button).
     await this.audit.record(tx, {
       organizationId: user.organizationId,
       actorId: user.id,
@@ -338,7 +338,7 @@ export class WorkflowService {
             data: { invitationSentAt: null },
           });
         }
-        // New form is ready; invitation is sent once from the Companies list.
+        // New form is ready; invitation is sent once from the Vendors list.
         return taken.id;
       }
       if (assignment.submission) {

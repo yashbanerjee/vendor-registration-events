@@ -176,7 +176,7 @@ export function ShellFrame({ items, home, children }: { items: NavItem[]; home: 
 function crumbLabel(crumb: string) {
   const names: Record<string, string> = {
     exhibitions: "Events",
-    vendors: "Companies",
+    vendors: "Vendors",
     reviews: "Check answers",
     submissions: "All answers",
     documents: "Files",
@@ -386,7 +386,7 @@ function ShellMain({
             <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" size={16} />
             <input
               className="h-10 w-full min-w-0 rounded-md border border-[var(--field-border)] bg-field pl-9 pr-3 text-base leading-10 transition-[border-color,box-shadow] placeholder:text-dim focus:border-[#009ef0] focus:shadow-[0_0_0_3px_rgba(0,158,240,0.22)] focus:outline-none sm:text-sm"
-              placeholder={home.startsWith("/vendor") ? "Search" : "Search a company or event"}
+              placeholder={home.startsWith("/vendor") ? "Search" : "Search a vendor or event"}
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value);

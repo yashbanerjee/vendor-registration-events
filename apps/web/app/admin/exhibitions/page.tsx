@@ -201,12 +201,12 @@ export default function ExhibitionsPage() {
 
       {list.isLoading ? <LoadingState label="Loading events…" description="Fetching exhibition details." /> : null}
       {!list.isLoading && exhibitions.length === 0 ? (
-        <EmptyState title="No events yet" body="Add the show first. You can add companies and forms after that." action={<Button variant="primary" onClick={openCreate}>Add event</Button>} />
+        <EmptyState title="No events yet" body="Add the show first. You can add vendors and forms after that." action={<Button variant="primary" onClick={openCreate}>Add event</Button>} />
       ) : null}
 
       {selectedId ? (
         <>
-          {detail.isLoading ? <LoadingState label="Loading progress…" description="Fetching companies and form answers." /> : null}
+          {detail.isLoading ? <LoadingState label="Loading progress…" description="Fetching vendors and form answers." /> : null}
           <ErrorNote className="mb-3" message={detail.isError ? "Could not load company progress for this event." : ""} />
           {detail.data?.data ? <EventProgressBoard vendors={detail.data.data.vendors} /> : null}
         </>

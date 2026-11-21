@@ -33,7 +33,7 @@ export default function ExhibitionDetailPage() {
       </Link>
       {exhibition ? <PageHeader eyebrow={exhibition.code} title={exhibition.name} actions={<StatusBadge status={exhibition.status} />} /> : null}
       <ErrorNote className="mb-3" message={query.isError ? "Could not load this exhibition." : ""} />
-      {query.isLoading ? <LoadingState label="Loading event…" description="Fetching companies and form progress." /> : null}
+      {query.isLoading ? <LoadingState label="Loading event…" description="Fetching vendors and form progress." /> : null}
       {exhibition ? <EventProgressBoard vendors={exhibition.vendors} /> : null}
     </div>
   );

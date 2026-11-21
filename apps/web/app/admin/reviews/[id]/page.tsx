@@ -88,7 +88,7 @@ export default function ReviewDetailPage() {
   if (!review) {
     return query.isError
       ? <ErrorNote message="This submission could not be loaded." />
-      : <LoadingState label="Loading submission…" description="Opening the company’s submitted form and files." />;
+      : <LoadingState label="Loading submission…" description="Opening the vendor’s submitted form and files." />;
   }
   const reviewable = review.status === "SUBMITTED_PENDING_REVIEW" || review.status === "RESUBMITTED_PENDING_REVIEW";
   return (

@@ -107,7 +107,7 @@ export function EventProgressBoard({ vendors }: { vendors: VendorProgress[] }) {
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
         <input
           className={`${inputClass} lg:max-w-sm`}
-          placeholder="Search company, contact, or email"
+          placeholder="Search vendor, contact, or email"
           value={q}
           onChange={(event) => setQ(event.target.value)}
           aria-label="Search companies"

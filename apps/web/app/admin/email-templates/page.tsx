@@ -257,7 +257,7 @@ function EmailPreview({
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
-  const audienceLabel = audience === "admin" ? "an administrator" : "a company";
+  const audienceLabel = audience === "admin" ? "an administrator" : "a vendor";
 
   return (
     <aside className="grid min-w-0 gap-3 xl:sticky xl:top-4">

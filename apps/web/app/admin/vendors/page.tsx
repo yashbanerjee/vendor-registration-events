@@ -157,7 +157,7 @@ export default function VendorsPage() {
       setOpen(false);
       setForm(emptyVendor);
       setError("");
-      setNotice("Company created. Use Send mail in the list to email the invitation once.");
+      setNotice("Vendor created. Use Send mail in the list to email the invitation once.");
       await refresh();
     },
     onError: (caught) => setError(fieldError(caught, "Could not create the vendor.")),
@@ -180,7 +180,7 @@ export default function VendorsPage() {
     mutationFn: (assignmentId: string) => api(`/assignments/${assignmentId}/send-invite`, { method: "POST" }),
     onMutate: (assignmentId) => setSendingId(assignmentId),
     onSuccess: async () => {
-      setNotice("Invitation email queued. This company can only be emailed once for this form.");
+      setNotice("Invitation email queued. This vendor can only be emailed once for this form.");
       setError("");
       await refresh();
     },
@@ -216,7 +216,7 @@ export default function VendorsPage() {
     mutationFn: () => api<{ data: { assigned: number; failed: number; failedVendorIds: string[] } }>("/assignments/bulk", { method: "POST", body: JSON.stringify({ vendorIds: importResult?.createdVendorIds ?? [], exhibitionId: bulkExhibitionId, formVersionId: bulkFormId }) }),
     onSuccess: async (result) => {
       setFormAssigned(true);
-      setNotice(`${result.data.assigned} companies were assigned the form. Use Send mail in the list to email each invitation once.${result.data.failed ? ` ${result.data.failed} could not be assigned.` : ""}`);
+      setNotice(`${result.data.assigned} vendors were assigned the form. Use Send mail in the list to email each invitation once.${result.data.failed ? ` ${result.data.failed} could not be assigned.` : ""}`);
       await refresh();
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not assign the form."),
@@ -224,7 +224,7 @@ export default function VendorsPage() {
   const vendors = usePagedRows(query.data?.data ?? [], `${q}|${categoryId}`);
   const columns = [
     helper.accessor("companyName", {
-      header: "Company",
+      header: "Vendor",
       cell: (info) => {
         const vendor = info.row.original;
         const detail = [vendor.reference, vendor.contactName].filter(Boolean).join(" · ");
@@ -275,8 +275,8 @@ export default function VendorsPage() {
   return (
     <div>
       <PageHeader
-        title="Companies"
-        description="Add or import companies, assign a form, then press Send mail once per company."
+        title="Vendors"
+        description="Add or import vendors, assign a form, then press Send mail once per vendor."
         actions={
           <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
             <Button onClick={() => void download("/imports/template", "vendor-demo.csv").catch(() => setError("Could not download the demo CSV."))}>Demo CSV</Button>
@@ -285,7 +285,7 @@ export default function VendorsPage() {
               {upload.isPending ? "Uploading…" : "Bulk upload"}
             </Button>
             {upload.isSuccess && !upload.isPending ? <span className="col-span-2 inline-flex items-center gap-1 self-center text-sm text-[var(--success)]"><Check size={16} aria-hidden /> Uploaded</span> : null}
-            <Button className="col-span-2" variant="primary" onClick={() => { setError(""); setOpen(true); }}>Add company</Button>
+            <Button className="col-span-2" variant="primary" onClick={() => { setError(""); setOpen(true); }}>Add vendor</Button>
             <input ref={fileRef} className="hidden" type="file" accept=".csv,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) upload.mutate(file); }} />
           </div>
         }
@@ -293,7 +293,7 @@ export default function VendorsPage() {
       <Notice message={notice} />
       <ErrorNote className="mb-3" message={error} />
       <FilterBar>
-        <input className={`${inputClass} col-span-2 sm:max-w-sm`} placeholder="Search company, email, or reference" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Filter vendors" />
+        <input className={`${inputClass} col-span-2 sm:max-w-sm`} placeholder="Search vendor, email, or reference" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Filter vendors" />
         <select className={`${inputClass} col-span-2 sm:max-w-xs`} aria-label="Category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
           <option value="">All categories</option>
           {(categories.data?.data ?? []).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
@@ -321,9 +321,9 @@ export default function VendorsPage() {
         </table>
       </div>
       <Pager page={vendors.page} pageCount={vendors.pageCount} total={vendors.total} rangeStart={vendors.rangeStart} rangeEnd={vendors.rangeEnd} onPage={vendors.setPage} />
-      {query.isLoading ? <LoadingState label="Loading companies…" description="Fetching the vendor list." /> : null}
+      {query.isLoading ? <LoadingState label="Loading vendors…" description="Fetching the vendor list." /> : null}
       {!query.isLoading && vendors.total === 0 ? <p className="text-sm text-muted sm:mt-3">No vendors match this filter.</p> : null}
-      <Modal open={open} title="Add a company" onClose={() => setOpen(false)}>
+      <Modal open={open} title="Add a vendor" onClose={() => setOpen(false)}>
         <form className="grid gap-3" onSubmit={(event) => {
           event.preventDefault();
           const name = form.contactName.trim();
@@ -339,7 +339,7 @@ export default function VendorsPage() {
           create.mutate();
         }}>
           <ErrorNote message={error} />
-          <Field label="Company"><input className={inputClass} required value={form.companyName} onChange={(event) => setForm({ ...form, companyName: event.target.value })} /></Field>
+          <Field label="Vendor name"><input className={inputClass} required value={form.companyName} onChange={(event) => setForm({ ...form, companyName: event.target.value })} /></Field>
           <Field label="Contact" hint="Letters, spaces, hyphens, and apostrophes only."><input className={inputClass} required value={form.contactName} autoComplete="name" onChange={(event) => setForm({ ...form, contactName: event.target.value.replace(/[^\p{L}\s.'’-]/gu, "") })} /></Field>
           <Field label="Email"><input className={inputClass} type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></Field>
           <Field label="Phone" hint="10 digits."><input className={inputClass} inputMode="numeric" autoComplete="tel" maxLength={10} pattern="\d{10}" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value.replace(/\D/g, "").slice(0, 10) })} /></Field>
@@ -361,7 +361,7 @@ export default function VendorsPage() {
               {publishedForms.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
             </select>
           </Field>
-          {open && !forms.isLoading && publishedForms.length === 0 ? <p className="text-sm text-muted">Publish a form before adding a company.</p> : null}
+          {open && !forms.isLoading && publishedForms.length === 0 ? <p className="text-sm text-muted">Publish a form before adding a vendor.</p> : null}
           <Button type="submit" variant="primary" disabled={create.isPending || publishedForms.length === 0}>Create vendor</Button>
         </form>
       </Modal>
@@ -388,7 +388,7 @@ export default function VendorsPage() {
       <Modal open={Boolean(removing)} title="Delete vendor" onClose={() => setRemoving(null)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); if (removing) remove.mutate(removing.id); }}>
           <ErrorNote message={error} />
-          <p className="text-sm">Delete {removing?.companyName}? Open invitation links stop working, and the company leaves the directory.</p>
+          <p className="text-sm">Delete {removing?.companyName}? Open invitation links stop working, and the vendor leaves the directory.</p>
           <ModalActions>
             <Button type="button" onClick={() => setRemoving(null)}>Cancel</Button>
             <Button type="submit" variant="danger" disabled={remove.isPending}>Delete</Button>
@@ -414,7 +414,7 @@ export default function VendorsPage() {
             </dl>
             {importResult.createdVendorIds.length > 0 && !formAssigned ? (
               <>
-                <p className="text-sm text-muted">Assign a form to everyone transferred in this file. Then use Send mail in the Companies list to email each invitation once.</p>
+                <p className="text-sm text-muted">Assign a form to everyone transferred in this file. Then use Send mail in the Vendors list to email each invitation once.</p>
                 <Field label="Exhibition">
                   <select className={inputClass} required value={bulkExhibitionId} onChange={(event) => setBulkExhibitionId(event.target.value)}>
                     <option value="">Select</option>
@@ -430,7 +430,7 @@ export default function VendorsPage() {
                 <Button type="submit" variant="primary" disabled={assignImported.isPending || !bulkFormId || !bulkExhibitionId}>Assign form</Button>
               </>
             ) : null}
-            {formAssigned ? <p className="text-sm text-muted">Forms assigned. Close this window and press Send mail next to each company.</p> : null}
+            {formAssigned ? <p className="text-sm text-muted">Forms assigned. Close this window and press Send mail next to each vendor.</p> : null}
             {importResult.createdVendorIds.length === 0 ? <p className="text-sm text-muted">No new vendors were transferred, so there is nobody to assign.</p> : null}
             {importResult.errorCount > 0 ? <Button type="button" onClick={() => void download(`/imports/${importResult.id}/errors.csv`, "import-errors.csv")}>Download error report</Button> : null}
           </form>

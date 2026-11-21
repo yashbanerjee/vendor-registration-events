@@ -57,7 +57,7 @@ export default function VendorProfilePage() {
     mutationFn: () => current
       ? api(`/assignments/${current.id}/form`, { method: "POST", body: JSON.stringify({ formVersionId: nextFormId }) })
       : api("/assignments", { method: "POST", body: JSON.stringify({ vendorId: vendor?.id, exhibitionId: nextExhibitionId, formVersionId: nextFormId }) }),
-    onSuccess: async () => { setChanging(false); setNotice("The form was saved. Use Send mail on the Companies list to email the invitation once."); await client.invalidateQueries({ queryKey: ["vendor", params.id] }); },
+    onSuccess: async () => { setChanging(false); setNotice("The form was saved. Use Send mail on the Vendors list to email the invitation once."); await client.invalidateQueries({ queryKey: ["vendor", params.id] }); },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not change the form."),
   });
   const saveCategory = useMutation({
@@ -84,7 +84,7 @@ export default function VendorProfilePage() {
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not delete the vendor."),
   });
   if (!vendor) {
-    return <LoadingState label="Loading company…" description="Opening this vendor profile." />;
+    return <LoadingState label="Loading vendor…" description="Opening this vendor profile." />;
   }
   const selectedCategory = categoryId ?? vendor.categories?.[0]?.category.id ?? "";
   return (
@@ -185,7 +185,7 @@ export default function VendorProfilePage() {
               </select>
             </Field>
           ) : null}
-          <Field label="Form" hint="This replaces the current form, even after the company has sent it. They get an email and fill in the new one.">
+          <Field label="Form" hint="This replaces the current form, even after the vendor has sent it. Use Send mail once from the Vendors list.">
             <select className={inputClass} required value={nextFormId} onChange={(event) => setNextFormId(event.target.value)}>
               <option value="">Select</option>
               {publishedForms.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
@@ -197,7 +197,7 @@ export default function VendorProfilePage() {
       <Modal open={removing} title="Delete vendor" onClose={() => setRemoving(false)}>
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); remove.mutate(); }}>
           <ErrorNote message={error} />
-          <p className="text-sm">Delete {vendor.companyName}? Open invitation links stop working, and the company leaves the directory.</p>
+          <p className="text-sm">Delete {vendor.companyName}? Open invitation links stop working, and the vendor leaves the directory.</p>
           <ModalActions>
             <Button type="button" onClick={() => setRemoving(false)}>Cancel</Button>
             <Button type="submit" variant="danger" disabled={remove.isPending}>Delete</Button>

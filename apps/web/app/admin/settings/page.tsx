@@ -202,7 +202,7 @@ export default function SettingsPage() {
             description="Messages to vendors and administrators use these sender and SMTP details."
             extra={form.smtpPasswordSet ? <Badge tone="success">Password saved</Badge> : <Badge tone="neutral">No password saved</Badge>}
           >
-            <p className="text-sm text-muted">Invitation emails are sent one company at a time from the Companies list. SMTP settings below are used for those messages and for test emails.</p>
+            <p className="text-sm text-muted">Invitation emails are sent one vendor at a time from the Vendors list. SMTP settings below are used for those messages and for test emails.</p>
             <MailAuthNote auth={organization.data?.data.mailAuth ?? null} />
             <div className="grid items-start gap-3 sm:grid-cols-2">
               <Field label="From name">

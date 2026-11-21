@@ -72,7 +72,7 @@ export default function SubmissionsPage() {
     <div>
       <PageHeader title="Submissions" description="See which vendors have sent their form, which have not, and which fields are filled in." />
       <FilterBar>
-        <input className={`${inputClass} col-span-2 sm:max-w-sm`} placeholder="Search company, contact, or email" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Search submissions" />
+        <input className={`${inputClass} col-span-2 sm:max-w-sm`} placeholder="Search vendor, contact, or email" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Search submissions" />
         <select className={`${inputClass} sm:max-w-[180px]`} aria-label="Submission" value={state} onChange={(event) => setState(event.target.value)}>
           <option value="">All vendors</option>
           <option value="submitted">Submitted</option>
