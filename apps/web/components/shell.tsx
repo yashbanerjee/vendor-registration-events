@@ -154,7 +154,7 @@ export function ShellFrame({ items, home, children }: { items: NavItem[]; home: 
   if (!session) return null;
 
   return (
-    <div className="flex h-dvh min-h-0 overflow-hidden md:grid md:grid-cols-[auto_1fr]">
+    <div className="flex h-dvh min-h-0 overflow-hidden font-sans md:grid md:grid-cols-[auto_1fr]">
       <ShellNav
         items={items}
         home={home}

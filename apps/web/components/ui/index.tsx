@@ -27,7 +27,7 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   );
 }
 
-const controlClass = "w-full min-w-0 rounded-md border border-[var(--field-border)] bg-field text-foreground transition-[border-color,box-shadow] placeholder:text-dim focus:border-[#009ef0] focus:shadow-[0_0_0_3px_rgba(0,158,240,0.22)] focus:outline-none disabled:cursor-not-allowed disabled:bg-[var(--field-disabled)] disabled:text-muted";
+const controlClass = "w-full min-w-0 rounded-md border border-[var(--field-border)] bg-field font-sans text-foreground transition-[border-color,box-shadow] placeholder:text-dim focus:border-[#009ef0] focus:shadow-[0_0_0_3px_rgba(0,158,240,0.22)] focus:outline-none disabled:cursor-not-allowed disabled:bg-[var(--field-disabled)] disabled:text-muted";
 export const inputClass = `h-10 px-3 text-sm leading-10 max-sm:h-11 max-sm:text-base max-sm:leading-[2.75rem] ${controlClass}`;
 export const textareaClass = `min-h-28 resize-y px-3 py-2.5 text-sm leading-5 max-sm:text-base ${controlClass}`;
 

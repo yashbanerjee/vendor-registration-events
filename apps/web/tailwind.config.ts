@@ -35,7 +35,9 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Montserrat", "sans-serif"],
+        serif: ["Montserrat", "sans-serif"],
         mono: ["Montserrat", "sans-serif"],
+        form: ["Montserrat", "sans-serif"],
       },
     },
   },

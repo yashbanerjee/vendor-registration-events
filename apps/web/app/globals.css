@@ -88,8 +88,10 @@
   --badge-info-fg: #023456;
   --badge-neutral-bg: #eef3f7;
   --badge-neutral-fg: #41525c;
-  /* Single font everywhere: portal, form, and auth pages. */
+  /* Single font everywhere: portal, form, auth, admin, emails preview. */
+  --font-sans: "Montserrat", sans-serif;
   --font-form: "Montserrat", sans-serif;
+  --font-mono: "Montserrat", sans-serif;
 }
 
 .dark {
@@ -149,13 +151,17 @@
 
 html, body { min-height: 100%; }
 
+html {
+  font-family: "Montserrat", sans-serif;
+}
+
 body {
   margin: 0;
   background: var(--page-bg);
   color: var(--foreground);
   font-family: "Montserrat", sans-serif;
-  font-feature-settings: "ss01" on;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 :focus-visible {
@@ -163,11 +169,40 @@ body {
   outline-offset: 2px;
 }
 
+/* Force Montserrat on every control — browsers often reset form fonts. */
 input,
 textarea,
 select,
-button {
-  font-family: inherit;
+button,
+option,
+label,
+a,
+p,
+h1, h2, h3, h4, h5, h6,
+span,
+li,
+td,
+th,
+pre,
+code,
+kbd,
+samp,
+.font-sans,
+.font-mono,
+.font-form,
+[class*="font-"] {
+  font-family: "Montserrat", sans-serif !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  font-family: "Montserrat", sans-serif !important;
+}
+
+input::file-selector-button,
+button,
+.file-drop-button {
+  font-family: "Montserrat", sans-serif !important;
 }
 
 select option {
@@ -1194,5 +1229,9 @@ input[type="file"]:disabled {
 @layer utilities {
   .no-scrollbar { scrollbar-width: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
-  .font-form { font-family: var(--font-form); }
+  .font-sans,
+  .font-mono,
+  .font-form {
+    font-family: "Montserrat", sans-serif !important;
+  }
 }
