@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { FormValidationError, validateSubmission, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { FormRenderer } from "@/components/form-renderer";
 import { ApiError, api } from "@/lib/api";
-import { friendlyErrorMessage } from "@/lib/errors";
+import { vendorErrorMessage, vendorFieldMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -106,22 +106,29 @@ export function VendorAssignmentForm({
         return;
       }
       if (caught instanceof ApiError && Array.isArray(caught.details)) {
-        const issues = caught.details.filter((item): item is { fieldId: string; message: string } => {
-          return Boolean(item) && typeof item === "object" && "fieldId" in item && "message" in item;
-        });
+        const issues = caught.details
+          .filter((item): item is { fieldId: string; message: string } => {
+            return Boolean(item) && typeof item === "object" && "fieldId" in item && "message" in item;
+          })
+          .map((item) => ({
+            fieldId: item.fieldId,
+            message: vendorFieldMessage(item.message, "Please check this field and try again."),
+          }));
         if (!issues.length) {
           setFieldErrors([]);
-          setError(friendlyErrorMessage(caught, "The form could not be saved. Please try again."));
+          setError(vendorErrorMessage(caught, "The form could not be saved. Please try again."));
           return;
         }
         showFieldErrors(issues);
         return;
       }
-      setError(friendlyErrorMessage(caught, "The form could not be saved. Please try again."));
+      setError(vendorErrorMessage(caught, "The form could not be saved. Please try again."));
     },
   });
 
-  const sections = [...assignment.form.schema.sections].sort((left, right) => left.order - right.order);
+  const sections = [...assignment.form.schema.sections]
+    .sort((left, right) => left.order - right.order)
+    .filter((section) => assignment.form.schema.fields.some((field) => field.sectionId === section.id));
   const [stage, setStage] = useState(0);
   const currentStage = Math.min(stage, Math.max(sections.length - 1, 0));
   const editable = assignment.status === "INVITED" || assignment.status === "IN_PROGRESS" || assignment.status === "CORRECTION_REQUESTED";
@@ -202,7 +209,11 @@ export function VendorAssignmentForm({
       </div>
       <FormRenderer
         bare
-        schema={assignment.form.schema}
+        schema={{
+          ...assignment.form.schema,
+          // Hide empty section headings so vendors do not get blank steps.
+          sections: sections.length > 0 ? sections : assignment.form.schema.sections,
+        }}
         values={values}
         editableFieldIds={assignment.editableFieldIds}
         notes={assignment.correction?.fields}

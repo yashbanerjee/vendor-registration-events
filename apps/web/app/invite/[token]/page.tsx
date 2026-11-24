@@ -3,7 +3,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ApiError, api } from "@/lib/api";
+import { api } from "@/lib/api";
+import { vendorErrorMessage } from "@/lib/errors";
 import { AuthFrame, FloatingInput } from "@/components/auth-frame";
 import { Button, ErrorNote } from "@/components/ui";
 import { useSession } from "@/components/providers";
@@ -22,7 +23,7 @@ export default function InvitePage() {
     void api<{ data: { email: string; companyName: string; needsPassword: boolean; purpose: string; assignmentId: string | null } }>("/auth/invitations/preview", {
       method: "POST",
       body: JSON.stringify({ token: params.token }),
-    }).then((result) => setPreview(result.data)).catch((caught) => setError(caught instanceof ApiError ? caught.message : "This invitation is not valid."));
+    }).then((result) => setPreview(result.data)).catch((caught) => setError(vendorErrorMessage(caught, "This invitation is not valid.")));
   }, [params.token]);
 
   async function continueInvitation(event: React.FormEvent) {
@@ -37,7 +38,7 @@ export default function InvitePage() {
       const assignmentId = result.data.assignmentId ?? preview?.assignmentId;
       router.push(assignmentId ? `/vendor/assignments/${assignmentId}` : "/vendor");
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "The invitation could not be opened.");
+      setError(vendorErrorMessage(caught, "The invitation could not be opened. Please try again."));
     }
   }
 

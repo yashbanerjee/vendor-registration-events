@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ApiError, api } from "@/lib/api";
+import { api } from "@/lib/api";
+import { vendorErrorMessage } from "@/lib/errors";
 import { AuthFrame, FloatingInput } from "@/components/auth-frame";
 import { Button, ErrorNote, Notice } from "@/components/ui";
 
@@ -18,7 +19,7 @@ export default function ForgotPasswordPage() {
       await api("/auth/password/forgot", { method: "POST", body: JSON.stringify({ email }) });
       setSent(true);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "The reset email could not be requested.");
+      setError(vendorErrorMessage(caught, "The reset email could not be requested. Please try again."));
     }
   }
 

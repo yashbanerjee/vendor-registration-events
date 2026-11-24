@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/api";
-import { friendlyErrorMessage } from "@/lib/errors";
+import { vendorErrorMessage } from "@/lib/errors";
 import { AuthFrame, FloatingInput } from "@/components/auth-frame";
 import { Button, ErrorNote, LoadingState, Spinner } from "@/components/ui";
 import { useSession } from "@/components/providers";
@@ -41,7 +41,7 @@ export default function LoginPage() {
       if (me.data.mustChangePassword) router.push("/change-password");
       else router.push(me.data.vendorId ? "/vendor" : "/admin");
     } catch (caught) {
-      setError(friendlyErrorMessage(caught, "Sign-in failed. Please check your details and try again."));
+      setError(vendorErrorMessage(caught, "Sign-in failed. Please check your details and try again."));
     } finally {
       setPending(false);
     }

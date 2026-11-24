@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { api } from "@/lib/api";
-import { friendlyErrorMessage } from "@/lib/errors";
+import { vendorErrorMessage } from "@/lib/errors";
 import type { VendorAssignment } from "@/components/vendor-assignment-form";
 import { Button, EmptyState, ErrorNote, LoadingState, Notice, StatusBadge } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
@@ -38,7 +38,7 @@ function MasterForm() {
       <ErrorNote
         message={
           !loading && failed
-            ? friendlyErrorMessage(assignments.error, "Could not load your form. Please refresh the page and try again.")
+            ? vendorErrorMessage(assignments.error, "Could not load your form. Please refresh the page and try again.")
             : ""
         }
       />

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { friendlyErrorMessage } from "@/lib/errors";
+import { vendorErrorMessage } from "@/lib/errors";
 import { formatDate, formatLabel } from "@/lib/utils";
 import { FileLink } from "@/components/file-preview";
 import { Pager, usePagedRows } from "@/components/pager";
@@ -31,7 +31,7 @@ export default function VendorDocumentsPage() {
         </p>
       </header>
 
-      <ErrorNote message={query.isError ? friendlyErrorMessage(query.error, "Could not load your files. Please refresh and try again.") : ""} />
+      <ErrorNote message={query.isError ? vendorErrorMessage(query.error, "Could not load your files. Please refresh and try again.") : ""} />
       {query.isLoading ? <LoadingState label="Loading your files…" description="Gathering uploads for your company." /> : null}
       {query.isSuccess && documents.total === 0 ? (
         <EmptyState title="No files yet" body="Files you upload with a form will be listed here." />

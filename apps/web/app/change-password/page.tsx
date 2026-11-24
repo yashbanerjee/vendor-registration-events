@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ApiError, api } from "@/lib/api";
+import { api } from "@/lib/api";
+import { vendorErrorMessage } from "@/lib/errors";
 import { AuthFrame, FloatingInput } from "@/components/auth-frame";
 import { Button, ErrorNote, LoadingState } from "@/components/ui";
 import { useSession } from "@/components/providers";
@@ -29,7 +30,7 @@ export default function ChangePasswordPage() {
       await refresh();
       router.push(session?.vendorId ? "/vendor" : "/admin");
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "The password could not be changed.");
+      setError(vendorErrorMessage(caught, "The password could not be changed. Please check your details and try again."));
     }
   }
 

@@ -167,6 +167,12 @@ function isEmpty(value: unknown): boolean {
   return false;
 }
 
+/** Unchecked consent/checkbox values (boolean false, empty list, or "false"). */
+function isUncheckedCheckbox(value: unknown): boolean {
+  if (value === false || value === "false") return true;
+  return isEmpty(value);
+}
+
 export type FieldAnswer = { id: string; label: string; filled: boolean };
 
 function hasAnswer(value: unknown): boolean {
@@ -196,7 +202,9 @@ export function fieldAnswers(schema: FormSchemaDefinition, values: Record<string
   for (const field of schema.fields) {
     if (DISPLAY_ONLY_TYPES.includes(field.type)) continue;
     if (!isFieldVisible(field, values, byId)) continue;
-    answers.push({ id: field.id, label: field.label, filled: hasAnswer(values[field.id]) });
+    const value = values[field.id];
+    const filled = field.type === "checkbox" ? !isUncheckedCheckbox(value) : hasAnswer(value);
+    answers.push({ id: field.id, label: field.label, filled });
   }
   return answers;
 }
@@ -284,11 +292,12 @@ export function assertLockedFieldsUnchanged(input: {
 
 function validateLeaf(field: FormField, value: unknown, issues: { fieldId: string; message: string }[]) {
   if (DISPLAY_ONLY_TYPES.includes(field.type)) return;
-  if (field.required && isEmpty(value)) {
+  const empty = field.type === "checkbox" ? isUncheckedCheckbox(value) : isEmpty(value);
+  if (field.required && empty) {
     issues.push({ fieldId: field.id, message: `${field.label} is required.` });
     return;
   }
-  if (isEmpty(value)) return;
+  if (empty) return;
   const text = asText(value);
   if (field.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
     issues.push({ fieldId: field.id, message: `${field.label} must be an email address.` });

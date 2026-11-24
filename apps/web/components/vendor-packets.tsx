@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, FileUp } from "lucide-react";
 import { useRef, useState } from "react";
 import { api, download } from "@/lib/api";
-import { friendlyErrorMessage } from "@/lib/errors";
+import { vendorErrorMessage } from "@/lib/errors";
 import { RemoteFileLink } from "@/components/file-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +40,7 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
       if (result && typeof result === "object" && "data" in result) client.setQueryData(["my-pdf-forms"], result);
       await onChange();
     },
-    onError: (caught) => setError(friendlyErrorMessage(caught, "Could not save that file. Please try again.")),
+    onError: (caught) => setError(vendorErrorMessage(caught, "Could not save that file. Please try again.")),
   });
   const busy = run.isPending ? run.variables?.kind ?? "" : "";
   const step = locked ? 4 : form.files.length ? 3 : form.filledName ? 2 : 0;
@@ -76,7 +76,7 @@ export function PacketCard({ form, onChange }: { form: Packet; onChange: () => P
             ))}
           </ol>
         </div>
-        <Button size="sm" variant="outline" className="w-full shrink-0 sm:w-auto" onClick={() => void download(`/pdf-forms/${form.id}/file?disposition=attachment`, form.filename).catch((caught) => setError(friendlyErrorMessage(caught, "The download failed. Please try again.")))}>
+        <Button size="sm" variant="outline" className="w-full shrink-0 sm:w-auto" onClick={() => void download(`/pdf-forms/${form.id}/file?disposition=attachment`, form.filename).catch((caught) => setError(vendorErrorMessage(caught, "The download failed. Please try again.")))}>
           <Download size={14} aria-hidden />
           Download form
         </Button>

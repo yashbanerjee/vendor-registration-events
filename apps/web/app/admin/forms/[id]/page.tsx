@@ -50,7 +50,8 @@ export default function FormBuilderPage() {
   }, [query.data]);
 
   const save = useMutation({
-    mutationFn: () => api(`/forms/${params.id}/draft`, { method: "PUT", body: JSON.stringify({ name, schema, scope: query.data?.data.scope ?? "GLOBAL" }) }),
+    mutationFn: (next: FormSchemaDefinition) =>
+      api(`/forms/${params.id}/draft`, { method: "PUT", body: JSON.stringify({ name, schema: next, scope: query.data?.data.scope ?? "GLOBAL" }) }),
     onSuccess: async () => {
       setError("");
       await client.invalidateQueries({ queryKey: ["forms"] });
@@ -59,8 +60,8 @@ export default function FormBuilderPage() {
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Save failed."),
   });
   const publish = useMutation({
-    mutationFn: async () => {
-      await api(`/forms/${params.id}/draft`, { method: "PUT", body: JSON.stringify({ name, schema, scope: query.data?.data.scope ?? "GLOBAL" }) });
+    mutationFn: async (next: FormSchemaDefinition) => {
+      await api(`/forms/${params.id}/draft`, { method: "PUT", body: JSON.stringify({ name, schema: next, scope: query.data?.data.scope ?? "GLOBAL" }) });
       return api(`/forms/${params.id}/publish`, { method: "POST" });
     },
     onSuccess: async () => {
@@ -153,12 +154,100 @@ export default function FormBuilderPage() {
     setError("");
   }
 
+  function nextFieldKey(type: FieldType) {
+    const used = new Set(schema!.fields.map((item) => item.key));
+    let index = schema!.fields.length + 1;
+    let key = `${type}_${index}`;
+    while (used.has(key)) {
+      index += 1;
+      key = `${type}_${index}`;
+    }
+    return key;
+  }
+
+  function appendOrderForSection(sectionId: string) {
+    const orders = schema!.fields.filter((item) => item.sectionId === sectionId).map((item) => item.order);
+    return orders.length ? Math.max(...orders) + 1 : 0;
+  }
+
+  function schemaIssues(next: FormSchemaDefinition) {
+    const issues: string[] = [];
+    for (const section of next.sections) {
+      if (!section.title.trim()) issues.push("Every section needs a heading.");
+    }
+    for (const item of next.fields) {
+      if (!item.label.trim()) issues.push(`A ${labelFor(item.type)} field is missing its label.`);
+      if (!item.key.trim()) issues.push(`A ${labelFor(item.type)} field is missing its internal key.`);
+      if ((item.description?.length ?? 0) > 5000) issues.push(`“${item.label || item.key}” help text is too long (max 5000 characters).`);
+    }
+    const keys = next.fields.map((item) => item.key);
+    if (new Set(keys).size !== keys.length) issues.push("Two fields share the same internal key.");
+    return [...new Set(issues)];
+  }
+
+  function normalizeSchema(next: FormSchemaDefinition): FormSchemaDefinition {
+    const used = new Set<string>();
+    return {
+      ...next,
+      sections: next.sections.map((section) => ({
+        ...section,
+        title: section.title.trim() || "Untitled section",
+        description: section.description?.trim() ?? "",
+      })),
+      fields: next.fields.map((item, index) => {
+        let key = item.key.trim();
+        if (!key || used.has(key)) {
+          let candidate = key || `${item.type}_${index + 1}`;
+          let n = 1;
+          while (used.has(candidate)) {
+            n += 1;
+            candidate = `${item.type}_${index + n}`;
+          }
+          key = candidate;
+        }
+        used.add(key);
+        return {
+          ...item,
+          label: item.label.trim() || labelFor(item.type),
+          key,
+          description: item.description ?? "",
+        };
+      }),
+    };
+  }
+
+  function persistDraft() {
+    if (!schema) return;
+    const normalized = normalizeSchema(schema);
+    const issues = schemaIssues(normalized);
+    setSchema(normalized);
+    if (issues.length) {
+      setError(issues[0] ?? "Fix the form before saving.");
+      return;
+    }
+    setError("");
+    save.mutate(normalized);
+  }
+
+  function persistPublish() {
+    if (!schema) return;
+    const normalized = normalizeSchema(schema);
+    const issues = schemaIssues(normalized);
+    setSchema(normalized);
+    if (issues.length) {
+      setError(issues[0] ?? "Fix the form before publishing.");
+      return;
+    }
+    setError("");
+    publish.mutate(normalized);
+  }
+
   function addField(type: FieldType) {
     if (!activeSectionId) return;
     const id = crypto.randomUUID();
     const next: FormField = {
       id,
-      key: `${type}_${schema!.fields.length + 1}`,
+      key: nextFieldKey(type),
       type,
       label: labelFor(type),
       description: "",
@@ -167,7 +256,7 @@ export default function FormBuilderPage() {
       options: ["select", "multiselect", "radio", "checkbox"].includes(type) ? [{ value: "option_1", label: "Option 1" }] : [],
       validation: {},
       sectionId: activeSectionId,
-      order: schema!.fields.length,
+      order: appendOrderForSection(activeSectionId),
       conditional: null,
       readOnly: type === "info",
       children: [],
@@ -178,7 +267,17 @@ export default function FormBuilderPage() {
   }
 
   function updateField(id: string, patch: Partial<FormField>) {
-    setSchema({ ...schema!, fields: schema!.fields.map((item) => (item.id === id ? { ...item, ...patch } : item)) });
+    setSchema({
+      ...schema!,
+      fields: schema!.fields.map((item) => {
+        if (item.id !== id) return item;
+        const next = { ...item, ...patch };
+        if (patch.sectionId && patch.sectionId !== item.sectionId) {
+          next.order = appendOrderForSection(patch.sectionId);
+        }
+        return next;
+      }),
+    });
   }
 
   function moveField(id: string, direction: number) {
@@ -213,8 +312,8 @@ export default function FormBuilderPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <Button variant="danger" onClick={() => { setError(""); setRemoving(true); }}>Delete</Button>
-            <Button onClick={() => save.mutate()} disabled={save.isPending}>Save draft</Button>
-            <Button variant="primary" onClick={() => publish.mutate()} disabled={publish.isPending}>Publish</Button>
+            <Button onClick={persistDraft} disabled={save.isPending}>Save draft</Button>
+            <Button variant="primary" onClick={persistPublish} disabled={publish.isPending}>Publish</Button>
           </div>
         }
       />
@@ -284,6 +383,7 @@ export default function FormBuilderPage() {
                   <input
                     className={inputClass}
                     value={activeSection.title}
+                    maxLength={200}
                     onChange={(event) => updateSection(activeSection.id, { title: event.target.value })}
                   />
                 </Field>
@@ -291,6 +391,7 @@ export default function FormBuilderPage() {
                   <textarea
                     className={`${inputClass} min-h-24`}
                     value={activeSection.description ?? ""}
+                    maxLength={5000}
                     onChange={(event) => updateSection(activeSection.id, { description: event.target.value })}
                   />
                 </Field>
@@ -324,10 +425,11 @@ export default function FormBuilderPage() {
                     <textarea
                       className={`${inputClass} min-h-28`}
                       value={field.description ?? ""}
+                      maxLength={5000}
                       onChange={(event) => updateField(field.id, { description: event.target.value })}
                     />
                   ) : (
-                    <input className={inputClass} value={field.description ?? ""} onChange={(event) => updateField(field.id, { description: event.target.value })} />
+                    <input className={inputClass} value={field.description ?? ""} maxLength={5000} onChange={(event) => updateField(field.id, { description: event.target.value })} />
                   )}
                 </Field>
                 <Field label="Section">

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { ApiError, api } from "@/lib/api";
+import { api } from "@/lib/api";
+import { vendorErrorMessage } from "@/lib/errors";
 import { AuthFrame, FloatingInput } from "@/components/auth-frame";
 import { Button, ErrorNote } from "@/components/ui";
 
@@ -23,7 +24,7 @@ export default function ResetPasswordPage() {
       });
       router.push("/login");
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "The password could not be reset.");
+      setError(vendorErrorMessage(caught, "The password could not be reset. Please try again."));
     }
   }
 

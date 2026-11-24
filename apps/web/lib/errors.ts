@@ -5,6 +5,39 @@ type ApiLikeError = {
   code?: string;
 };
 
+/**
+ * Vendor-facing errors: never show raw API / server text.
+ * Always return plain language based on status, or the provided fallback.
+ */
+export function vendorErrorMessage(error: unknown, fallback = "Something went wrong. Please try again.") {
+  if (isApiLikeError(error)) {
+    const status = error.status ?? 0;
+    const code = error.code || "";
+    if (code === "NETWORK" || status === 0) {
+      return "Could not reach the server. Check your internet connection and try again.";
+    }
+    if (status === 401) return "Your session has expired. Please sign in again.";
+    if (status === 403) return "You do not have permission for this action.";
+    if (status === 404) return "That item was not found.";
+    if (status === 413 || code === "UPLOAD_LIMIT") return "That file is too large. Choose a smaller file and try again.";
+    if (status === 429 || code === "RATE_LIMITED") return "Too many requests were sent. Please wait a moment and try again.";
+    if (status >= 500 || code === "INVALID_JSON" || code === "STORAGE") {
+      return "Something went wrong on the server. Please try again.";
+    }
+    return fallback;
+  }
+  return fallback;
+}
+
+/** Field-level copy for vendors: keep short human text, replace technical API text. */
+export function vendorFieldMessage(message: unknown, fallback = "Please check this field and try again.") {
+  if (typeof message !== "string") return fallback;
+  const value = message.trim();
+  if (!value) return fallback;
+  if (!isHumanMessage(value) || looksTechnical(value) || looksLikeApiPayload(value)) return fallback;
+  return value;
+}
+
 export function friendlyErrorMessage(error: unknown, fallback = "Something went wrong. Please try again.") {
   if (isApiLikeError(error)) return messageForApiError(error, fallback);
   if (error instanceof Error && error.message.trim()) {
@@ -30,7 +63,7 @@ function messageForApiError(error: ApiLikeError, fallback: string) {
   if (code === "NETWORK" || status === 0) {
     return "Could not reach the server. Check your internet connection and try again.";
   }
-  if (code === "INVALID_JSON" || looksTechnical(raw) || /^Internal Server Error$/i.test(raw)) {
+  if (code === "INVALID_JSON" || looksTechnical(raw) || looksLikeApiPayload(raw) || /^Internal Server Error$/i.test(raw)) {
     return "The server had a problem with this request. Please try again in a moment.";
   }
   if (status === 401) return "Your session has expired. Please sign in again.";
@@ -43,30 +76,35 @@ function messageForApiError(error: ApiLikeError, fallback: string) {
     return "Too many requests were sent. Please wait a moment and try again.";
   }
   if (code === "STORAGE" || /could not be stored|file storage|storage bucket|storage credentials/i.test(raw)) {
-    return raw && isHumanMessage(raw) ? cleanStorageMessage(raw) : "The file could not be saved. Please try again.";
+    return "The file could not be saved. Please try again.";
   }
   if (status === 409 || code === "CONFLICT" || code === "WORKFLOW" || code === "FORM_INVALID" || code === "FIELD_LOCKED") {
-    return raw && isHumanMessage(raw) ? raw : "This action could not be completed. Refresh the page and try again.";
+    return raw && isHumanMessage(raw) && !looksLikeApiPayload(raw) ? raw : "This action could not be completed. Refresh the page and try again.";
   }
   if (status >= 500) {
-    return raw && isHumanMessage(raw) ? raw : "Something went wrong on the server. Please try again.";
+    return "Something went wrong on the server. Please try again.";
   }
-  if (raw && isHumanMessage(raw)) return raw;
+  if (raw && isHumanMessage(raw) && !looksLikeApiPayload(raw)) return raw;
   return fallback;
 }
 
-function cleanStorageMessage(message: string) {
-  return message.replace(/^The file could not be stored\.\s*/i, "").trim() || message;
+function looksTechnical(message: string) {
+  return /Unexpected token|not valid JSON|XML parse|mismatched tags|ECONNREFUSED|ENOTFOUND|fetch failed|<!DOCTYPE|<html|<hr>|at\s+\w+\s+\(|Deserialization error|stack trace|Prisma|NestJS|Exception|TypeError|ReferenceError|Cannot read propert|ECONNRESET|socket hang up|postgres|sqlstate/i.test(message);
 }
 
-function looksTechnical(message: string) {
-  return /Unexpected token|not valid JSON|XML parse|mismatched tags|ECONNREFUSED|ENOTFOUND|fetch failed|<!DOCTYPE|<html|<hr>|at\s+\w+\s+\(|Deserialization error|stack trace/i.test(message);
+function looksLikeApiPayload(message: string) {
+  return /^\{[\s\S]*\}$/.test(message)
+    || /^\[error\]/i.test(message)
+    || /\b(statusCode|correlationId|stack|traceId|requestId)\b/i.test(message)
+    || /^Error:\s/i.test(message)
+    || /https?:\/\/\S+/i.test(message) && /api\/v1|\.json\b/i.test(message);
 }
 
 function isHumanMessage(message: string) {
   const value = message.trim();
   if (!value) return false;
-  if (value.length > 280) return false;
+  if (value.length > 220) return false;
   if (looksTechnical(value)) return false;
+  if (looksLikeApiPayload(value)) return false;
   return true;
 }

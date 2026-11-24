@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { VendorAssignmentForm, type VendorAssignment } from "@/components/vendor-assignment-form";
 import { api } from "@/lib/api";
-import { friendlyErrorMessage } from "@/lib/errors";
+import { vendorErrorMessage } from "@/lib/errors";
 import { ErrorNote, LoadingState } from "@/components/ui";
 
 export default function VendorAssignmentPage() {
@@ -19,7 +19,7 @@ export default function VendorAssignmentPage() {
   if (assignment.isError || !assignment.data?.data) {
     return (
       <div className="grid gap-3">
-        <ErrorNote message={friendlyErrorMessage(assignment.error, "This form could not be opened. Please go back and try again.")} />
+        <ErrorNote message={vendorErrorMessage(assignment.error, "This form could not be opened. Please go back and try again.")} />
         <button type="button" className="justify-self-start text-sm font-semibold text-brand underline" onClick={() => router.replace("/vendor")}>
           Back to My form
         </button>

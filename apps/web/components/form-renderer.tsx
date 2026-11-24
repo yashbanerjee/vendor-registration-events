@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { COUNTRIES, isFieldVisible, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { FileLink, RemoteFileLink } from "./file-preview";
 import { isEditable } from "@/lib/locking";
-import { friendlyErrorMessage } from "@/lib/errors";
+import { vendorErrorMessage } from "@/lib/errors";
 import { UploadStatus, UploadTick } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -573,7 +573,7 @@ function FileField({
       }
       onChange(multiple ? [...files, uploaded] : uploaded);
     } catch (caught) {
-      setError(friendlyErrorMessage(caught, "The file could not be uploaded. Please try again."));
+      setError(vendorErrorMessage(caught, "The file could not be uploaded. Please try again."));
     } finally {
       setPending(false);
     }

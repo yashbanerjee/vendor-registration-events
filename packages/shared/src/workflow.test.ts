@@ -130,6 +130,46 @@ test("a download and reupload field requires the vendor file", () => {
   assert.deepEqual(collectDocumentIds(withReupload.fields, { [fieldId]: { documentId, filename: "booth-plan-filled.pdf" } }), [documentId]);
 });
 
+test("required checkbox rejects unchecked boolean false", () => {
+  const confirmId = "88888888-8888-4888-8888-888888888888";
+  const withCheckbox = formSchemaDefinition.parse({
+    sections: schema.sections,
+    fields: [
+      ...schema.fields,
+      {
+        id: confirmId,
+        key: "undertaking_confirm",
+        type: "checkbox",
+        label: "I confirm",
+        required: true,
+        sectionId,
+        order: 3,
+        options: [{ value: "yes", label: "I confirm" }],
+      },
+    ],
+  });
+  assert.throws(() =>
+    validateSubmission({
+      schema: withCheckbox,
+      values: { [companyId]: "Harbor", [boothId]: "A1", [confirmId]: false },
+    }),
+  );
+  assert.throws(() =>
+    validateSubmission({
+      schema: withCheckbox,
+      values: { [companyId]: "Harbor", [boothId]: "A1", [confirmId]: [] },
+    }),
+  );
+  assert.doesNotThrow(() =>
+    validateSubmission({
+      schema: withCheckbox,
+      values: { [companyId]: "Harbor", [boothId]: "A1", [confirmId]: ["yes"] },
+    }),
+  );
+  assert.equal(fieldAnswers(withCheckbox, { [confirmId]: false }).find((item) => item.id === confirmId)?.filled, false);
+  assert.equal(fieldAnswers(withCheckbox, { [confirmId]: ["yes"] }).find((item) => item.id === confirmId)?.filled, true);
+});
+
 test("spreadsheet cells neutralize formula injection", () => {
   assert.equal(escapeSpreadsheetCell("=cmd()"), "'=cmd()");
   assert.equal(escapeSpreadsheetCell("+1"), "'+1");
