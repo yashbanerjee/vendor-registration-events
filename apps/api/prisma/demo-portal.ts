@@ -500,7 +500,7 @@ async function main() {
   const summary = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`;
     const organization = await tx.organization.findUnique({ where: { slug: "vehda" } });
-    if (!organization) throw new Error("The Vehda organization was not found. Run prisma:seed first.");
+    if (!organization) throw new Error("The Vedha organization was not found. Run prisma:seed first.");
     const admin = await tx.user.findFirst({
       where: { organizationId: organization.id, status: "ACTIVE", roles: { some: { role: { name: "ORG_ADMIN" } } } },
       orderBy: { createdAt: "asc" },

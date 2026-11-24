@@ -6,7 +6,7 @@ import { useState } from "react";
 import { api } from "@/lib/api";
 import { vendorErrorMessage } from "@/lib/errors";
 import { AuthFrame, FloatingInput } from "@/components/auth-frame";
-import { Button, ErrorNote, LoadingState, Spinner } from "@/components/ui";
+import { Button, ErrorNote, LoadingState } from "@/components/ui";
 import { useSession } from "@/components/providers";
 
 export default function LoginPage() {
@@ -63,8 +63,7 @@ export default function LoginPage() {
         </>
       )}
       <Button type="submit" variant="primary" size="xl" className="max-sm:px-4" disabled={pending}>
-        {pending ? <Spinner size="sm" /> : null}
-        {pending ? "Signing in…" : "Continue"}
+        Continue
       </Button>
       <Link className="auth-link" href="/forgot-password">Forgot password?</Link>
     </AuthFrame>

@@ -20,8 +20,8 @@ async function main() {
     await tx.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`;
     const organization = await tx.organization.upsert({
       where: { slug: "vehda" },
-      update: { name: "Vehda" },
-      create: { name: "Vehda", slug: "vehda" },
+      update: { name: "Vedha" },
+      create: { name: "Vedha", slug: "vehda" },
     });
     const permissions = new Map<string, string>();
     for (const key of ALL_PERMISSIONS) {
@@ -44,11 +44,11 @@ async function main() {
     const reviewerRole = await tx.role.findUniqueOrThrow({ where: { name: "REVIEWER" } });
     const admin = await tx.user.upsert({
       where: { email: adminEmail },
-      update: { name: "Vehda Admin", status: "ACTIVE", passwordHash: adminHash },
+      update: { name: "Vedha Admin", status: "ACTIVE", passwordHash: adminHash },
       create: {
         organizationId: organization.id,
         email: adminEmail,
-        name: "Vehda Admin",
+        name: "Vedha Admin",
         status: "ACTIVE",
         passwordHash: adminHash,
       },
@@ -83,9 +83,9 @@ async function main() {
       update: {},
       create: {
         organizationId: organization.id,
-        name: "Vehda Exhibition",
+        name: "Vedha Exhibition",
         code: "VEHDA-2026",
-        venue: "Vehda",
+        venue: "Vedha",
         description: "Exhibition vendor registration.",
         startsAt: new Date("2026-11-12T09:00:00.000Z"),
         endsAt: new Date("2026-11-15T18:00:00.000Z"),

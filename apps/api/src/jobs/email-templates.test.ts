@@ -6,12 +6,12 @@ test("email templates escape content and keep the action link", () => {
   const rendered = renderEmail({
     template: "approved",
     audience: "vendor",
-    organizationName: "Vehda <script>",
+    organizationName: "Vedha <script>",
     title: "Approved",
     body: "Line one.\n\n<script>alert(1)</script>",
     actionUrl: absoluteUrl("/vendor/assignments/1", "http://localhost:3000"),
   });
-  assert.match(rendered.html, /Vehda &lt;script&gt;/);
+  assert.match(rendered.html, /Vedha &lt;script&gt;/);
   assert.match(rendered.html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.match(rendered.html, /href="http:\/\/localhost:3000\/vendor\/assignments\/1"/);
   assert.match(rendered.html, /charset="utf-8"/);
@@ -34,7 +34,7 @@ test("invitation button keeps the public link when the sender origin is local", 
   const rendered = renderEmail({
     template: "invitation",
     audience: "vendor",
-    organizationName: "Vehda",
+    organizationName: "Vedha",
     title: "Complete New Form",
     body: `Open this secure link: ${publicLink}`,
     actionUrl: resolved,

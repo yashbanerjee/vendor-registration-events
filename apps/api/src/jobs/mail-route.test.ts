@@ -27,11 +27,11 @@ test("the same server is not used as its own fallback", () => {
 
 test("the authenticated mailbox is the visible sender", () => {
   const identity = senderIdentity({
-    fromName: "Vehda \"team\"",
+    fromName: "Vedha \"team\"",
     fromAddress: "other@example.com",
     smtpUser: "Info@Example.com",
   });
-  assert.deepEqual(identity.from, { name: "Vehda team", address: "info@example.com" });
+  assert.deepEqual(identity.from, { name: "Vedha team", address: "info@example.com" });
   assert.equal(identity.replyTo, "info@example.com");
   assert.equal(identity.envelopeFrom, "info@example.com");
   assert.match(identity.messageId, /^<[0-9a-f-]+@example\.com>$/);
