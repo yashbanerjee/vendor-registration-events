@@ -492,9 +492,10 @@ function textAnswerFor(field: FormField, vendor: DemoVendor, index: number): unk
   if (field.type === "textarea") return vendor.blurb;
   if (key === "client_name" || label.includes("client") || label.includes("sponsor")) return "Saudi Aramco";
   if (key === "plot_number" || label.includes("plot") || label.includes("booth")) return vendor.booth;
-  if (key === "contractor_name" || (label.includes("company") && !label.includes("stamp"))) return vendor.companyName;
+  if (key === "contractor_name" || key === "company_organization_name" || (label.includes("company") && !label.includes("stamp"))) return vendor.companyName;
   if (key === "contact_name") return vendor.contactName;
-  if (key === "signing_person_name" || label.includes("signing")) return vendor.contactName;
+  if (key === "signing_person_name" || key === "authorized_representative_name" || label.includes("signing") || label.includes("authorized representative")) return vendor.contactName;
+  if (key === "designation" || label.includes("designation")) return "Authorized Representative";
   if (key === "id_iqama" || label.includes("iqama") || label.includes("id /")) return String(784199000000000 + index * 17);
   if (label.includes("contact") || label.includes("name")) return vendor.contactName;
   if (label.includes("city")) return vendor.city;
@@ -791,7 +792,7 @@ async function main() {
         }
         if (vendor.status === "IN_PROGRESS") {
           // Declaration contact block + a few early text answers only.
-          const earlyText = new Set(["client_name", "plot_number", "contractor_name", "contact_name", "mobile", "email"]);
+          const earlyText = new Set(["client_name", "plot_number", "company_organization_name", "authorized_representative_name", "designation", "mobile", "email"]);
           if (!earlyText.has(field.key) && field.order > 15) continue;
           if (!earlyText.has(field.key) && field.type !== "text" && field.type !== "tel" && field.type !== "email") continue;
         }

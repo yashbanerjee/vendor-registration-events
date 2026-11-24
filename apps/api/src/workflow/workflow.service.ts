@@ -283,6 +283,9 @@ export class WorkflowService {
         formName: assignment.formVersion.template.name,
         exhibitionName: assignment.exhibition.name,
         intro: purpose === "CORRECTION" ? "Some answers need to be corrected." : "This is a reminder to complete your assigned form.",
+        deadline: assignment.deadline
+          ? assignment.deadline.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
+          : "the submission deadline",
       });
       await this.audit.record(tx, {
         organizationId: user.organizationId,
@@ -540,10 +543,10 @@ export class WorkflowService {
         data: { status: "CORRECTION_REQUESTED", lockVersion: { increment: 1 } },
       });
       if (updated.count !== 1) throw new ConflictException("This record was updated by someone else. Reload and try again.");
-      const labels = input.fields
+      const fieldList = input.fields
         .map((field, index) => {
           const match = schema.fields.find((item) => item.id === field.fieldId);
-          return `${index + 1}. ${match?.label ?? field.fieldId}\nComment: ${field.note}`;
+          return `${index + 1}. ${match?.label ?? field.fieldId}\n   Required correction / admin notes: ${field.note}`;
         })
         .join("\n\n");
       await this.issueInvitation(tx, user, {
@@ -554,7 +557,11 @@ export class WorkflowService {
         formName: assignment.formVersion.template.name,
         exhibitionName: assignment.exhibition.name,
         fieldCount: input.fields.length,
-        intro: `Please update only these fields. The rest of your submission stays locked.\n\n${labels}`,
+        intro: input.fields.map((field) => field.note).join("\n"),
+        fieldList,
+        deadline: assignment.deadline
+          ? assignment.deadline.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
+          : "as soon as possible",
         notifyAdmins: false,
       });
       for (const field of input.fields) {
@@ -887,6 +894,8 @@ export class WorkflowService {
       exhibitionName: string;
       intro: string;
       fieldCount?: number;
+      fieldList?: string;
+      deadline?: string;
       notifyAdmins?: boolean;
     },
   ) {
@@ -918,6 +927,8 @@ export class WorkflowService {
       formName: input.formName,
       exhibitionName: input.exhibitionName,
       intro: input.intro,
+      fieldList: input.fieldList || input.intro,
+      deadline: input.deadline || "the submission deadline",
       link,
       invitationHours,
       actorName: user.name,

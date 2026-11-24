@@ -148,8 +148,9 @@ export class ImportsService {
       const seenReferences = new Set<string>();
       const vendorRole = await tx.role.findUnique({ where: { name: "VENDOR" } });
       if (!vendorRole) throw new ConflictException("Vendor access is not configured.");
-      const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { settings: true } });
+      const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { name: true, settings: true } });
       const emailTemplates = parseStored(organization?.settings).emailTemplates;
+      const exhibitionName = organization?.name || "the exhibition";
       let createdCount = 0;
       let skippedCount = 0;
       let errorCount = 0;
@@ -272,6 +273,8 @@ export class ImportsService {
           email,
           password: item.password,
           companyName: parsed.data.companyName,
+          vendorId: vendor.reference,
+          exhibitionName,
         };
         const copy = composeEmailTemplate("credentials", vars, emailTemplates);
         const mailSettings = effectiveSettings(parseStored(organization?.settings));

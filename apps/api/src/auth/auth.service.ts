@@ -336,8 +336,13 @@ export class AuthService {
         },
       });
       const link = `${env().WEB_ORIGIN}/reset-password/${token}`;
-      const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { settings: true } });
-      const vars = { link };
+      const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { name: true, settings: true } });
+      const vars = {
+        link,
+        userName: user.name || email,
+        expiryText: "1 hour",
+        exhibitionName: organization?.name || "Exhibition Support Team",
+      };
       const copy = composeEmailTemplate("password-reset", vars, parseStored(organization?.settings).emailTemplates);
       await this.outbox.enqueue(tx, {
         organizationId: user.organizationId,

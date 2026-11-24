@@ -111,7 +111,7 @@ export function renderEmail(input: {
         </tr>
       </table>`
     : "";
-  const audience = input.audience === "admin" ? "an administrator" : "a company";
+  const audience = input.audience === "admin" ? "an administrator" : "a vendor";
   const sender = input.fromAddress ? ` It was sent from ${escapeHtml(input.fromAddress)}.` : "";
   const html = `<!doctype html>
 <html lang="en">
