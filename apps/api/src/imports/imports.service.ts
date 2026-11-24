@@ -17,8 +17,6 @@ import { composeEmailTemplate } from "../jobs/email-catalog";
 import { OutboxService } from "../jobs/jobs.service";
 import { EMAIL_HOLD_UNTIL, effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService } from "../prisma/prisma.service";
-import { assignVendorCategoryNames } from "../catalog/categories";
-
 const rowSchema = z.object({
   reference: z.string().min(2).max(40).regex(/^[A-Za-z0-9_-]+$/),
   companyName: z.string().min(2).max(200),
@@ -40,7 +38,6 @@ const rowSchema = z.object({
   region: z.string().optional().default(""),
   postalCode: z.string().optional().default(""),
   country: z.string().optional().default(""),
-  category: z.string().optional().default(""),
 });
 
 const argonOptions = { algorithm: Algorithm.Argon2id, memoryCost: 19_456, timeCost: 2, parallelism: 1 };
@@ -83,7 +80,6 @@ export class ImportsService {
         region: "MA",
         postalCode: "02110",
         country: "US",
-        category: "Booth builder",
       },
       {
         reference: `VND-${stamp}B`.slice(0, 40),
@@ -98,7 +94,6 @@ export class ImportsService {
         region: "MA",
         postalCode: "02110",
         country: "US",
-        category: "Lighting",
       },
     ];
     return toCsv(samples, [...VENDOR_IMPORT_COLUMNS]);
@@ -254,7 +249,6 @@ export class ImportsService {
             category: "",
           },
         });
-        await assignVendorCategoryNames(tx, user.organizationId, vendor.id, parsed.data.category.split(","));
         if (!item.password || !item.passwordHash) throw new ConflictException("The account password could not be prepared.");
         const account = await tx.user.create({
           data: {

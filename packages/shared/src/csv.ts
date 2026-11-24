@@ -26,5 +26,4 @@ export const VENDOR_IMPORT_COLUMNS = [
   "region",
   "postalCode",
   "country",
-  "category",
 ] as const;

@@ -84,7 +84,7 @@ export const EMAIL_TEMPLATES: EmailTemplateDefinition[] = [
     actionLabel: "Complete submission",
     subject: "Reminder: Upcoming Submission Deadline – {{deadline}}",
     title: "Reminder: Upcoming Submission Deadline – {{deadline}}",
-    body: "Dear {{companyName}},\n\nThis is a friendly reminder that your exhibitor submission is still pending.\n\nKindly complete and submit all required information and documents before {{deadline}} to ensure timely review and approval by our administration team.\n\nPlease note that submissions received after the deadline may affect your participation in the exhibition.\n\nWe kindly request your immediate attention and cooperation to avoid any delays.\n\nThe form is here:\n{{link}}\n\nThank you for your support.\n\nBest regards,\nExhibition Administration Team\n{{exhibitionName}}",
+    body: "Dear {{companyName}},\n\nThis is a friendly reminder that your sponsor submission is still pending.\n\nKindly complete and submit all required information and documents before {{deadline}} to ensure timely review and approval by our administration team.\n\nPlease note that submissions received after the deadline may affect your participation in the exhibition.\n\nWe kindly request your immediate attention and cooperation to avoid any delays.\n\nThe form is here:\n{{link}}\n\nThank you for your support.\n\nBest regards,\nExhibition Administration Team\n{{exhibitionName}}",
     variables: [
       { key: "companyName", label: "Vendor name" },
       { key: "formName", label: "Form name" },
@@ -189,7 +189,7 @@ export const EMAIL_TEMPLATES: EmailTemplateDefinition[] = [
     title: "Submission Request Approved – {{exhibitionName}}",
     body: "Dear {{companyName}},\n\nWe are pleased to inform you that your submission has been reviewed and approved by our administration team.\n\nCongratulations! Your participation has been successfully confirmed.\n\nThank you for your interest in being part of {{exhibitionName}}. We look forward to welcoming you and wish you a successful exhibition.\n\nFor any further information or assistance, please feel free to contact our team.\n\nBest regards,\nExhibition Administration Team\n{{exhibitionName}}",
     variables: [
-      { key: "companyName", label: "Vendor / exhibitor name" },
+      { key: "companyName", label: "Vendor / sponsor name" },
       { key: "formName", label: "Form name" },
       { key: "exhibitionName", label: "Exhibition name" },
     ],

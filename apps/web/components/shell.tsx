@@ -184,7 +184,6 @@ function crumbLabel(crumb: string) {
     jobs: "Emails",
     audit: "History",
     settings: "Settings",
-    categories: "Categories",
     assignments: "Form",
     "pdf-forms": "PDF",
     imports: "Upload",

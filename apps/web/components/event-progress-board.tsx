@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Badge, EmptyState, StatCard, StatGrid, StatusBadge, inputClass } from "@/components/ui";
+import { EmptyState, StatCard, StatGrid, StatusBadge, inputClass } from "@/components/ui";
 
 export type FieldFill = { id: string; label: string; filled: boolean; required: boolean };
 export type FormProgress = {
@@ -26,7 +26,6 @@ export type VendorProgress = {
   email: string;
   phone: string;
   status: string;
-  category: string;
   forms: FormProgress[];
 };
 
@@ -79,7 +78,7 @@ export function EventProgressBoard({ vendors }: { vendors: VendorProgress[] }) {
   }, [vendors]);
 
   const visible = vendors.filter((vendor) => {
-    const haystack = `${vendor.companyName} ${vendor.contactName} ${vendor.email} ${vendor.reference} ${vendor.category}`.toLowerCase();
+    const haystack = `${vendor.companyName} ${vendor.contactName} ${vendor.email} ${vendor.reference}`.toLowerCase();
     if (q.trim() && !haystack.includes(q.trim().toLowerCase())) return false;
     if (filter !== "all" && vendorState(vendor) !== filter) return false;
     return true;
@@ -177,12 +176,6 @@ function VendorCard({ vendor }: { vendor: VendorProgress }) {
   const total = forms.reduce((sum, form) => sum + form.fieldCount, 0);
   const done = percent(filled, total);
   const initial = vendor.companyName.trim().charAt(0).toUpperCase() || "V";
-  const categories = vendor.category
-    ? vendor.category
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean)
-    : [];
 
   return (
     <article className="panel overflow-hidden">
@@ -196,11 +189,6 @@ function VendorCard({ vendor }: { vendor: VendorProgress }) {
               {vendor.companyName}
             </Link>
             <StatusBadge status={vendor.status} />
-            {categories.map((category) => (
-              <Badge key={category} tone="neutral">
-                {category}
-              </Badge>
-            ))}
           </div>
           <p className="mt-1 break-words text-sm leading-5 text-muted">{[vendor.contactName, vendor.email, vendor.phone].filter(Boolean).join(" · ")}</p>
           <p className="mt-0.5 text-xs text-muted">{vendor.reference}</p>

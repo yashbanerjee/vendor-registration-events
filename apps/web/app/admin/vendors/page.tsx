@@ -32,8 +32,6 @@ type Vendor = {
   companyName: string;
   contactName: string;
   email: string;
-  category: string;
-  categories?: { category: { id: string; name: string } }[];
   status: string;
   assignments: Assignment[];
 };
@@ -41,7 +39,7 @@ type Vendor = {
 type FormOption = { id: string; name: string; status: string; versions?: { id: string; versionNumber: number }[] };
 type ExhibitionOption = { id: string; name: string };
 type ImportResult = { id: string; filename: string; createdCount: number; skippedCount: number; errorCount: number; createdVendorIds: string[]; rows?: { rowNumber: number; status: string; messages: string[] }[] };
-const emptyVendor = { companyName: "", contactName: "", email: "", categoryId: "", phone: "", exhibitionId: "", formVersionId: "" };
+const emptyVendor = { companyName: "", contactName: "", email: "", phone: "", exhibitionId: "", formVersionId: "" };
 const helper = createColumnHelper<Vendor>();
 
 function formLabel(vendor: Vendor) {
@@ -111,7 +109,6 @@ export default function VendorsPage() {
   const client = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [q, setQ] = useState("");
-  const [categoryId, setCategoryId] = useState("");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -126,12 +123,8 @@ export default function VendorsPage() {
   const [formAssigned, setFormAssigned] = useState(false);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const query = useQuery({
-    queryKey: ["vendors", q, categoryId],
-    queryFn: () => api<{ data: Vendor[] }>(`/vendors?limit=100&q=${encodeURIComponent(q)}${categoryId ? `&categoryId=${encodeURIComponent(categoryId)}` : ""}`),
-  });
-  const categories = useQuery({
-    queryKey: ["vendor-categories"],
-    queryFn: () => api<{ data: { id: string; name: string }[] }>("/vendor-categories"),
+    queryKey: ["vendors", q],
+    queryFn: () => api<{ data: Vendor[] }>(`/vendors?limit=100&q=${encodeURIComponent(q)}`),
   });
   const pickerOpen = open || Boolean(changing) || Boolean(importResult);
   const exhibitions = useQuery({
@@ -149,10 +142,7 @@ export default function VendorsPage() {
   );
   const refresh = () => client.invalidateQueries({ queryKey: ["vendors"] });
   const create = useMutation({
-    mutationFn: () => {
-      const { categoryId, ...rest } = form;
-      return api("/vendors", { method: "POST", body: JSON.stringify({ ...rest, categoryIds: categoryId ? [categoryId] : [] }) });
-    },
+    mutationFn: () => api("/vendors", { method: "POST", body: JSON.stringify(form) }),
     onSuccess: async () => {
       setOpen(false);
       setForm(emptyVendor);
@@ -221,7 +211,7 @@ export default function VendorsPage() {
     },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not assign the form."),
   });
-  const vendors = usePagedRows(query.data?.data ?? [], `${q}|${categoryId}`);
+  const vendors = usePagedRows(query.data?.data ?? [], q);
   const columns = [
     helper.accessor("companyName", {
       header: "Vendor",
@@ -237,15 +227,6 @@ export default function VendorsPage() {
       },
     }),
     helper.accessor("email", { header: "Email", cell: (info) => <span className="block truncate sm:max-w-[220px]" title={info.getValue()}>{info.getValue()}</span> }),
-    helper.display({
-      id: "category",
-      header: "Category",
-      cell: (info) => {
-        const names = (info.row.original.categories ?? []).map((link) => link.category.name).sort((left, right) => left.localeCompare(right));
-        const label = names.length ? names.join(", ") : info.row.original.category;
-        return <span className="block truncate sm:max-w-[200px]" title={label}>{label || "None"}</span>;
-      },
-    }),
     helper.display({ id: "form", header: "Form", cell: (info) => formLabel(info.row.original) }),
     helper.accessor("status", { header: "Status", cell: (info) => <StatusBadge status={info.getValue()} /> }),
     helper.display({
@@ -294,10 +275,6 @@ export default function VendorsPage() {
       <ErrorNote className="mb-3" message={error} />
       <FilterBar>
         <input className={`${inputClass} col-span-2 sm:max-w-sm`} placeholder="Search vendor, email, or reference" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Filter vendors" />
-        <select className={`${inputClass} col-span-2 sm:max-w-xs`} aria-label="Category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-          <option value="">All categories</option>
-          {(categories.data?.data ?? []).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-        </select>
       </FilterBar>
       <div className="table-wrap">
         <table className="data">
@@ -343,12 +320,6 @@ export default function VendorsPage() {
           <Field label="Contact" hint="Letters, spaces, hyphens, and apostrophes only."><input className={inputClass} required value={form.contactName} autoComplete="name" onChange={(event) => setForm({ ...form, contactName: event.target.value.replace(/[^\p{L}\s.'’-]/gu, "") })} /></Field>
           <Field label="Email"><input className={inputClass} type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></Field>
           <Field label="Phone" hint="10 digits."><input className={inputClass} inputMode="numeric" autoComplete="tel" maxLength={10} pattern="\d{10}" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value.replace(/\D/g, "").slice(0, 10) })} /></Field>
-          <Field label="Category">
-            <select className={inputClass} value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })}>
-              <option value="">Select</option>
-              {(categories.data?.data ?? []).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-            </select>
-          </Field>
           <Field label="Exhibition">
             <select className={inputClass} required value={form.exhibitionId} onChange={(event) => setForm({ ...form, exhibitionId: event.target.value })}>
               <option value="">Select</option>

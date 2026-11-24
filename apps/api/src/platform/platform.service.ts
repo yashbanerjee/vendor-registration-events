@@ -181,7 +181,6 @@ export class PlatformService {
           "contactName",
           "email",
           "phone",
-          "category",
           "status",
           "country",
         ]);
@@ -249,12 +248,11 @@ export class PlatformService {
         rows.map((row) => ({
           vendor: row.vendor.companyName,
           filename: row.versions[0]?.filename ?? "",
-          category: row.category,
           status: row.status,
           size: row.versions[0]?.sizeBytes ?? 0,
           createdAt: row.createdAt.toISOString(),
         })),
-        ["vendor", "filename", "category", "status", "size", "createdAt"],
+        ["vendor", "filename", "status", "size", "createdAt"],
       );
     });
     return csv;

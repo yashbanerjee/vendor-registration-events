@@ -3,7 +3,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { formatLabel } from "@/lib/utils";
 import { FileLink } from "@/components/file-preview";
 import { Pager, usePagedRows } from "@/components/pager";
 import { ErrorNote, LoadingState, PageHeader, StatusBadge } from "@/components/ui";
@@ -11,7 +10,7 @@ import { ErrorNote, LoadingState, PageHeader, StatusBadge } from "@/components/u
 type Archive = {
   data: {
     vendor: { companyName: string; reference: string };
-    documents: { id: string; status: string; category: string; fieldId: string | null; exhibition: { name: string } | null; assignment: { formVersion: { template: { name: string } } } | null; versions: { filename: string; versionNumber: number; createdAt: string }[] }[];
+    documents: { id: string; status: string; fieldId: string | null; exhibition: { name: string } | null; assignment: { formVersion: { template: { name: string } } } | null; versions: { filename: string; versionNumber: number; createdAt: string }[] }[];
   };
 };
 
@@ -51,8 +50,8 @@ function DocumentGroup({ exhibition, documents }: { exhibition: string; document
           <tbody>
             {page.rows.map((document) => (
               <tr key={document.id}>
-                <td>{document.versions[0]?.filename ? <FileLink documentId={document.id} filename={document.versions[0].filename} /> : document.category}</td>
-                <td data-label="Form">{document.assignment?.formVersion.template.name ?? formatLabel(document.category)}</td>
+                <td>{document.versions[0]?.filename ? <FileLink documentId={document.id} filename={document.versions[0].filename} /> : "Untitled file"}</td>
+                <td data-label="Form">{document.assignment?.formVersion.template.name ?? "—"}</td>
                 <td data-label="Versions">{document.versions.length}</td>
                 <td data-label="Status"><StatusBadge status={document.status} /></td>
               </tr>

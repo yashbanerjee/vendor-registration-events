@@ -27,7 +27,6 @@ export type VendorAssignment = {
     contactName: string;
     email: string;
     phone: string | null;
-    category: string | null;
   };
   values: Record<string, unknown>;
   editableFieldIds: string[];

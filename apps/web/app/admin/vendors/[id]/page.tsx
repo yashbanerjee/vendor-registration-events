@@ -17,14 +17,12 @@ type Profile = {
     contactName: string;
     email: string;
     phone: string;
-    category: string;
-    categories?: { category: { id: string; name: string } }[];
     status: string;
     addressLine1: string;
     city: string;
     country: string;
     assignments: { id: string; status: string; exhibition: { id: string; name: string }; formVersion: { id: string; template: { name: string }; versionNumber: number } }[];
-    documents: { id: string; status: string; category: string; versions: { filename: string }[] }[];
+    documents: { id: string; status: string; versions: { filename: string }[] }[];
     audits: { id: string; action: string; createdAt: string; fieldId: string | null }[];
     emails: { id: string; toAddress: string; template: string; subject: string; status: string; createdAt: string }[];
   };
@@ -43,9 +41,7 @@ export default function VendorProfilePage() {
   const [nextFormId, setNextFormId] = useState("");
   const [nextExhibitionId, setNextExhibitionId] = useState("");
   const [removing, setRemoving] = useState(false);
-  const [categoryId, setCategoryId] = useState<string | null>(null);
   const query = useQuery({ queryKey: ["vendor", params.id], queryFn: () => api<Profile>(`/vendors/${params.id}`) });
-  const categories = useQuery({ queryKey: ["vendor-categories"], queryFn: () => api<{ data: { id: string; name: string }[] }>("/vendor-categories") });
   const vendor = query.data?.data;
   const current = vendor?.assignments.find((assignment) => assignment.status !== "REVOKED");
   const forms = useQuery({ queryKey: ["forms"], queryFn: () => api<{ data: FormOption[] }>("/forms"), enabled: changing });
@@ -59,16 +55,6 @@ export default function VendorProfilePage() {
       : api("/assignments", { method: "POST", body: JSON.stringify({ vendorId: vendor?.id, exhibitionId: nextExhibitionId, formVersionId: nextFormId }) }),
     onSuccess: async () => { setChanging(false); setNotice("The form was saved. Use Send mail on the Vendors list to email the invitation once."); await client.invalidateQueries({ queryKey: ["vendor", params.id] }); },
     onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not change the form."),
-  });
-  const saveCategory = useMutation({
-    mutationFn: () => api(`/vendors/${params.id}`, { method: "PATCH", body: JSON.stringify({ categoryIds: categoryId ? [categoryId] : [] }) }),
-    onSuccess: async () => {
-      setCategoryId(null);
-      setNotice("Category saved.");
-      await client.invalidateQueries({ queryKey: ["vendor", params.id] });
-      await client.invalidateQueries({ queryKey: ["vendors"] });
-    },
-    onError: (caught) => setError(caught instanceof ApiError ? caught.message : "Could not save the category."),
   });
   const assignments = usePagedRows(vendor?.assignments ?? []);
   const documents = usePagedRows(vendor?.documents ?? []);
@@ -86,7 +72,6 @@ export default function VendorProfilePage() {
   if (!vendor) {
     return <LoadingState label="Loading vendor…" description="Opening this vendor profile." />;
   }
-  const selectedCategory = categoryId ?? vendor.categories?.[0]?.category.id ?? "";
   return (
     <div>
       <PageHeader
@@ -103,16 +88,6 @@ export default function VendorProfilePage() {
       <Notice message={notice} />
       <ErrorNote className="mb-3" message={error} />
       <p className="mb-4 break-words text-sm text-muted">{[vendor.addressLine1, vendor.city, vendor.country, vendor.phone].filter(Boolean).join(" · ")}</p>
-      <section className="panel mb-5 p-4 sm:max-w-sm sm:p-5">
-        <h2 className="section-title">Category</h2>
-        <select className={inputClass} value={selectedCategory} onChange={(event) => setCategoryId(event.target.value)}>
-          <option value="">None</option>
-          {(categories.data?.data ?? []).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-        </select>
-        <div className="mt-3">
-          <Button className="w-full sm:w-auto" variant="primary" disabled={saveCategory.isPending || categoryId === null} onClick={() => { setError(""); saveCategory.mutate(); }}>Save category</Button>
-        </div>
-      </section>
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="min-w-0">
           <h2 className="section-title">Assignments</h2>
@@ -141,7 +116,7 @@ export default function VendorProfilePage() {
               <tbody>
                 {documents.rows.map((document) => (
                   <tr key={document.id}>
-                    <td><Link className="underline" href={`/admin/documents/vendors/${vendor.id}`}>{document.versions[0]?.filename ?? document.category}</Link></td>
+                    <td><Link className="underline" href={`/admin/documents/vendors/${vendor.id}`}>{document.versions[0]?.filename ?? "Untitled file"}</Link></td>
                     <td data-label="Status"><StatusBadge status={document.status} /></td>
                   </tr>
                 ))}

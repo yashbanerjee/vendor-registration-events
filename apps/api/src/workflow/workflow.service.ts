@@ -1244,7 +1244,6 @@ export class WorkflowService {
         contactName: assignment.vendor.contactName,
         email: assignment.vendor.email,
         phone: assignment.vendor.phone,
-        category: assignment.vendor.category,
       },
       exhibition: {
         id: assignment.exhibition.id,

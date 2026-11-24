@@ -76,7 +76,6 @@ const vendorPreview = {
   email: true,
   phone: true,
   status: true,
-  category: true,
 } as const;
 
 type VendorPreview = {
@@ -87,7 +86,6 @@ type VendorPreview = {
   email: string;
   phone: string;
   status: string;
-  category: string;
 };
 
 function formProgress(assignment: {

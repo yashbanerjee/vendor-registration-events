@@ -65,7 +65,7 @@ const vendors: DemoVendor[] = [
     status: "SUBMITTED_PENDING_REVIEW",
     daysAgo: 2,
     deadlineInDays: 6,
-    blurb: "Track, pendant, and facade lighting packages for exhibitor stands across halls A and B.",
+    blurb: "Track, pendant, and facade lighting packages for sponsor stands across halls A and B.",
     booth: "B-04",
   },
   {
@@ -84,7 +84,7 @@ const vendors: DemoVendor[] = [
     status: "SUBMITTED_PENDING_REVIEW",
     daysAgo: 1,
     deadlineInDays: 4,
-    blurb: "Hot and cold hospitality for exhibitor lounges, including halal and vegetarian menus.",
+    blurb: "Hot and cold hospitality for sponsor lounges, including halal and vegetarian menus.",
     booth: "H-18",
   },
   {
@@ -199,7 +199,7 @@ const vendors: DemoVendor[] = [
     status: "APPROVED",
     daysAgo: 11,
     deadlineInDays: null,
-    blurb: "Licensed event security, night guarding, and access control for exhibitor stands.",
+    blurb: "Licensed event security, night guarding, and access control for sponsor stands.",
     booth: "S-08",
   },
   // 6 sent for re-document upload
@@ -219,7 +219,7 @@ const vendors: DemoVendor[] = [
     status: "CORRECTION_REQUESTED",
     daysAgo: 6,
     deadlineInDays: 2,
-    blurb: "Door-to-stand freight, customs clearance, and empty-case storage for exhibitors.",
+    blurb: "Door-to-stand freight, customs clearance, and empty-case storage for sponsors.",
     booth: "D-09",
     correctionNote: "Please re-upload your customs brokerage authorization on company letterhead.",
   },
@@ -279,7 +279,7 @@ const vendors: DemoVendor[] = [
     status: "CORRECTION_REQUESTED",
     daysAgo: 4,
     deadlineInDays: 3,
-    blurb: "Host teams and furnished meeting rooms fitted inside the exhibitor stand.",
+    blurb: "Host teams and furnished meeting rooms fitted inside the sponsor stand.",
     booth: "A-19",
     correctionNote: "Please upload an updated public liability insurance certificate covering the show dates.",
   },
@@ -299,7 +299,7 @@ const vendors: DemoVendor[] = [
     status: "CORRECTION_REQUESTED",
     daysAgo: 2,
     deadlineInDays: 4,
-    blurb: "Coffee-service counters and tasting menus for exhibitor meeting lounges.",
+    blurb: "Coffee-service counters and tasting menus for sponsor meeting lounges.",
     booth: "H-06",
     correctionNote: "Re-upload your municipality food-handler certificates for the named kitchen team.",
   },
@@ -359,7 +359,7 @@ const vendors: DemoVendor[] = [
     status: "IN_PROGRESS",
     daysAgo: 2,
     deadlineInDays: 9,
-    blurb: "Shell-scheme upgrades and custom modular stands for mid-size exhibitors.",
+    blurb: "Shell-scheme upgrades and custom modular stands for mid-size sponsors.",
     booth: "A-28",
   },
   {
@@ -398,7 +398,7 @@ const vendors: DemoVendor[] = [
     status: "INVITED",
     daysAgo: 1,
     deadlineInDays: 11,
-    blurb: "Live cooking counters and plated hospitality for VIP exhibitor lounges.",
+    blurb: "Live cooking counters and plated hospitality for VIP sponsor lounges.",
     booth: "H-12",
   },
   {
@@ -417,7 +417,7 @@ const vendors: DemoVendor[] = [
     status: "INVITED",
     daysAgo: 3,
     deadlineInDays: 10,
-    blurb: "Architectural lighting kits and DMX control for branded exhibitor environments.",
+    blurb: "Architectural lighting kits and DMX control for branded sponsor environments.",
     booth: "B-09",
   },
   {
@@ -558,7 +558,7 @@ async function main() {
         code: "DOWNTOWN-2026",
         name: "Downtown Design Dubai 2026",
         venue: "Dubai Design District",
-        description: "Design, furniture, and fit-out show. Exhibitor registration is open.",
+        description: "Design, furniture, and fit-out show. Sponsor registration is open.",
         startsAt: new Date("2026-11-11T05:00:00.000Z"),
         endsAt: new Date("2026-11-14T15:00:00.000Z"),
       },
@@ -599,12 +599,12 @@ async function main() {
         field(docsSectionId, "b5c6d7e8-f9a0-4123-a234-56789abcdef1", "insurance_certificate", "file", "Public liability insurance", 9),
       ],
     });
-    let template = await tx.formTemplate.findFirst({ where: { organizationId: organization.id, name: "Exhibitor registration" } });
+    let template = await tx.formTemplate.findFirst({ where: { organizationId: organization.id, name: "Sponsor registration" } });
     if (!template) {
       template = await tx.formTemplate.create({
         data: {
           organizationId: organization.id,
-          name: "Exhibitor registration",
+          name: "Sponsor registration",
           description: "Stand, power, documents, and on-site contact details for the show.",
           scope: "GLOBAL",
           status: "PUBLISHED",
@@ -806,12 +806,12 @@ async function main() {
 
       await tx.emailMessage.upsert({
         where: { idempotencyKey: `demo-invite:${row.id}` },
-        update: { toAddress: vendor.email, subject: `${exhibition.name}: complete your exhibitor form`, status: "SENT" },
+        update: { toAddress: vendor.email, subject: `${exhibition.name}: complete your sponsor form`, status: "SENT" },
         create: {
           organizationId: organization.id,
           toAddress: vendor.email,
           template: "invitation",
-          subject: `${exhibition.name}: complete your exhibitor form`,
+          subject: `${exhibition.name}: complete your sponsor form`,
           status: "SENT",
           idempotencyKey: `demo-invite:${row.id}`,
           createdAt,
@@ -820,12 +820,12 @@ async function main() {
       if (submitted) {
         await tx.emailMessage.upsert({
           where: { idempotencyKey: `demo-ack:${row.id}` },
-          update: { toAddress: vendor.email, subject: `We received ${vendor.companyName}'s exhibitor form`, status: "SENT" },
+          update: { toAddress: vendor.email, subject: `We received ${vendor.companyName}'s sponsor form`, status: "SENT" },
           create: {
             organizationId: organization.id,
             toAddress: vendor.email,
             template: "submission-ack",
-            subject: `We received ${vendor.companyName}'s exhibitor form`,
+            subject: `We received ${vendor.companyName}'s sponsor form`,
             status: "SENT",
             idempotencyKey: `demo-ack:${row.id}`,
             createdAt: daysFromNow(-Math.max(vendor.daysAgo - 1, 0)),
@@ -838,7 +838,7 @@ async function main() {
             organizationId: organization.id,
             userId: admin.id,
             title: `${vendor.companyName} is waiting for review`,
-            body: `${vendor.contactName} submitted the exhibitor form for ${exhibition.name}.`,
+            body: `${vendor.contactName} submitted the sponsor form for ${exhibition.name}.`,
             link: `/admin/reviews/${assignment.id}`,
             createdAt: daysFromNow(-Math.max(vendor.daysAgo - 1, 0)),
           },

@@ -49,11 +49,10 @@ function MasterForm() {
           <p className="eyebrow text-accent">Supplier/company</p>
           <h2 className="brand-list-title mt-2">{profile.vendor.companyName || profile.vendor.reference}</h2>
           <span className="brand-rule mt-3" aria-hidden />
-          <dl className="mt-5 grid grid-cols-2 items-start gap-x-4 gap-y-4 border-t border-[var(--border)] pt-5 sm:gap-x-6 lg:grid-cols-4">
+          <dl className="mt-5 grid grid-cols-2 items-start gap-x-4 gap-y-4 border-t border-[var(--border)] pt-5 sm:gap-x-6 lg:grid-cols-3">
             <Detail label="Contact" value={profile.vendor.contactName} />
             <Detail label="Phone" value={profile.vendor.phone || "Not provided"} />
             <Detail wide label="Email" value={profile.vendor.email} />
-            <Detail label="Category" value={profile.vendor.category || "Not provided"} />
           </dl>
         </section>
       ) : null}

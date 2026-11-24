@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { vendorErrorMessage } from "@/lib/errors";
-import { formatDate, formatLabel } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { FileLink } from "@/components/file-preview";
 import { Pager, usePagedRows } from "@/components/pager";
 import { EmptyState, ErrorNote, LoadingState, StatusBadge } from "@/components/ui";
@@ -11,7 +11,6 @@ import { EmptyState, ErrorNote, LoadingState, StatusBadge } from "@/components/u
 type Row = {
   id: string;
   status: string;
-  category: string;
   active?: boolean;
   replaced?: boolean;
   createdAt?: string;
@@ -43,7 +42,6 @@ export default function VendorDocumentsPage() {
               <thead>
                 <tr>
                   <th>File</th>
-                  <th>Category</th>
                   <th>Uploaded</th>
                   <th>Status</th>
                 </tr>
@@ -60,7 +58,6 @@ export default function VendorDocumentsPage() {
                           <p className="mt-1 text-xs text-muted">Replaced by a newer upload. Use the Active file for this field.</p>
                         ) : null}
                       </td>
-                      <td data-label="Category">{formatLabel(row.category)}</td>
                       <td data-label="Uploaded">{formatDate(row.createdAt)}</td>
                       <td data-label="Status">
                         <StatusBadge status={row.status} />

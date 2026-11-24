@@ -4,12 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { api } from "@/lib/api";
-import { formatLabel } from "@/lib/utils";
 import { FileLink } from "@/components/file-preview";
 import { Pager, usePagedRows } from "@/components/pager";
 import { FilterBar, LoadingState, PageHeader, StatusBadge, inputClass } from "@/components/ui";
 
-type DocumentRow = { id: string; status: string; category: string; vendor: { id: string; companyName: string }; versions: { filename: string; sizeBytes: number }[] };
+type DocumentRow = { id: string; status: string; vendor: { id: string; companyName: string }; versions: { filename: string; sizeBytes: number }[] };
 
 export default function DocumentsPage() {
   const [q, setQ] = useState("");
@@ -24,13 +23,12 @@ export default function DocumentsPage() {
       {query.isLoading ? <LoadingState label="Loading documents…" description="Gathering the file archive." /> : null}
       <div className="table-wrap">
         <table className="data">
-          <thead><tr><th>File</th><th>Vendor</th><th>Category</th><th>Status</th></tr></thead>
+          <thead><tr><th>File</th><th>Vendor</th><th>Status</th></tr></thead>
           <tbody>
             {documents.rows.map((row) => (
               <tr key={row.id}>
                 <td><FileLink documentId={row.id} filename={row.versions[0]?.filename ?? "File"} /></td>
                 <td data-label="Vendor"><Link className="underline" href={`/admin/documents/vendors/${row.vendor.id}`}>{row.vendor.companyName}</Link></td>
-                <td data-label="Category">{formatLabel(row.category)}</td>
                 <td data-label="Status"><StatusBadge status={row.status} /></td>
               </tr>
             ))}
