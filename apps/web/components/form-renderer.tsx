@@ -583,6 +583,7 @@ function FileField({
                   ) : (
                     <span className="block truncate text-sm font-medium" title={file.filename}>{file.filename}</span>
                   )}
+                  <span className="mt-0.5 block text-xs font-medium text-success">Active file</span>
                 </span>
               </span>
             </li>

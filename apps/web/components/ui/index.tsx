@@ -61,6 +61,7 @@ export function statusTone(status: string): "success" | "warning" | "danger" | "
   if (status.includes("PENDING") || status === "CORRECTION_REQUESTED" || status === "QUARANTINED" || status === "QUEUED" || status === "REUPLOAD") return "warning";
   if (status === "REJECTED" || status === "FAILED" || status === "BOUNCED") return "danger";
   if (status === "IN_PROGRESS" || status === "INVITED" || status === "PUBLISHED") return "info";
+  if (status === "REPLACED" || status === "ARCHIVED") return "neutral";
   return "neutral";
 }
 

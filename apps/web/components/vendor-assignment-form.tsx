@@ -21,6 +21,7 @@ export type VendorAssignment = {
   form: { name: string; versionNumber?: number; schema: FormSchemaDefinition };
   exhibition: { name: string };
   vendor: {
+    id: string;
     reference: string;
     companyName: string;
     contactName: string;
@@ -57,6 +58,7 @@ export function VendorAssignmentForm({
     body.set("file", file);
     body.set("assignmentId", assignment.id);
     body.set("fieldId", field.id);
+    if (assignment.vendor.id) body.set("vendorId", assignment.vendor.id);
     const result = await api<{ data: { id: string; versions: { filename: string }[] } }>("/documents", { method: "POST", body });
     return { documentId: result.data.id, filename: result.data.versions[0]?.filename ?? file.name };
   }

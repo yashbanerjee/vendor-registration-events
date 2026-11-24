@@ -33,19 +33,27 @@ export class DocumentsService {
       return effectiveSettings(parseStored(organization?.settings)).maxUploadBytes;
     });
     if (file.size > uploadLimit) throw new ConflictException("The file is larger than the allowed limit.");
-    const vendorId = user.vendorId ?? fields.vendorId;
-    if (!vendorId) throw new ForbiddenException("A vendor is required.");
     if (user.vendorId && fields.vendorId && fields.vendorId !== user.vendorId) throw new NotFoundException();
     const documentId = randomUUID();
     const versionId = randomUUID();
-    const storageKey = `org/${user.organizationId}/vendor/${vendorId}/${documentId}/${versionId}`;
     const filename = file.originalname.replace(/[^\w.\- ]+/g, "_").slice(0, 180) || "upload";
     const mimeType = mimeForFilename(filename, file.mimetype || "");
     const scan = await scanBuffer(file.buffer, filename, mimeType, { host: env().CLAMAV_HOST, port: env().CLAMAV_PORT });
     if (!scan.clean) throw new ConflictException(scan.details || "This file was rejected.");
     const saved = await this.tenant.transaction(user.organizationId, async (tx) => {
+      let vendorId = user.vendorId ?? fields.vendorId ?? null;
+      if (!vendorId && fields.assignmentId) {
+        const linked = await tx.formAssignment.findFirst({
+          where: { id: fields.assignmentId, organizationId: user.organizationId },
+          select: { vendorId: true },
+        });
+        vendorId = linked?.vendorId ?? null;
+      }
+      if (!vendorId) throw new ForbiddenException("A vendor is required.");
       const vendor = await tx.vendor.findFirst({ where: { id: vendorId, organizationId: user.organizationId } });
       if (!vendor) throw new NotFoundException();
+      const storageKey = `org/${user.organizationId}/vendor/${vendorId}/${documentId}/${versionId}`;
+      let replacesSingleFile = false;
       if (fields.assignmentId) {
         const assignment = await tx.formAssignment.findFirst({
           where: { id: fields.assignmentId, organizationId: user.organizationId, vendorId },
@@ -67,6 +75,7 @@ export class DocumentsService {
           if (field.file?.accept?.length && !fileMatchesAccept(field.file.accept, filename, mimeType)) {
             throw new ConflictException(`${field.label} must be uploaded as ${field.file.accept.join(", ")}.`);
           }
+          replacesSingleFile = field.type === "file" || field.type === "image" || field.type === "reupload";
         }
       }
       try {
@@ -74,6 +83,20 @@ export class DocumentsService {
       } catch (error) {
         const reason = error instanceof Error ? error.message : "Storage failed.";
         throw new ConflictException(`The file could not be stored. ${reason}`);
+      }
+      if (replacesSingleFile && fields.assignmentId && fields.fieldId) {
+        await tx.document.updateMany({
+          where: {
+            organizationId: user.organizationId,
+            vendorId,
+            assignmentId: fields.assignmentId,
+            fieldId: fields.fieldId,
+            status: "AVAILABLE",
+            deletedAt: null,
+            id: { not: documentId },
+          },
+          data: { status: "REPLACED", archivedAt: new Date() },
+        });
       }
       const document = await tx.document.create({
         data: {
@@ -157,13 +180,22 @@ export class DocumentsService {
           exhibition: { select: { id: true, name: true } },
           versions: { orderBy: { versionNumber: "desc" }, take: 5 },
         },
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        orderBy: user.vendorId
+          ? [{ status: "asc" }, { createdAt: "desc" }, { id: "desc" }]
+          : [{ createdAt: "desc" }, { id: "desc" }],
         take: limit + 1,
       }),
     );
     const page = rows.slice(0, limit);
     const last = page.at(-1);
-    return { data: page, nextCursor: rows.length > limit && last ? encodeCursor(last.createdAt, last.id) : null };
+    return {
+      data: page.map((row) => ({
+        ...row,
+        active: row.status === "AVAILABLE",
+        replaced: row.status === "REPLACED",
+      })),
+      nextCursor: rows.length > limit && last ? encodeCursor(last.createdAt, last.id) : null,
+    };
   }
 
   async archiveTree(user: AuthContext, vendorId: string) {
@@ -192,7 +224,8 @@ export class DocumentsService {
         include: { versions: { orderBy: { versionNumber: "desc" }, take: 1 } },
       });
       if (!found || !found.versions[0]) throw new NotFoundException();
-      if (found.status !== "AVAILABLE" && !user.permissions.includes("documents.read")) {
+      const vendorReadable = found.status === "AVAILABLE" || found.status === "REPLACED";
+      if (!vendorReadable && !user.permissions.includes("documents.read")) {
         throw new ConflictException("This file is not available.");
       }
       if (found.status === "QUARANTINED" || found.status === "REJECTED") {
@@ -221,7 +254,13 @@ export class DocumentsService {
   async presign(user: AuthContext, id: string) {
     const document = await this.tenant.transaction(user.organizationId, (tx) =>
       tx.document.findFirst({
-        where: { id, organizationId: user.organizationId, status: "AVAILABLE", deletedAt: null, ...(user.vendorId ? { vendorId: user.vendorId } : {}) },
+        where: {
+          id,
+          organizationId: user.organizationId,
+          status: { in: ["AVAILABLE", "REPLACED"] },
+          deletedAt: null,
+          ...(user.vendorId ? { vendorId: user.vendorId } : {}),
+        },
         include: { versions: { orderBy: { versionNumber: "desc" }, take: 1 } },
       }),
     );
