@@ -27,6 +27,8 @@ export function FormRenderer({
   onUpload,
   selectedFieldId,
   onSelectField,
+  selectedSectionId,
+  onSelectSection,
   idPrefix,
   visibleSectionId,
   documentTable,
@@ -42,6 +44,8 @@ export function FormRenderer({
   onUpload?: Upload;
   selectedFieldId?: string | null;
   onSelectField?: (fieldId: string) => void;
+  selectedSectionId?: string | null;
+  onSelectSection?: (sectionId: string) => void;
   idPrefix?: string;
   visibleSectionId?: string | null;
   documentTable?: boolean;
@@ -59,9 +63,24 @@ export function FormRenderer({
         const groups = groupFields(visible, Boolean(documentTable), section.title);
         const hasRequired = visible.some((field) => field.required);
         const showMandatoryLegend = hasRequired && !/mandatory/i.test(section.description || "");
+        const sectionSelected = selectedSectionId === section.id && !selectedFieldId;
         return (
           <section key={section.id} className={bare ? "min-w-0" : "panel min-w-0 px-4 pb-6 sm:px-6 sm:pb-8"}>
-            <h2 className="brand-title">{section.title}</h2>
+            <h2
+              className={cn(
+                "brand-title",
+                onSelectSection ? "cursor-pointer rounded-md outline-offset-4" : "",
+                onSelectSection && sectionSelected ? "outline outline-2 outline-[var(--brand)]" : "",
+                onSelectSection && !sectionSelected ? "hover:outline hover:outline-1 hover:outline-[var(--field-border)]" : "",
+              )}
+              onClick={(event) => {
+                if (!onSelectSection) return;
+                event.stopPropagation();
+                onSelectSection(section.id);
+              }}
+            >
+              {section.title}
+            </h2>
             {section.description ? <p className="brand-lead">{section.description}</p> : null}
             {showMandatoryLegend ? (
               <p className={cn("brand-legend", section.description ? "mt-3" : "")}>Fields marked with <span className="req">*</span> are mandatory.</p>
