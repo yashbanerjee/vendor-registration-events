@@ -84,6 +84,9 @@ function FormCard({ assignment }: { assignment: VendorAssignment }) {
   const answers = fieldAnswers(assignment.form.schema, assignment.values ?? {});
   const total = answers.length;
   const completed = answers.filter((answer) => answer.filled).length;
+  const mandatory = answers.filter((answer) => answer.required);
+  const mandatoryTotal = mandatory.length;
+  const mandatoryCompleted = mandatory.filter((answer) => answer.filled).length;
   const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
   const canContinue = OPEN_STATUSES.has(assignment.status);
   const overdue = canContinue && assignment.deadline ? new Date(assignment.deadline).getTime() < Date.now() : false;
@@ -104,12 +107,13 @@ function FormCard({ assignment }: { assignment: VendorAssignment }) {
         </div>
         <StatusBadge status={assignment.status} />
       </div>
-      <dl className="mt-5 grid grid-cols-2 items-start gap-x-4 gap-y-4 border-t border-[var(--border)] pt-5 sm:gap-x-6">
-        <div className="col-span-2 min-w-0">
+      <dl className="mt-5 grid grid-cols-2 items-start gap-x-4 gap-y-4 border-t border-[var(--border)] pt-5 sm:gap-x-6 lg:grid-cols-3">
+        <div className="col-span-2 min-w-0 lg:col-span-3">
           <dt className="eyebrow">ID</dt>
           <dd className="mt-1 break-all text-xs leading-5 text-muted">{assignment.id}</dd>
         </div>
         <Detail label="Total fields" value={String(total)} />
+        <Detail label="Mandatory fields" value={`${mandatoryCompleted} of ${mandatoryTotal}`} />
         <Detail label="Completed" value={`${completed} of ${total}`} />
       </dl>
       <div

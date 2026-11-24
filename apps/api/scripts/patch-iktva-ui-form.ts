@@ -183,7 +183,7 @@ async function main() {
           field.description = "PDF or image";
           break;
         case "rams":
-          field.label = "Risk assessment";
+          field.label = "Risk assessment (template will be provided)";
           field.description = "PDF or image";
           break;
         case "construction_phase_plan":

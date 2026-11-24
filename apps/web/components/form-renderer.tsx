@@ -225,7 +225,7 @@ function DocumentTable({
               selectedFieldId === field.id ? "outline outline-2 outline-offset-2 outline-[var(--brand)]" : "",
             )}
           >
-            <p className="eyebrow">Document required</p>
+            <p className="eyebrow">{field.required ? "Document required" : "Optional"}</p>
             <h3 className="mt-1.5 break-words text-base font-semibold leading-6 text-[var(--heading)]">
               {field.label}
               <RequiredMark field={field} />

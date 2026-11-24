@@ -98,8 +98,7 @@ function formProgress(assignment: {
   const latest = assignment.submission?.revisions[0]?.data;
   const values = latest && typeof latest === "object" && !Array.isArray(latest) ? (latest as Record<string, unknown>) : {};
   const parsed = formSchemaDefinition.safeParse(assignment.formVersion.schema);
-  const required = new Set(parsed.success ? parsed.data.fields.filter((field) => field.required).map((field) => field.id) : []);
-  const fields = parsed.success ? fieldAnswers(parsed.data, values).map((field) => ({ ...field, required: required.has(field.id) })) : [];
+  const fields = parsed.success ? fieldAnswers(parsed.data, values) : [];
   const requiredFields = fields.filter((field) => field.required);
   return {
     id: assignment.id,

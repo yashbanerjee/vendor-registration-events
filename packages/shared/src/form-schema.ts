@@ -173,7 +173,7 @@ function isUncheckedCheckbox(value: unknown): boolean {
   return isEmpty(value);
 }
 
-export type FieldAnswer = { id: string; label: string; filled: boolean };
+export type FieldAnswer = { id: string; label: string; filled: boolean; required: boolean };
 
 function hasAnswer(value: unknown): boolean {
   if (value === undefined || value === null) return false;
@@ -204,7 +204,7 @@ export function fieldAnswers(schema: FormSchemaDefinition, values: Record<string
     if (!isFieldVisible(field, values, byId)) continue;
     const value = values[field.id];
     const filled = field.type === "checkbox" ? !isUncheckedCheckbox(value) : hasAnswer(value);
-    answers.push({ id: field.id, label: field.label, filled });
+    answers.push({ id: field.id, label: field.label, filled, required: field.required });
   }
   return answers;
 }

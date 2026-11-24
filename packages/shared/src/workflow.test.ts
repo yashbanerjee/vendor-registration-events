@@ -94,9 +94,9 @@ test("submission validation reports required fields", () => {
 test("field answers mark filled and empty inputs", () => {
   const answers = fieldAnswers(schema, { [companyId]: "Harbor", [boothId]: "  ", [notesId]: "" });
   assert.deepEqual(answers, [
-    { id: companyId, label: "Company", filled: true },
-    { id: boothId, label: "Booth", filled: false },
-    { id: notesId, label: "Notes", filled: false },
+    { id: companyId, label: "Company", filled: true, required: true },
+    { id: boothId, label: "Booth", filled: false, required: true },
+    { id: notesId, label: "Notes", filled: false, required: false },
   ]);
 });
 
