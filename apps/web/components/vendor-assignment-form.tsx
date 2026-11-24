@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck, Briefcase, Building2, ClipboardList, FileText, History, Landmark, Megaphone, Package, SquareCheckBig, Store, Users, type LucideIcon } from "lucide-react";
+import { ClipboardList, Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FormValidationError, validateSubmission, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { FormRenderer } from "@/components/form-renderer";
@@ -95,7 +95,6 @@ export function VendorAssignmentForm({
         setFieldErrors(issues);
         setError("Fill every compulsory field before submitting.");
         const first = issues[0]?.fieldId;
-        showStageForField(first);
         requestAnimationFrame(() => {
           if (!first) return;
           document.getElementById(`${assignment.id}-${first}`)?.scrollIntoView({ block: "center" });
@@ -129,26 +128,10 @@ export function VendorAssignmentForm({
   const sections = [...assignment.form.schema.sections]
     .sort((left, right) => left.order - right.order)
     .filter((section) => assignment.form.schema.fields.some((field) => field.sectionId === section.id));
-  const [stage, setStage] = useState(0);
-  const currentStage = Math.min(stage, Math.max(sections.length - 1, 0));
   const editable = assignment.status === "INVITED" || assignment.status === "IN_PROGRESS" || assignment.status === "CORRECTION_REQUESTED";
-  const staged = sections.length > 1;
-  const lastStage = !staged || currentStage === sections.length - 1;
   // A form sent back for correction is not saved as a draft: the vendor fixes the marked fields and sends again.
   const canDraft = assignment.status !== "CORRECTION_REQUESTED";
   const cardId = `assignment-${assignment.id}`;
-
-  function showStageForField(fieldId?: string) {
-    const field = assignment.form.schema.fields.find((item) => item.id === fieldId);
-    const index = sections.findIndex((section) => section.id === field?.sectionId);
-    if (index >= 0) setStage(index);
-  }
-
-  /** Opens a step and brings the top of the card back into view, like a page change. */
-  function goToStage(index: number) {
-    setStage(index);
-    requestAnimationFrame(() => document.getElementById(cardId)?.scrollIntoView({ block: "start" }));
-  }
 
   return (
     <section id={cardId} className="brand-card min-w-0 scroll-mt-4">
@@ -164,23 +147,7 @@ export function VendorAssignmentForm({
           <Store size={15} aria-hidden />
           <span className="min-w-0 break-words">{assignment.exhibition.name}</span>
         </span>
-        {staged ? <span className="brand-counter">Step {currentStage + 1} of {sections.length}</span> : null}
       </div>
-      {staged ? (
-        <ol className="steps" aria-label="Form stages">
-          {sections.map((section, index) => {
-            const Icon = stepIcon(section.title, index);
-            return (
-              <li key={section.id} className={`step ${index === currentStage ? "is-active" : index < currentStage ? "is-filled" : "is-todo"}`} aria-current={index === currentStage ? "step" : undefined}>
-                <button type="button" className="step-button" title={section.title} aria-label={`Step ${index + 1}: ${section.title}`} onClick={() => goToStage(index)}>
-                  <span className="step-icon"><Icon aria-hidden /></span>
-                  <span className="step-label">{section.title}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      ) : null}
       {compact ? null : (
         <div className="brand-callout">
           <span className="brand-callout-icon"><ClipboardList size={20} aria-hidden /></span>
@@ -211,7 +178,7 @@ export function VendorAssignmentForm({
         bare
         schema={{
           ...assignment.form.schema,
-          // Hide empty section headings so vendors do not get blank steps.
+          // Keep section titles; hide empty sections only.
           sections: sections.length > 0 ? sections : assignment.form.schema.sections,
         }}
         values={values}
@@ -221,46 +188,21 @@ export function VendorAssignmentForm({
         disabled={!editable}
         idPrefix={assignment.id}
         documentTable
-        visibleSectionId={staged ? sections[currentStage]?.id : null}
         onChange={(fieldId, value) => setValues((current) => ({ ...current, [fieldId]: value }))}
         onUpload={upload}
       />
       {editable ? (
         <div className="form-actions">
-          {staged && currentStage > 0 ? <Button size="xl" variant="secondary" onClick={() => goToStage(currentStage - 1)}>Back</Button> : null}
-          {lastStage && canDraft ? (
-            <Button size="xl" variant="secondary" onClick={() => save.mutate("draft")} disabled={save.isPending}>{save.isPending && save.variables === "draft" ? "Saving…" : "Save"}</Button>
+          {canDraft ? (
+            <Button size="xl" variant="secondary" onClick={() => save.mutate("draft")} disabled={save.isPending}>
+              {save.isPending && save.variables === "draft" ? "Saving…" : "Save"}
+            </Button>
           ) : null}
-          {lastStage ? (
-            <Button size="xl" variant="primary" className="is-primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{save.isPending && save.variables === "submit" ? "Submitting…" : assignment.status === "CORRECTION_REQUESTED" ? "Submit again" : "Submit"}</Button>
-          ) : canDraft ? (
-            // Like the parent site: each step is saved as a draft before the next one opens.
-            <Button size="xl" variant="primary" className="is-primary" onClick={() => save.mutate("draft", { onSuccess: () => goToStage(currentStage + 1) })} disabled={save.isPending}>Save and continue</Button>
-          ) : (
-            <Button size="xl" variant="primary" className="is-primary" onClick={() => goToStage(currentStage + 1)}>Next</Button>
-          )}
+          <Button size="xl" variant="primary" className="is-primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>
+            {save.isPending && save.variables === "submit" ? "Submitting…" : assignment.status === "CORRECTION_REQUESTED" ? "Submit again" : "Submit"}
+          </Button>
         </div>
       ) : null}
     </section>
   );
-}
-
-const STEP_ICONS: { match: RegExp; icon: LucideIcon }[] = [
-  { match: /declar|consent|agree|terms|confirm|\bsign/i, icon: SquareCheckBig },
-  { match: /document|\bfile|upload|attach|certificate/i, icon: FileText },
-  { match: /contact|people|team|staff|person/i, icon: Users },
-  { match: /market|brand|promot|media/i, icon: Megaphone },
-  { match: /previous|history|past|experience/i, icon: History },
-  { match: /eligib|registration|licen|complian|verif/i, icon: BadgeCheck },
-  { match: /bank|payment|financ|invoice|billing/i, icon: Landmark },
-  { match: /product|service|item/i, icon: Package },
-  { match: /booth|stand|exhibit|space/i, icon: Store },
-  { match: /business|profile|activity|sector/i, icon: Briefcase },
-  { match: /company|organi[sz]ation|entity|vendor|general/i, icon: Building2 },
-];
-const STEP_FALLBACK: LucideIcon[] = [Building2, BadgeCheck, Briefcase, History, Users, Megaphone, SquareCheckBig];
-
-/** Picks the square's icon from the section title, so a "Contacts" step shows people and so on. */
-function stepIcon(title: string, index: number): LucideIcon {
-  return STEP_ICONS.find((item) => item.match.test(title))?.icon ?? STEP_FALLBACK[index % STEP_FALLBACK.length]!;
 }
