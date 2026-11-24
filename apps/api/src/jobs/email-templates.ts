@@ -2,12 +2,13 @@ export type EmailAudience = "vendor" | "admin";
 
 const actions: Record<string, string> = {
   invitation: "Open invitation",
-  correction: "Update the requested fields",
+  correction: "Update submission",
   "submission-ack": "View submission",
   approved: "View the approved form",
   rejected: "View the submission",
   "password-reset": "Reset password",
-  credentials: "Open the portal",
+  credentials: "Supplier login",
+  reminder: "Complete submission",
   packet: "Open your forms",
 };
 
@@ -111,8 +112,10 @@ export function renderEmail(input: {
         </tr>
       </table>`
     : "";
-  const audience = input.audience === "admin" ? "an administrator" : "a vendor";
-  const sender = input.fromAddress ? ` It was sent from ${escapeHtml(input.fromAddress)}.` : "";
+  const footerNote = input.audience === "admin"
+    ? `This message was sent to an administrator about ${escapeHtml(input.organizationName)}.`
+    : `This is an official message for ${escapeHtml(input.organizationName)}.`;
+  const sender = input.fromAddress ? ` Sent from ${escapeHtml(input.fromAddress)}.` : "";
   const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -175,7 +178,7 @@ export function renderEmail(input: {
                               </tr>
                               <tr>
                                 <td style="padding-top:16px;">
-                                  <p style="margin:0;color:#6b7885;font-family:Montserrat,sans-serif;font-size:12px;line-height:1.55;">This message was sent to ${audience} about a form or account with ${escapeHtml(input.organizationName)}.${sender}</p>
+                                  <p style="margin:0;color:#6b7885;font-family:Montserrat,sans-serif;font-size:12px;line-height:1.55;">${footerNote}${sender}</p>
                                 </td>
                               </tr>
                             </table>

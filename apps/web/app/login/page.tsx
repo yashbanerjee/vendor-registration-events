@@ -12,7 +12,7 @@ import { useSession } from "@/components/providers";
 export default function LoginPage() {
   const router = useRouter();
   const { refresh } = useSession();
-  const [email, setEmail] = useState("admin@projects7.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [mfaToken, setMfaToken] = useState("");

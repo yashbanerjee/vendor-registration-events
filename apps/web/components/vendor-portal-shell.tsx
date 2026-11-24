@@ -65,7 +65,7 @@ export function VendorPortalShell({ children }: { children: React.ReactNode }) {
           })}
         </div>
         <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
-          <span className="hidden max-w-[16rem] truncate px-2 text-[0.78rem] tracking-[0.04em] text-muted md:inline">{session.name}</span>
+          <span className="hidden max-w-[16rem] truncate px-2 text-[0.78rem] font-medium uppercase tracking-[0.08em] text-muted md:inline">{session.name || "User"}</span>
           <button
             type="button"
             className="brand-nav-link"

@@ -46,8 +46,8 @@ function MasterForm() {
 
       {profile ? (
         <section className="brand-list-card">
-          <p className="eyebrow text-accent">{profile.vendor.reference}</p>
-          <h2 className="brand-list-title mt-2">{profile.vendor.companyName}</h2>
+          <p className="eyebrow text-accent">Supplier/company</p>
+          <h2 className="brand-list-title mt-2">{profile.vendor.companyName || profile.vendor.reference}</h2>
           <span className="brand-rule mt-3" aria-hidden />
           <dl className="mt-5 grid grid-cols-2 items-start gap-x-4 gap-y-4 border-t border-[var(--border)] pt-5 sm:gap-x-6 lg:grid-cols-4">
             <Detail label="Contact" value={profile.vendor.contactName} />
@@ -134,6 +134,7 @@ function FormCard({ assignment }: { assignment: VendorAssignment }) {
       <div className="mt-5">
         <Button className="w-full sm:w-auto" variant={canContinue ? "primary" : "secondary"} size="xl" asChild>
           <Link href={`/vendor/assignments/${assignment.id}`}>{canContinue ? "Continue" : "View"}</Link>
+
         </Button>
       </div>
     </section>

@@ -47,7 +47,7 @@ export const fieldSchema: z.ZodType<FormField> = z.lazy(() =>
       .regex(/^[a-z][a-z0-9_]*$/, "Use a lowercase internal key."),
     type: z.enum(FIELD_TYPES),
     label: z.string().min(1).max(200),
-    description: z.string().max(2000).optional(),
+    description: z.string().max(5000).optional(),
     required: z.boolean(),
     placeholder: z.string().max(200).optional(),
     defaultValue: z.unknown().optional(),
@@ -133,7 +133,7 @@ export const formSchemaDefinition = z.object({
       z.object({
         id: z.string().uuid(),
         title: z.string().min(1).max(200),
-        description: z.string().max(2000).optional(),
+        description: z.string().max(5000).optional(),
         order: z.number().int().nonnegative(),
       }),
     )

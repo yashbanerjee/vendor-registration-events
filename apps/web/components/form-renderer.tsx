@@ -56,13 +56,14 @@ export function FormRenderer({
           .filter((field) => field.sectionId === section.id)
           .sort((a, b) => a.order - b.order)
           .filter((field) => isFieldVisible(field, values, byId));
-        const groups = groupFields(visible, Boolean(documentTable));
+        const groups = groupFields(visible, Boolean(documentTable), section.title);
         const hasRequired = visible.some((field) => field.required);
+        const showMandatoryLegend = hasRequired && !/mandatory/i.test(section.description || "");
         return (
           <section key={section.id} className={bare ? "min-w-0" : "panel min-w-0 px-4 pb-6 sm:px-6 sm:pb-8"}>
             <h2 className="brand-title">{section.title}</h2>
             {section.description ? <p className="brand-lead">{section.description}</p> : null}
-            {hasRequired ? (
+            {showMandatoryLegend ? (
               <p className={cn("brand-legend", section.description ? "mt-3" : "")}>Fields marked with <span className="req">*</span> are mandatory.</p>
             ) : (
               <div className="mb-8" />
@@ -108,10 +109,11 @@ export function FormRenderer({
   );
 }
 
-function groupFields(fields: FormField[], table: boolean) {
+function groupFields(fields: FormField[], table: boolean, sectionTitle: string) {
+  const documentCards = table && /order|additional/i.test(sectionTitle);
   const groups: { table: boolean; fields: FormField[] }[] = [];
   for (const field of fields) {
-    const useTable = table && isDocumentField(field);
+    const useTable = documentCards && isDocumentField(field);
     const last = groups.at(-1);
     if (last && last.table && useTable) last.fields.push(field);
     else groups.push({ table: useTable, fields: [field] });
@@ -119,10 +121,7 @@ function groupFields(fields: FormField[], table: boolean) {
   return groups;
 }
 
-/**
- * Only a "download, fill in, upload again" field gets the boxed document card, because it carries a template.
- * A plain upload is drawn inline: label, dashed upload row, hint.
- */
+/** Order / Additional packs use boxed "Document required" cards for reupload fields. */
 function isDocumentField(field: FormField) {
   return field.type === "reupload";
 }
@@ -254,6 +253,7 @@ function FieldControl({
   note,
   error,
   editable,
+  hideLabel = false,
   onChange,
   onUpload,
 }: {
@@ -263,11 +263,12 @@ function FieldControl({
   note?: string;
   error?: string;
   editable: boolean;
+  hideLabel?: boolean;
   onChange?: (fieldId: string, value: unknown) => void;
   onUpload?: Upload;
 }) {
   if (field.type === "heading") return <h3 className="form-subhead">{field.label}</h3>;
-  if (field.type === "info") return <p className="form-info">{field.description || field.label}</p>;
+  if (field.type === "info") return <UndertakingCopy text={field.description || field.label} />;
 
   const describedBy = [field.description ? `${id}-help` : "", note ? `${id}-note` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
   const change = (next: unknown) => onChange?.(field.id, next);
@@ -292,11 +293,13 @@ function FieldControl({
   if (isBoxField(field)) {
     return (
       <>
-        <label htmlFor={id} className="field-label field-label--tight">
-          {field.label}
-          <RequiredMark field={field} />
-          {!editable ? <LockedTag /> : null}
-        </label>
+        {hideLabel ? null : (
+          <label htmlFor={id} className="field-label field-label--tight">
+            {field.label}
+            <RequiredMark field={field} />
+            {!editable ? <LockedTag /> : null}
+          </label>
+        )}
         <BoxControl id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={change} {...state} />
         {footer}
       </>
@@ -313,25 +316,49 @@ function FieldControl({
   );
 
   if (isFile) {
+    const template = field.type === "reupload" ? field.template : undefined;
     return (
       <>
-        <label htmlFor={id} className="field-label field-label--file">{heading}</label>
-        {field.type === "reupload" ? (
-          <ReuploadField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={change} onUpload={onUpload} />
-        ) : (
-          <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={change} onUpload={onUpload} />
-        )}
+        {hideLabel ? null : <label htmlFor={id} className="field-label field-label--file">{heading}</label>}
+        {template?.assetId && template.filename ? (
+          <div className="mb-3 min-w-0 rounded-md border border-border bg-[var(--tint)] px-3 py-2.5">
+            <p className="eyebrow">Template</p>
+            <div className="mt-1 min-w-0">
+              <RemoteFileLink path={`/form-assets/${template.assetId}/content`} filename={template.filename} />
+            </div>
+          </div>
+        ) : null}
+        <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={change} onUpload={onUpload} />
         {footer}
       </>
     );
   }
 
+  const singleConfirm = field.type === "checkbox" && (field.options?.length ?? 0) <= 1;
   return (
     <>
-      <span id={`${id}-label`} className="field-label">{heading}</span>
+      {hideLabel || singleConfirm ? null : <span id={`${id}-label`} className="field-label">{heading}</span>}
       <ChoicePills id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={change} />
       {footer}
     </>
+  );
+}
+
+function UndertakingCopy({ text }: { text: string }) {
+  const lines = text.split("\n");
+  return (
+    <div className="form-info">
+      {lines.map((line, index) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <br key={index} />;
+        const heading = /^(CONTRACTOR\b|[A-C]\.|IMPORTANT\b|Authorized Representative)/i.test(trimmed);
+        return (
+          <p key={index} className={heading ? "form-info-heading" : undefined}>
+            {line}
+          </p>
+        );
+      })}
+    </div>
   );
 }
 
@@ -427,6 +454,29 @@ function ChoicePills({
       </div>
     );
   }
+  if (field.type === "checkbox") {
+    const options = field.options ?? [];
+    if (options.length <= 1) {
+      const option = options[0];
+      const checked = value === true || value === "true" || (Array.isArray(value) && option && value.map(String).includes(option.value));
+      return (
+        <label className="form-confirm" htmlFor={id}>
+          <input
+            id={id}
+            type="checkbox"
+            checked={Boolean(checked)}
+            disabled={!editable}
+            aria-describedby={describedBy}
+            onChange={(event) => {
+              if (option) onChange(event.target.checked ? [option.value] : []);
+              else onChange(event.target.checked);
+            }}
+          />
+          <span>{option?.label || field.label}</span>
+        </label>
+      );
+    }
+  }
   if (field.type === "radio") {
     const text = typeof value === "string" || typeof value === "number" ? String(value) : "";
     return (
@@ -450,44 +500,6 @@ function ChoicePills({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function ReuploadField({
-  id,
-  field,
-  value,
-  editable,
-  describedBy,
-  onChange,
-  onUpload,
-}: {
-  id: string;
-  field: FormField;
-  value: unknown;
-  editable: boolean;
-  describedBy?: string;
-  onChange: (value: unknown) => void;
-  onUpload?: Upload;
-}) {
-  const template = field.template;
-  return (
-    <div className="grid min-w-0 grid-cols-1 gap-3">
-      <div className="min-w-0 break-all rounded-md border border-border bg-[var(--tint)] p-3 [&_button]:whitespace-normal [&_button]:text-left">
-        <p className="eyebrow">Download this file</p>
-        {template?.assetId && template.filename ? (
-          <div className="mt-1 min-w-0">
-            <RemoteFileLink path={`/form-assets/${template.assetId}/content`} filename={template.filename} />
-          </div>
-        ) : (
-          <p className="mt-1 text-sm text-muted">No file has been uploaded yet.</p>
-        )}
-      </div>
-      <div className="grid min-w-0 grid-cols-1 gap-2">
-        <p className="eyebrow">Upload your completed file</p>
-        <FileField id={id} field={field} value={value} editable={editable} describedBy={describedBy} onChange={onChange} onUpload={onUpload} />
-      </div>
     </div>
   );
 }

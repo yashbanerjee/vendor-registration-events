@@ -41,7 +41,7 @@ export function VendorFormShell({ children }: { children: React.ReactNode }) {
           <img src={BRAND_LOGO} alt="iktva Forum 2027" className="brand-nav-logo" />
         </Link>
         <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
-          <span className="hidden max-w-[16rem] truncate px-2 text-[0.78rem] tracking-[0.04em] text-muted md:inline">{session.name}</span>
+          <span className="hidden max-w-[16rem] truncate px-2 text-[0.78rem] font-medium uppercase tracking-[0.08em] text-muted md:inline">{session.name || "User"}</span>
           <Link href="/vendor" className="brand-nav-link">
             <ArrowLeft size={14} aria-hidden />
             Back

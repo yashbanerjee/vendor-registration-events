@@ -221,7 +221,7 @@ export function VendorAssignmentForm({
             <Button size="xl" variant="secondary" onClick={() => save.mutate("draft")} disabled={save.isPending}>{save.isPending && save.variables === "draft" ? "Saving…" : "Save"}</Button>
           ) : null}
           {lastStage ? (
-            <Button size="xl" variant="primary" className="is-primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{save.isPending && save.variables === "submit" ? "Sending…" : assignment.status === "CORRECTION_REQUESTED" ? "Send again" : "Send"}</Button>
+            <Button size="xl" variant="primary" className="is-primary" onClick={() => save.mutate("submit")} disabled={save.isPending}>{save.isPending && save.variables === "submit" ? "Submitting…" : assignment.status === "CORRECTION_REQUESTED" ? "Submit again" : "Submit"}</Button>
           ) : canDraft ? (
             // Like the parent site: each step is saved as a draft before the next one opens.
             <Button size="xl" variant="primary" className="is-primary" onClick={() => save.mutate("draft", { onSuccess: () => goToStage(currentStage + 1) })} disabled={save.isPending}>Save and continue</Button>
