@@ -83,11 +83,11 @@ export function renderEmail(input: {
   const actionLine = input.actionUrl && !input.body.includes(input.actionUrl) ? `\n${action}: ${input.actionUrl}` : "";
   const text = [input.organizationName, input.title, "", input.body, actionLine].filter((line) => line !== undefined).join("\n");
   const bodyHtml = paragraphs
-    .map((paragraph) => `<p style="margin:0 0 12px;color:#d7e0e8;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;">${linkify(escapeHtml(paragraph).replace(/\n/g, "<br>"))}</p>`)
+    .map((paragraph) => `<p style="margin:0 0 12px;color:#d7e0e8;font-family:Montserrat,sans-serif;font-size:15px;line-height:1.65;">${linkify(escapeHtml(paragraph).replace(/\n/g, "<br>"))}</p>`)
     .join("");
   const logoHtml = input.logoUrl
     ? `<img src="${escapeHtml(input.logoUrl)}" width="168" alt="${escapeHtml(input.organizationName)}" style="display:block;width:168px;max-width:60%;height:auto;border:0;outline:none;text-decoration:none;">`
-    : `<p style="margin:0;color:#ffffff;font-family:Helvetica,Arial,sans-serif;font-size:18px;font-weight:700;letter-spacing:0.04em;line-height:1.2;">${escapeHtml(input.organizationName)}</p>`;
+    : `<p style="margin:0;color:#ffffff;font-family:Montserrat,sans-serif;font-size:18px;font-weight:700;letter-spacing:0.04em;line-height:1.2;">${escapeHtml(input.organizationName)}</p>`;
   const buttonHtml = input.actionUrl
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0;">
         <tr>
@@ -95,7 +95,7 @@ export function renderEmail(input: {
             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td align="center" bgcolor="#0064ad" style="border-radius:4px;background:#0064ad;border:1px solid #009ef0;box-shadow:0 14px 30px rgba(0,100,173,0.35);">
-                  <a href="${escapeHtml(input.actionUrl)}" style="display:inline-block;padding:16px 34px;color:#ffffff;font-family:Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.16em;line-height:1;text-decoration:none;text-transform:uppercase;">${escapeHtml(action)}</a>
+                  <a href="${escapeHtml(input.actionUrl)}" style="display:inline-block;padding:16px 34px;color:#ffffff;font-family:Montserrat,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.16em;line-height:1;text-decoration:none;text-transform:uppercase;">${escapeHtml(action)}</a>
                 </td>
               </tr>
             </table>
@@ -103,7 +103,7 @@ export function renderEmail(input: {
         </tr>
         <tr>
           <td align="center" style="padding:16px 8px 0;">
-            <p style="margin:0;color:#6b7885;font-family:Helvetica,Arial,sans-serif;font-size:11px;line-height:1.55;word-break:break-all;">
+            <p style="margin:0;color:#6b7885;font-family:Montserrat,sans-serif;font-size:11px;line-height:1.55;word-break:break-all;">
               If the button does not work, copy and paste this link into your browser:<br>
               <a href="${escapeHtml(input.actionUrl)}" style="color:#a3d9f6;text-decoration:underline;">${escapeHtml(input.actionUrl)}</a>
             </p>
@@ -120,9 +120,10 @@ export function renderEmail(input: {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark light">
     <meta name="supported-color-schemes" content="dark light">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <title>${escapeHtml(input.title)}</title>
   </head>
-  <body style="margin:0;padding:0;background:#07090b;color:#eef2f5;font-family:Helvetica,Arial,sans-serif;">
+  <body style="margin:0;padding:0;background:#07090b;color:#eef2f5;font-family:Montserrat,sans-serif;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${escapeHtml(input.title)} — ${escapeHtml(input.organizationName)}</div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#07090b;">
       <tr>
@@ -149,8 +150,8 @@ export function renderEmail(input: {
                       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                         <tr>
                           <td style="padding:28px 28px 8px;">
-                            <p style="margin:0 0 8px;color:#dda36c;font-family:Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.2em;line-height:1.3;text-transform:uppercase;">${escapeHtml(input.organizationName)}</p>
-                            <h1 style="margin:0;color:#ffffff;font-family:Helvetica,Arial,sans-serif;font-size:24px;font-weight:700;letter-spacing:0.03em;line-height:1.28;text-transform:uppercase;">${escapeHtml(input.title)}</h1>
+                            <p style="margin:0 0 8px;color:#dda36c;font-family:Montserrat,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.2em;line-height:1.3;text-transform:uppercase;">${escapeHtml(input.organizationName)}</p>
+                            <h1 style="margin:0;color:#ffffff;font-family:Montserrat,sans-serif;font-size:24px;font-weight:700;letter-spacing:0.03em;line-height:1.28;text-transform:uppercase;">${escapeHtml(input.title)}</h1>
                             <div style="width:52px;height:3px;margin:16px 0 0;background:#009ef0;background-image:linear-gradient(90deg,#dda36c,#009ef0);font-size:0;line-height:0;">&nbsp;</div>
                           </td>
                         </tr>
@@ -159,7 +160,7 @@ export function renderEmail(input: {
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#1a2027;border:1px solid rgba(255,255,255,0.08);border-radius:6px;">
                               <tr>
                                 <td style="padding:18px 18px 6px;">
-                                  ${bodyHtml || `<p style="margin:0 0 12px;color:#d7e0e8;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;">&nbsp;</p>`}
+                                  ${bodyHtml || `<p style="margin:0 0 12px;color:#d7e0e8;font-family:Montserrat,sans-serif;font-size:15px;line-height:1.65;">&nbsp;</p>`}
                                 </td>
                               </tr>
                             </table>
@@ -174,7 +175,7 @@ export function renderEmail(input: {
                               </tr>
                               <tr>
                                 <td style="padding-top:16px;">
-                                  <p style="margin:0;color:#6b7885;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.55;">This message was sent to ${audience} about a form or account with ${escapeHtml(input.organizationName)}.${sender}</p>
+                                  <p style="margin:0;color:#6b7885;font-family:Montserrat,sans-serif;font-size:12px;line-height:1.55;">This message was sent to ${audience} about a form or account with ${escapeHtml(input.organizationName)}.${sender}</p>
                                 </td>
                               </tr>
                             </table>
@@ -191,7 +192,7 @@ export function renderEmail(input: {
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
                   <tr>
                     <td align="center" style="padding:18px 8px 8px;">
-                      <p style="margin:0;color:#566774;font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:0.12em;line-height:1.4;text-transform:uppercase;">${escapeHtml(input.organizationName)}</p>
+                      <p style="margin:0;color:#566774;font-family:Montserrat,sans-serif;font-size:11px;letter-spacing:0.12em;line-height:1.4;text-transform:uppercase;">${escapeHtml(input.organizationName)}</p>
                     </td>
                   </tr>
                 </table>

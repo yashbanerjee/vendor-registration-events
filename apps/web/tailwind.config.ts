@@ -34,8 +34,8 @@ const config: Config = {
         panel: "var(--shadow-panel)",
       },
       fontFamily: {
-        sans: ["Montserrat", "Helvetica Neue", "Helvetica", "Arial", "sans-serif"],
-        mono: ["Montserrat", "Helvetica Neue", "Helvetica", "Arial", "sans-serif"],
+        sans: ["Montserrat", "sans-serif"],
+        mono: ["Montserrat", "sans-serif"],
       },
     },
   },

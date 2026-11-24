@@ -88,8 +88,8 @@
   --badge-info-fg: #023456;
   --badge-neutral-bg: #eef3f7;
   --badge-neutral-fg: #41525c;
-  /* The parent site renders its form in Helvetica/Arial. Set this to "Montserrat" to use the portal font instead. */
-  --font-form: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  /* Single font everywhere: portal, form, and auth pages. */
+  --font-form: "Montserrat", sans-serif;
 }
 
 .dark {
@@ -153,7 +153,7 @@ body {
   margin: 0;
   background: var(--page-bg);
   color: var(--foreground);
-  font-family: "Montserrat", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-feature-settings: "ss01" on;
   -webkit-font-smoothing: antialiased;
 }
