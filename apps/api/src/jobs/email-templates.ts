@@ -7,7 +7,7 @@ const actions: Record<string, string> = {
   approved: "View the approved form",
   rejected: "View the submission",
   "password-reset": "Reset password",
-  credentials: "Supplier login",
+  credentials: "Sponsor login",
   reminder: "Complete submission",
   packet: "Open your forms",
 };

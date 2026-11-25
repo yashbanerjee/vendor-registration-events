@@ -56,10 +56,22 @@ export class WorkflowController {
     return this.workflow.resendFailedMail(request.user!, body);
   }
 
+  @Post("assignments/reminders")
+  @RequirePermissions(PERMISSIONS.assignmentsWrite)
+  sendDeadlineReminders(@Req() request: AuthedRequest, @Body() body: unknown) {
+    return this.workflow.sendDeadlineReminders(request.user!, body);
+  }
+
   @Post("assignments/:id/send-invite")
   @RequirePermissions(PERMISSIONS.assignmentsWrite)
   sendInvite(@Req() request: AuthedRequest, @Param("id") id: string) {
     return this.workflow.sendInvite(request.user!, id);
+  }
+
+  @Post("assignments/:id/remind")
+  @RequirePermissions(PERMISSIONS.assignmentsWrite)
+  sendDeadlineReminder(@Req() request: AuthedRequest, @Param("id") id: string) {
+    return this.workflow.sendDeadlineReminder(request.user!, id);
   }
 
   @Post("assignments/:id/resend")

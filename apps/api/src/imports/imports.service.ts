@@ -14,6 +14,7 @@ import type { AuthContext } from "../common/auth";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
 import { composeEmailTemplate } from "../jobs/email-catalog";
+import { EMAIL_BRAND_NAME } from "../jobs/email-templates";
 import { OutboxService } from "../jobs/jobs.service";
 import { EMAIL_HOLD_UNTIL, effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService } from "../prisma/prisma.service";
@@ -145,7 +146,7 @@ export class ImportsService {
       if (!vendorRole) throw new ConflictException("Vendor access is not configured.");
       const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { name: true, settings: true } });
       const emailTemplates = parseStored(organization?.settings).emailTemplates;
-      const exhibitionName = organization?.name || "the exhibition";
+      const exhibitionName = EMAIL_BRAND_NAME;
       let createdCount = 0;
       let skippedCount = 0;
       let errorCount = 0;

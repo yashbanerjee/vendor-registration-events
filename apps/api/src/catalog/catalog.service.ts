@@ -1,6 +1,7 @@
 import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
+import { Algorithm, hash as argonHash } from "@node-rs/argon2";
 import { assertTransition, fieldAnswers, formSchemaDefinition, PERMISSIONS, type FormField, type FormSchemaDefinition } from "@vmp/shared";
 import { z } from "zod";
 import type { AuthContext } from "../common/auth";
@@ -9,11 +10,30 @@ import { decodeCursor, encodeCursor } from "../common/http";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
 import { mimeForFilename, scanBuffer } from "../documents/scan";
-import { effectiveSettings, parseStored } from "../platform/org-settings";
+import { composeEmailTemplate } from "../jobs/email-catalog";
+import { EMAIL_BRAND_NAME } from "../jobs/email-templates";
+import { OutboxService } from "../jobs/jobs.service";
+import { EMAIL_HOLD_UNTIL, effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { WorkflowService } from "../workflow/workflow.service";
 import { assignVendorCategories, assignVendorCategoryNames, refreshCategoryLabels, UnknownCategoryError } from "./categories";
+
+const argonOptions = { algorithm: Algorithm.Argon2id, memoryCost: 19_456, timeCost: 2, parallelism: 1 };
+
+function temporaryPassword() {
+  const lower = "abcdefghijkmnopqrstuvwxyz";
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const digits = "23456789";
+  const alphabet = `${lower}${upper}${digits}`;
+  const chars = [lower[randomInt(lower.length)], upper[randomInt(upper.length)], digits[randomInt(digits.length)]];
+  while (chars.length < 16) chars.push(alphabet[randomInt(alphabet.length)]);
+  for (let index = chars.length - 1; index > 0; index -= 1) {
+    const swap = randomInt(index + 1);
+    [chars[index], chars[swap]] = [chars[swap], chars[index]];
+  }
+  return chars.join("");
+}
 
 const contactNameSchema = z.string().trim().min(2, "Enter the contact name.").max(200).regex(/^[\p{L}][\p{L}\s.'’-]*$/u, "Use letters, spaces, hyphens, and apostrophes only.");
 
@@ -129,6 +149,7 @@ export class CatalogService {
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(WorkflowService) private readonly workflow: WorkflowService,
     @Inject(StorageService) private readonly storage: StorageService,
+    @Inject(OutboxService) private readonly outbox: OutboxService,
   ) {}
 
   async listVendors(user: AuthContext, query: { cursor?: string; q?: string; status?: string; limit?: string; categoryId?: string }) {
@@ -212,15 +233,27 @@ export class CatalogService {
 
   async createVendor(user: AuthContext, body: unknown) {
     const input = vendorSchema.parse(body);
+    const email = input.email.toLowerCase();
+    const password = temporaryPassword();
+    const passwordHash = await argonHash(password, argonOptions);
+    const portal = `${env().WEB_ORIGIN.replace(/\/$/, "")}/login`;
     const created = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const existingUser = await tx.user.findUnique({ where: { email } });
+      if (existingUser) throw new ConflictException("This email already has a portal account.");
+      const vendorRole = await tx.role.findUnique({ where: { name: "VENDOR" } });
+      if (!vendorRole) throw new ConflictException("Sponsor access is not configured.");
+      const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { name: true, settings: true } });
+      const exhibition = input.exhibitionId
+        ? await tx.exhibition.findFirst({ where: { id: input.exhibitionId, organizationId: user.organizationId }, select: { name: true } })
+        : null;
       const vendor = await tx.vendor.create({
         data: {
           organizationId: user.organizationId,
           reference: input.reference ?? randomReference(),
           companyName: input.companyName,
           contactName: input.contactName,
-          email: input.email.toLowerCase(),
-          additionalEmails: (input.additionalEmails ?? []).map((email) => email.toLowerCase()),
+          email,
+          additionalEmails: (input.additionalEmails ?? []).map((item) => item.toLowerCase()),
           phone: input.phone ?? "",
           addressLine1: input.addressLine1 ?? "",
           addressLine2: input.addressLine2 ?? "",
@@ -231,6 +264,18 @@ export class CatalogService {
           category: "",
         },
       });
+      const account = await tx.user.create({
+        data: {
+          organizationId: user.organizationId,
+          email,
+          name: input.contactName,
+          passwordHash,
+          status: "ACTIVE",
+          mustChangePassword: true,
+          vendorId: vendor.id,
+          roles: { create: { roleId: vendorRole.id } },
+        },
+      });
       await this.applyCategories(tx, user.organizationId, vendor.id, input);
       if (input.exhibitionIds?.length) {
         const exhibitions = await tx.exhibition.findMany({
@@ -238,13 +283,44 @@ export class CatalogService {
         });
         if (exhibitions.length !== input.exhibitionIds.length) throw new NotFoundException("An exhibition was not found.");
         await tx.vendorExhibition.createMany({
-          data: exhibitions.map((exhibition) => ({
+          data: exhibitions.map((item) => ({
             organizationId: user.organizationId,
             vendorId: vendor.id,
-            exhibitionId: exhibition.id,
+            exhibitionId: item.id,
           })),
         });
       }
+      const exhibitionName = exhibition?.name || EMAIL_BRAND_NAME;
+      const vars = {
+        portal,
+        email,
+        password,
+        companyName: vendor.companyName,
+        vendorId: vendor.reference,
+        exhibitionName,
+      };
+      const copy = composeEmailTemplate("credentials", vars, parseStored(organization?.settings).emailTemplates);
+      const mailSettings = effectiveSettings(parseStored(organization?.settings));
+      await this.outbox.enqueue(tx, {
+        organizationId: user.organizationId,
+        type: "email.credentials",
+        idempotencyKey: `credentials:${vendor.id}`,
+        availableAt: mailSettings.emailSendEnabled ? new Date() : EMAIL_HOLD_UNTIL,
+        payload: {
+          to: email,
+          userId: account.id,
+          template: "credentials",
+          audience: "vendor",
+          subject: copy.subject,
+          title: copy.title,
+          text: copy.body,
+          actionLabel: copy.actionLabel,
+          vars,
+          link: "/login",
+          actionUrl: portal,
+          idempotencyKey: `credentials:${vendor.id}`,
+        },
+      });
       await this.audit.record(tx, {
         organizationId: user.organizationId,
         actorId: user.id,
@@ -253,7 +329,7 @@ export class CatalogService {
         resourceType: "vendor",
         resourceId: vendor.id,
         vendorId: vendor.id,
-        newValue: { reference: vendor.reference, email: vendor.email },
+        newValue: { reference: vendor.reference, email: vendor.email, credentialsEmailed: true },
       });
       if (input.formVersionId && input.exhibitionId) {
         await this.workflow.createAssignment(tx, user, {

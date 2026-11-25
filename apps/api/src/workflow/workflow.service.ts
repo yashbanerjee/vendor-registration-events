@@ -300,6 +300,66 @@ export class WorkflowService {
     return this.get(user, id);
   }
 
+  /** Queue the Submission Deadline Reminder email for one assignment. */
+  async sendDeadlineReminder(user: AuthContext, id: string) {
+    await this.tenant.transaction(user.organizationId, async (tx) => {
+      await this.queueDeadlineReminder(tx, user, id);
+    });
+    return this.get(user, id);
+  }
+
+  /** Queue deadline reminders for many assignments (single or multi-select from Vendors). */
+  async sendDeadlineReminders(user: AuthContext, body: unknown) {
+    const input = z.object({
+      assignmentIds: z.array(z.string().uuid()).min(1).max(200),
+    }).parse(body);
+    const uniqueIds = [...new Set(input.assignmentIds)];
+    let sent = 0;
+    const skipped: { assignmentId: string; reason: string }[] = [];
+    for (const assignmentId of uniqueIds) {
+      try {
+        await this.tenant.transaction(user.organizationId, async (tx) => {
+          await this.queueDeadlineReminder(tx, user, assignmentId);
+        });
+        sent += 1;
+      } catch (error) {
+        const reason = error instanceof ConflictException || error instanceof NotFoundException
+          ? error.message
+          : "Could not queue reminder.";
+        skipped.push({ assignmentId, reason });
+      }
+    }
+    return { data: { sent, skipped, requested: uniqueIds.length } };
+  }
+
+  private async queueDeadlineReminder(tx: Tx, user: AuthContext, assignmentId: string) {
+    const assignment = await this.load(tx, user, assignmentId);
+    if (["APPROVED", "REVOKED", "REJECTED"].includes(assignment.status)) {
+      throw new ConflictException("Deadline reminders cannot be sent for closed assignments.");
+    }
+    await this.issueInvitation(tx, user, {
+      vendor: assignment.vendor,
+      assignmentId: assignment.id,
+      purpose: "FORM_ASSIGNMENT",
+      kind: "reminder",
+      formName: assignment.formVersion.template.name,
+      exhibitionName: assignment.exhibition.name,
+      intro: "This is a friendly reminder that your sponsor submission is still pending.",
+      deadline: assignment.deadline
+        ? assignment.deadline.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
+        : "the submission deadline",
+    });
+    await this.audit.record(tx, {
+      organizationId: user.organizationId,
+      actorId: user.id,
+      actorRole: user.roles.join(","),
+      action: "reminder.sent",
+      resourceType: "assignment",
+      resourceId: assignmentId,
+      vendorId: assignment.vendorId,
+    });
+  }
+
   async replaceForm(user: AuthContext, id: string, body: unknown) {
     const input = z.object({ formVersionId: z.string().uuid() }).parse(body);
     const assignmentId = await this.tenant.transaction(user.organizationId, async (tx) => {
@@ -546,9 +606,9 @@ export class WorkflowService {
       const fieldList = input.fields
         .map((field, index) => {
           const match = schema.fields.find((item) => item.id === field.fieldId);
-          return `${index + 1}. ${match?.label ?? field.fieldId}\n   Required correction / admin notes: ${field.note}`;
+          return `${index + 1}.  ${match?.label ?? field.fieldId}  —  ${field.note}`;
         })
-        .join("\n\n");
+        .join("\n");
       await this.issueInvitation(tx, user, {
         vendor: assignment.vendor,
         assignmentId: assignment.id,

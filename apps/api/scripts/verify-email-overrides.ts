@@ -8,7 +8,7 @@ async function main() {
   const orgs = await prisma.organization.findMany({ select: { id: true, name: true, settings: true } });
 
   const want: Record<string, { actionLabel: string; subject: string }> = {
-    credentials: { actionLabel: "Supplier login", subject: "Supplier Account Creation – {{exhibitionName}}" },
+    credentials: { actionLabel: "Sponsor login", subject: "Sponsor Account Creation – {{exhibitionName}}" },
     "password-reset": { actionLabel: "Reset password", subject: "Forgot Password Reset Link" },
     reminder: { actionLabel: "Complete submission", subject: "Reminder: Upcoming Submission Deadline – {{deadline}}" },
     correction: { actionLabel: "Update submission", subject: "Action Required: Corrections to Your Submission – {{exhibitionName}}" },
