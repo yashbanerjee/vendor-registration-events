@@ -95,7 +95,7 @@ export function renderEmail(input: {
     .join("");
   // Header: event logo when a public HTTPS URL is available; otherwise copper wordmark for local/dev.
   const logoHtml = input.logoUrl
-    ? `<img src="${escapeHtml(input.logoUrl)}" width="280" alt="${escapeHtml(brand)}" style="display:block;width:280px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">`
+    ? `<img src="${escapeHtml(input.logoUrl)}" width="140" alt="${escapeHtml(brand)}" style="display:block;width:140px;max-width:50%;height:auto;border:0;outline:none;text-decoration:none;">`
     : `<p style="margin:0;color:${EMAIL_BRAND_COLOR};font-family:Montserrat,Arial,Helvetica,sans-serif;font-size:22px;font-weight:600;letter-spacing:0.02em;line-height:1.2;">${escapeHtml(brand)}</p>`;
   const buttonHtml = input.actionUrl
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0;">

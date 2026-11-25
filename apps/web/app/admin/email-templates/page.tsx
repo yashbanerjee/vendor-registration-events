@@ -265,7 +265,7 @@ function EmailPreview({
       </div>
       <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[#07090b] p-4 sm:p-5">
         <div className="mb-4">
-          <img src={EMAIL_LOGO} alt={EMAIL_BRAND_NAME} className="h-12 w-auto max-w-full" />
+          <img src={EMAIL_LOGO} alt={EMAIL_BRAND_NAME} className="h-6 w-auto max-w-[50%]" />
         </div>
         <div className="overflow-hidden rounded-lg border border-[rgba(255,255,255,0.12)] bg-[#111519] shadow-[0_30px_70px_rgba(0,0,0,0.55)]">
           <div className="h-1 bg-[linear-gradient(90deg,#dda36c,#ad642d_28%,#4a7cb9_68%,#009ef0)]" aria-hidden />
