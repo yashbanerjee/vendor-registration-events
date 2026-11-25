@@ -29,15 +29,25 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthFrame
-      title="Forgot password"
-      description="We will email a one-hour reset link if an active account matches this address."
+      title="Reset password"
+      description="Enter the email for your account. If it is registered with us, we will send a Forgot Password Reset Link."
       onSubmit={(event) => void submit(event)}
-      overlay={pending ? <LoadingState label="Sending reset link…" description="Please wait a moment." /> : null}
+      overlay={pending ? <LoadingState variant="overlay" label="Sending reset link…" description="Preparing your password reset email." /> : null}
     >
       <ErrorNote message={error} />
-      <Notice message={sent ? "If that account exists, a reset message is on its way." : ""} />
-      <FloatingInput label="Email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required disabled={pending} />
-      <Button type="submit" variant="primary" size="xl" className="max-sm:px-4" disabled={pending}>Send reset link</Button>
+      <Notice message={sent ? "If that account exists, a reset message is on its way. Check your inbox for Forgot Password Reset Link." : ""} />
+      <FloatingInput
+        label="Email"
+        type="email"
+        autoComplete="username"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+        required
+        disabled={pending}
+      />
+      <Button type="submit" variant="primary" size="xl" className="max-sm:px-4" disabled={pending}>
+        Send reset link
+      </Button>
       <Link className="auth-link" href="/login">Back to sign in</Link>
     </AuthFrame>
   );

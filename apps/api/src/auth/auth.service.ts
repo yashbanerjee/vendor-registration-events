@@ -10,6 +10,7 @@ import { decryptString, encryptString, randomToken, sha256 } from "../common/cry
 import { assertRateLimit } from "../common/http";
 import { AuditService } from "../audit/audit.service";
 import { composeEmailTemplate } from "../jobs/email-catalog";
+import { EMAIL_BRAND_NAME } from "../jobs/email-templates";
 import { OutboxService } from "../jobs/jobs.service";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
@@ -341,7 +342,7 @@ export class AuthService {
         link,
         userName: user.name || email,
         expiryText: "1 hour",
-        exhibitionName: organization?.name || "Exhibition Support Team",
+        exhibitionName: EMAIL_BRAND_NAME,
       };
       const copy = composeEmailTemplate("password-reset", vars, parseStored(organization?.settings).emailTemplates);
       await this.outbox.enqueue(tx, {
