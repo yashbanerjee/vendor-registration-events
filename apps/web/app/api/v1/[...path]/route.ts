@@ -14,13 +14,22 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
   let upstream: Response;
   try {
-    upstream = await fetch(target, {
+    // Stream the body when possible so large document uploads are not re-buffered here.
+    const init: RequestInit & { duplex?: "half" } = {
       method: request.method,
       headers,
-      body: hasBody ? await request.arrayBuffer() : undefined,
       redirect: "manual",
       cache: "no-store",
-    });
+    };
+    if (hasBody) {
+      if (request.body) {
+        init.body = request.body;
+        init.duplex = "half";
+      } else {
+        init.body = await request.arrayBuffer();
+      }
+    }
+    upstream = await fetch(target, init);
   } catch {
     return NextResponse.json({ error: { message: "The API is not running." } }, { status: 502 });
   }

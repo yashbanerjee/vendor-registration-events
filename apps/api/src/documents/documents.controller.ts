@@ -26,7 +26,7 @@ export class DocumentsController {
   }
 
   @Post()
-  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 20_971_520 } }))
+  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 1_073_741_824 } }))
   upload(@Req() request: AuthedRequest, @UploadedFile() file: { buffer: Buffer; originalname: string; mimetype: string; size: number }, @Body() body: unknown) {
     const user = request.user!;
     if (!user.vendorId && !user.permissions.includes(PERMISSIONS.documentsWrite)) {

@@ -148,7 +148,7 @@ export class CatalogController {
 
   @Post("forms/:id/assets")
   @RequirePermissions(PERMISSIONS.formsWrite)
-  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 20_971_520 } }))
+  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 1_073_741_824 } }))
   uploadAsset(
     @Req() request: AuthedRequest,
     @Param("id") id: string,

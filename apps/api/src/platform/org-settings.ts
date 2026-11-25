@@ -41,7 +41,7 @@ export const settingsBody = z.object({
   name: z.string().trim().min(2).max(200),
   sessionTtlHours: z.coerce.number().min(1).max(24 * 14),
   invitationTtlHours: z.coerce.number().min(1).max(24 * 30),
-  maxUploadMb: z.coerce.number().int().min(1).max(100),
+  maxUploadMb: z.coerce.number().int().min(1).max(1024),
   importMaxRows: z.coerce.number().int().min(1).max(50_000),
   emailFromName: z.string().trim().min(1).max(120),
   emailFromAddress: z.string().trim().email(),

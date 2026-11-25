@@ -72,7 +72,7 @@ export const fieldSchema: z.ZodType<FormField> = z.lazy(() =>
     file: z
       .object({
         accept: z.array(z.string()).max(20).optional(),
-        maxSizeBytes: z.number().int().positive().max(50_000_000).optional(),
+        maxSizeBytes: z.number().int().positive().max(1_073_741_824).optional(),
         maxFiles: z.number().int().positive().max(20).optional(),
       })
       .optional(),

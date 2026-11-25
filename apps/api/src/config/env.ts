@@ -27,7 +27,7 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("true")
     .transform((value) => value === "true"),
-  MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(20_971_520),
+  MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(1_073_741_824),
   SMTP_HOST: z.string().default("localhost"),
   SMTP_PORT: z.coerce.number().int().positive().default(1025),
   SMTP_SECURE: z

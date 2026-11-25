@@ -11,7 +11,7 @@ import { PacketsService } from "./packets.service";
 
 type Upload = { buffer: Buffer; originalname: string; mimetype: string; size: number };
 
-const uploadInterceptor = FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 20_971_520 } });
+const uploadInterceptor = FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 1_073_741_824 } });
 
 @ApiTags("pdf-forms")
 @Controller()

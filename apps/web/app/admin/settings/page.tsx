@@ -49,7 +49,7 @@ const empty: Settings & { name: string } = {
   name: "",
   sessionTtlHours: 12,
   invitationTtlHours: 72,
-  maxUploadMb: 20,
+  maxUploadMb: 1024,
   importMaxRows: 5000,
   emailFromName: "",
   emailFromAddress: "",
@@ -190,7 +190,7 @@ export default function SettingsPage() {
                 <input className={inputClass} type="number" min={1} max={720} value={form.invitationTtlHours} onChange={(event) => set("invitationTtlHours", Number(event.target.value))} required />
               </Field>
               <Field label="Maximum upload (MB)" hint={limits ? `Server ceiling: ${limits.maxUploadMb} MB.` : undefined}>
-                <input className={inputClass} type="number" min={1} max={limits?.maxUploadMb ?? 100} value={form.maxUploadMb} onChange={(event) => set("maxUploadMb", Number(event.target.value))} required />
+                <input className={inputClass} type="number" min={1} max={limits?.maxUploadMb ?? 1024} value={form.maxUploadMb} onChange={(event) => set("maxUploadMb", Number(event.target.value))} required />
               </Field>
               <Field label="Import row limit" hint={limits ? `Server ceiling: ${limits.importMaxRows} rows.` : undefined}>
                 <input className={inputClass} type="number" min={1} max={limits?.importMaxRows ?? 50000} value={form.importMaxRows} onChange={(event) => set("importMaxRows", Number(event.target.value))} required />
