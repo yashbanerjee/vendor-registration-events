@@ -60,6 +60,10 @@ function isLoopback(url: string) {
   }
 }
 
+/** Visible email brand mark (header / footer). Kept separate from the org legal/from name. */
+export const EMAIL_BRAND_NAME = "iktva 2027";
+const EMAIL_BRAND_COLOR = "#d1a06e";
+
 /**
  * HTML email layout matched to the portal brand: dark page, sheened card,
  * copper-to-blue accents, and a blue uppercase action button.
@@ -75,6 +79,7 @@ export function renderEmail(input: {
   fromAddress?: string;
   logoUrl?: string;
 }) {
+  const brand = EMAIL_BRAND_NAME;
   const action = input.actionLabel
     || (input.audience === "admin" && input.template !== "password-reset" ? "Open the admin portal" : actions[input.template] ?? "Open the portal");
   const paragraphs = input.body
@@ -82,13 +87,15 @@ export function renderEmail(input: {
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
   const actionLine = input.actionUrl && !input.body.includes(input.actionUrl) ? `\n${action}: ${input.actionUrl}` : "";
-  const text = [input.organizationName, input.title, "", input.body, actionLine].filter((line) => line !== undefined).join("\n");
+  const text = [brand, input.title, "", input.body, actionLine].filter((line) => line !== undefined).join("\n");
   const bodyHtml = paragraphs
     .map((paragraph) => `<p style="margin:0 0 12px;color:#d7e0e8;font-family:Montserrat,sans-serif;font-size:15px;line-height:1.65;">${linkify(escapeHtml(paragraph).replace(/\n/g, "<br>"))}</p>`)
     .join("");
+  // Sand/copper wordmark on dark, matching the portal brand treatment of "iktva 2027".
+  const brandHtml = `<p style="margin:0;color:${EMAIL_BRAND_COLOR};font-family:Montserrat,Arial,Helvetica,sans-serif;font-size:22px;font-weight:600;letter-spacing:0.02em;line-height:1.2;">${escapeHtml(brand)}</p>`;
   const logoHtml = input.logoUrl
-    ? `<img src="${escapeHtml(input.logoUrl)}" width="168" alt="${escapeHtml(input.organizationName)}" style="display:block;width:168px;max-width:60%;height:auto;border:0;outline:none;text-decoration:none;">`
-    : `<p style="margin:0;color:#ffffff;font-family:Montserrat,sans-serif;font-size:18px;font-weight:700;letter-spacing:0.04em;line-height:1.2;">${escapeHtml(input.organizationName)}</p>`;
+    ? `<img src="${escapeHtml(input.logoUrl)}" width="168" alt="${escapeHtml(brand)}" style="display:block;width:168px;max-width:60%;height:auto;border:0;outline:none;text-decoration:none;">`
+    : brandHtml;
   const buttonHtml = input.actionUrl
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0;">
         <tr>
@@ -112,10 +119,6 @@ export function renderEmail(input: {
         </tr>
       </table>`
     : "";
-  const footerNote = input.audience === "admin"
-    ? `This message was sent to an administrator about ${escapeHtml(input.organizationName)}.`
-    : `This is an official message for ${escapeHtml(input.organizationName)}.`;
-  const sender = input.fromAddress ? ` Sent from ${escapeHtml(input.fromAddress)}.` : "";
   const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -127,7 +130,7 @@ export function renderEmail(input: {
     <title>${escapeHtml(input.title)}</title>
   </head>
   <body style="margin:0;padding:0;background:#07090b;color:#eef2f5;font-family:Montserrat,sans-serif;">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${escapeHtml(input.title)} — ${escapeHtml(input.organizationName)}</div>
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${escapeHtml(input.title)} — ${escapeHtml(brand)}</div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#07090b;">
       <tr>
         <td align="center" style="padding:0;">
@@ -153,7 +156,7 @@ export function renderEmail(input: {
                       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                         <tr>
                           <td style="padding:28px 28px 8px;">
-                            <p style="margin:0 0 8px;color:#dda36c;font-family:Montserrat,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.2em;line-height:1.3;text-transform:uppercase;">${escapeHtml(input.organizationName)}</p>
+                            <p style="margin:0 0 8px;color:${EMAIL_BRAND_COLOR};font-family:Montserrat,Arial,Helvetica,sans-serif;font-size:12px;font-weight:600;letter-spacing:0.04em;line-height:1.3;">${escapeHtml(brand)}</p>
                             <h1 style="margin:0;color:#ffffff;font-family:Montserrat,sans-serif;font-size:24px;font-weight:700;letter-spacing:0.03em;line-height:1.28;text-transform:uppercase;">${escapeHtml(input.title)}</h1>
                             <div style="width:52px;height:3px;margin:16px 0 0;background:#009ef0;background-image:linear-gradient(90deg,#dda36c,#009ef0);font-size:0;line-height:0;">&nbsp;</div>
                           </td>
@@ -169,21 +172,7 @@ export function renderEmail(input: {
                             </table>
                           </td>
                         </tr>
-                        ${buttonHtml ? `<tr><td style="padding:24px 28px 8px;">${buttonHtml}</td></tr>` : ""}
-                        <tr>
-                          <td style="padding:24px 28px 28px;">
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                              <tr>
-                                <td style="height:1px;line-height:1px;font-size:0;background:rgba(255,255,255,0.1);">&nbsp;</td>
-                              </tr>
-                              <tr>
-                                <td style="padding-top:16px;">
-                                  <p style="margin:0;color:#6b7885;font-family:Montserrat,sans-serif;font-size:12px;line-height:1.55;">${footerNote}${sender}</p>
-                                </td>
-                              </tr>
-                            </table>
-                          </td>
-                        </tr>
+                        ${buttonHtml ? `<tr><td style="padding:24px 28px 28px;">${buttonHtml}</td></tr>` : `<tr><td style="padding:0 0 20px;">&nbsp;</td></tr>`}
                       </table>
                     </td>
                   </tr>
@@ -195,7 +184,7 @@ export function renderEmail(input: {
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
                   <tr>
                     <td align="center" style="padding:18px 8px 8px;">
-                      <p style="margin:0;color:#566774;font-family:Montserrat,sans-serif;font-size:11px;letter-spacing:0.12em;line-height:1.4;text-transform:uppercase;">${escapeHtml(input.organizationName)}</p>
+                      <p style="margin:0;color:${EMAIL_BRAND_COLOR};font-family:Montserrat,Arial,Helvetica,sans-serif;font-size:12px;font-weight:600;letter-spacing:0.04em;line-height:1.4;">${escapeHtml(brand)}</p>
                     </td>
                   </tr>
                 </table>

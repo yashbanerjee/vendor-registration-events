@@ -240,7 +240,6 @@ function TemplateGroup({
 /** Live preview of the dark branded email that recipients will receive. */
 function EmailPreview({
   organizationName,
-  audience,
   title,
   body,
   actionLabel,
@@ -257,7 +256,6 @@ function EmailPreview({
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
-  const audienceLabel = audience === "admin" ? "an administrator" : "a vendor";
 
   return (
     <aside className="grid min-w-0 gap-3 xl:sticky xl:top-4">
@@ -294,12 +292,6 @@ function EmailPreview({
                 If the button does not work, copy and paste this link into your browser:
                 <br />
                 <span className="text-[var(--link)] underline">https://example.com/action</span>
-              </p>
-            </div>
-
-            <div className="mt-6 border-t border-[rgba(255,255,255,0.1)] pt-4">
-              <p className="text-xs leading-5 text-dim">
-                This message was sent to {audienceLabel} about a form or account with {organizationName}.
               </p>
             </div>
           </div>
