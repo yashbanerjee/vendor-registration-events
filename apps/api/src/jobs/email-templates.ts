@@ -1,7 +1,7 @@
 export type EmailAudience = "vendor" | "admin";
 
 const actions: Record<string, string> = {
-  invitation: "Open invitation",
+  invitation: "Submission Link",
   correction: "Update submission",
   "submission-ack": "View submission",
   approved: "View the approved form",
@@ -77,7 +77,6 @@ export function renderEmail(input: {
   actionUrl?: string;
   actionLabel?: string;
   fromAddress?: string;
-  logoUrl?: string;
 }) {
   const brand = EMAIL_BRAND_NAME;
   const action = input.actionLabel
@@ -91,11 +90,8 @@ export function renderEmail(input: {
   const bodyHtml = paragraphs
     .map((paragraph) => `<p style="margin:0 0 12px;color:#d7e0e8;font-family:Montserrat,sans-serif;font-size:15px;line-height:1.65;">${linkify(escapeHtml(paragraph).replace(/\n/g, "<br>"))}</p>`)
     .join("");
-  // Sand/copper wordmark on dark, matching the portal brand treatment of "iktva 2027".
-  const brandHtml = `<p style="margin:0;color:${EMAIL_BRAND_COLOR};font-family:Montserrat,Arial,Helvetica,sans-serif;font-size:22px;font-weight:600;letter-spacing:0.02em;line-height:1.2;">${escapeHtml(brand)}</p>`;
-  const logoHtml = input.logoUrl
-    ? `<img src="${escapeHtml(input.logoUrl)}" width="168" alt="${escapeHtml(brand)}" style="display:block;width:168px;max-width:60%;height:auto;border:0;outline:none;text-decoration:none;">`
-    : brandHtml;
+  // Always use the sand/copper wordmark so every email (including test/admin) shares one header brand.
+  const logoHtml = `<p style="margin:0;color:${EMAIL_BRAND_COLOR};font-family:Montserrat,Arial,Helvetica,sans-serif;font-size:22px;font-weight:600;letter-spacing:0.02em;line-height:1.2;">${escapeHtml(brand)}</p>`;
   const buttonHtml = input.actionUrl
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0;">
         <tr>

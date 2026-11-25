@@ -9,7 +9,7 @@ import { safeEqualText } from "../common/crypto";
 import { env } from "../config/env";
 import { AuditService } from "../audit/audit.service";
 import { listEmailTemplates } from "../jobs/email-catalog";
-import { publicAssetUrl, renderEmail } from "../jobs/email-templates";
+import { renderEmail } from "../jobs/email-templates";
 import { lookupMailAuth } from "../jobs/mail-auth";
 import { senderIdentity, transactionalHeaders } from "../jobs/mail-route";
 import { OutboxProcessor } from "../jobs/jobs.service";
@@ -472,7 +472,6 @@ export class PlatformService {
       body: bodyText,
       actionUrl: webOrigin,
       fromAddress: identity.replyTo,
-      logoUrl: publicAssetUrl(webOrigin, "/logo-iktva-forum.png"),
     });
     const idempotencyKey = `test:${organization.id}:${randomUUID()}`;
     const record = await this.tenant.transaction(user.organizationId, (tx) =>

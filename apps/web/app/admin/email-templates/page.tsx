@@ -185,7 +185,6 @@ export default function EmailTemplatesPage() {
             </div>
           </section>
           <EmailPreview
-            organizationName="iktva Forum 2027"
             audience={selected.audience}
             title={draft.title || "Email title"}
             body={draft.body || "Email body"}
@@ -237,15 +236,15 @@ function TemplateGroup({
   );
 }
 
+const EMAIL_BRAND_NAME = "iktva 2027";
+
 /** Live preview of the dark branded email that recipients will receive. */
 function EmailPreview({
-  organizationName,
   title,
   body,
   actionLabel,
   subject,
 }: {
-  organizationName: string;
   audience: "vendor" | "admin";
   title: string;
   body: string;
@@ -265,12 +264,12 @@ function EmailPreview({
       </div>
       <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[#07090b] p-4 sm:p-5">
         <div className="mb-4">
-          <img src="/logo-iktva-forum.png" alt={organizationName} className="h-10 w-auto" />
+          <p className="text-[1.375rem] font-semibold tracking-[0.02em] text-[#d1a06e]">{EMAIL_BRAND_NAME}</p>
         </div>
         <div className="overflow-hidden rounded-lg border border-[rgba(255,255,255,0.12)] bg-[#111519] shadow-[0_30px_70px_rgba(0,0,0,0.55)]">
           <div className="h-1 bg-[linear-gradient(90deg,#dda36c,#ad642d_28%,#4a7cb9_68%,#009ef0)]" aria-hidden />
           <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_42%)] p-5 font-form sm:p-6">
-            <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-accent">{organizationName}</p>
+            <p className="text-xs font-semibold tracking-[0.04em] text-[#d1a06e]">{EMAIL_BRAND_NAME}</p>
             <h3 className="mt-2 text-[1.25rem] font-bold uppercase leading-snug tracking-[0.03em] text-white">{title}</h3>
             <span className="mt-4 block h-[3px] w-[52px] bg-[linear-gradient(90deg,#dda36c,#009ef0)]" aria-hidden />
 
@@ -297,7 +296,7 @@ function EmailPreview({
           </div>
           <div className="h-[3px] bg-[linear-gradient(90deg,#009ef0,#4a7cb9_40%,#ad642d_75%,#dda36c)]" aria-hidden />
         </div>
-        <p className="mt-4 text-center text-[11px] uppercase tracking-[0.12em] text-[#566774]">{organizationName}</p>
+        <p className="mt-4 text-center text-xs font-semibold tracking-[0.04em] text-[#d1a06e]">{EMAIL_BRAND_NAME}</p>
       </div>
     </aside>
   );
