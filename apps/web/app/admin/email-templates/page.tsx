@@ -237,6 +237,7 @@ function TemplateGroup({
 }
 
 const EMAIL_BRAND_NAME = "iktva 2027";
+const EMAIL_LOGO = "/logo-iktva-forum.png";
 
 /** Live preview of the dark branded email that recipients will receive. */
 function EmailPreview({
@@ -264,13 +265,12 @@ function EmailPreview({
       </div>
       <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[#07090b] p-4 sm:p-5">
         <div className="mb-4">
-          <p className="text-[1.375rem] font-semibold tracking-[0.02em] text-[#d1a06e]">{EMAIL_BRAND_NAME}</p>
+          <img src={EMAIL_LOGO} alt={EMAIL_BRAND_NAME} className="h-12 w-auto max-w-full" />
         </div>
         <div className="overflow-hidden rounded-lg border border-[rgba(255,255,255,0.12)] bg-[#111519] shadow-[0_30px_70px_rgba(0,0,0,0.55)]">
           <div className="h-1 bg-[linear-gradient(90deg,#dda36c,#ad642d_28%,#4a7cb9_68%,#009ef0)]" aria-hidden />
           <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_42%)] p-5 font-form sm:p-6">
-            <p className="text-xs font-semibold tracking-[0.04em] text-[#d1a06e]">{EMAIL_BRAND_NAME}</p>
-            <h3 className="mt-2 text-[1.25rem] font-bold uppercase leading-snug tracking-[0.03em] text-white">{title}</h3>
+            <h3 className="text-[1.25rem] font-bold uppercase leading-snug tracking-[0.03em] text-white">{title}</h3>
             <span className="mt-4 block h-[3px] w-[52px] bg-[linear-gradient(90deg,#dda36c,#009ef0)]" aria-hidden />
 
             <div className="mt-5 rounded-md border border-[rgba(255,255,255,0.08)] bg-[#1a2027] px-4 py-4">

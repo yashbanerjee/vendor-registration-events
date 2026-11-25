@@ -60,8 +60,9 @@ function isLoopback(url: string) {
   }
 }
 
-/** Visible email brand mark (header / footer). Kept separate from the org legal/from name. */
+/** Visible email brand mark (footer / plain-text). Header uses the event logo image. */
 export const EMAIL_BRAND_NAME = "iktva 2027";
+export const EMAIL_LOGO_PATH = "/logo-iktva-forum.png";
 const EMAIL_BRAND_COLOR = "#d1a06e";
 
 /**
@@ -77,6 +78,8 @@ export function renderEmail(input: {
   actionUrl?: string;
   actionLabel?: string;
   fromAddress?: string;
+  /** Absolute HTTPS URL for the header logo (aramco / iktva Forum 2027). */
+  logoUrl?: string;
 }) {
   const brand = EMAIL_BRAND_NAME;
   const action = input.actionLabel
@@ -90,8 +93,10 @@ export function renderEmail(input: {
   const bodyHtml = paragraphs
     .map((paragraph) => `<p style="margin:0 0 12px;color:#d7e0e8;font-family:Montserrat,sans-serif;font-size:15px;line-height:1.65;">${linkify(escapeHtml(paragraph).replace(/\n/g, "<br>"))}</p>`)
     .join("");
-  // Always use the sand/copper wordmark so every email (including test/admin) shares one header brand.
-  const logoHtml = `<p style="margin:0;color:${EMAIL_BRAND_COLOR};font-family:Montserrat,Arial,Helvetica,sans-serif;font-size:22px;font-weight:600;letter-spacing:0.02em;line-height:1.2;">${escapeHtml(brand)}</p>`;
+  // Header: event logo when a public HTTPS URL is available; otherwise copper wordmark for local/dev.
+  const logoHtml = input.logoUrl
+    ? `<img src="${escapeHtml(input.logoUrl)}" width="280" alt="${escapeHtml(brand)}" style="display:block;width:280px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">`
+    : `<p style="margin:0;color:${EMAIL_BRAND_COLOR};font-family:Montserrat,Arial,Helvetica,sans-serif;font-size:22px;font-weight:600;letter-spacing:0.02em;line-height:1.2;">${escapeHtml(brand)}</p>`;
   const buttonHtml = input.actionUrl
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0;">
         <tr>
@@ -152,7 +157,6 @@ export function renderEmail(input: {
                       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                         <tr>
                           <td style="padding:28px 28px 8px;">
-                            <p style="margin:0 0 8px;color:${EMAIL_BRAND_COLOR};font-family:Montserrat,Arial,Helvetica,sans-serif;font-size:12px;font-weight:600;letter-spacing:0.04em;line-height:1.3;">${escapeHtml(brand)}</p>
                             <h1 style="margin:0;color:#ffffff;font-family:Montserrat,sans-serif;font-size:24px;font-weight:700;letter-spacing:0.03em;line-height:1.28;text-transform:uppercase;">${escapeHtml(input.title)}</h1>
                             <div style="width:52px;height:3px;margin:16px 0 0;background:#009ef0;background-image:linear-gradient(90deg,#dda36c,#009ef0);font-size:0;line-height:0;">&nbsp;</div>
                           </td>

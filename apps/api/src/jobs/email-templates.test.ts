@@ -3,6 +3,7 @@ import test from "node:test";
 import { absoluteUrl, publicActionUrl, renderEmail } from "./email-templates";
 
 test("email templates escape content and keep the action link", () => {
+  const logoUrl = "https://example.com/logo-iktva-forum.png";
   const rendered = renderEmail({
     template: "approved",
     audience: "vendor",
@@ -10,9 +11,11 @@ test("email templates escape content and keep the action link", () => {
     title: "Approved",
     body: "Line one.\n\n<script>alert(1)</script>",
     actionUrl: absoluteUrl("/vendor/assignments/1", "http://localhost:3000"),
+    logoUrl,
   });
   assert.match(rendered.html, /iktva 2027/);
-  assert.match(rendered.html, /#d1a06e/);
+  assert.match(rendered.html, new RegExp(`src="${logoUrl.replace(/\./g, "\\.")}"`));
+  assert.doesNotMatch(rendered.html, /margin:0 0 8px;color:#d1a06e/);
   assert.doesNotMatch(rendered.html, /Vedha/);
   assert.match(rendered.html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.match(rendered.html, /href="http:\/\/localhost:3000\/vendor\/assignments\/1"/);
