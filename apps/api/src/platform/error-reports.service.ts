@@ -45,6 +45,7 @@ export class ErrorReportsService {
 
   async record(input: ErrorReportInput) {
     try {
+      const alert = shouldAlert(input);
       const context = currentContext();
       const correlationId = input.correlationId || context.correlationId || "";
       const userAgent = input.userAgent || context.userAgent || "";
@@ -77,6 +78,7 @@ export class ErrorReportsService {
             userAgent: userAgent.slice(0, 500),
           },
         });
+        if (!alert) return row;
         const fingerprint = createHash("sha256")
           .update([input.path, input.method ?? "", String(input.statusCode ?? ""), input.message.slice(0, 200), input.user?.email ?? ""].join("|"))
           .digest("hex")
@@ -152,4 +154,16 @@ function safeJson(value: unknown) {
   } catch {
     return "[unserializable]";
   }
+}
+
+/** Skip email alerts for expected client mistakes and cancelled uploads. */
+function shouldAlert(input: ErrorReportInput) {
+  const status = input.statusCode ?? 0;
+  const code = (input.code ?? "").toUpperCase();
+  const message = input.message || "";
+  if (code === "UPLOAD_ABORTED" || /request aborted|aborted/i.test(message)) return false;
+  if (code === "CONFLICT" || code === "VALIDATION" || code === "FORM_INVALID" || code === "FIELD_LOCKED" || code === "WORKFLOW") return false;
+  if (status > 0 && status < 500 && code !== "UPLOAD_LIMIT" && code !== "STORAGE") return false;
+  if (code === "NETWORK" && /aborted|Failed to fetch/i.test(message)) return false;
+  return true;
 }

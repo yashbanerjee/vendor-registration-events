@@ -35,6 +35,7 @@ function reportClientError(input: {
 }) {
   if (typeof window === "undefined") return;
   if (input.path.startsWith("/client-errors")) return;
+  if (!shouldReportClientError(input)) return;
   const headers = new Headers({ "x-requested-with": "vendor-portal", "content-type": "application/json" });
   const token = csrfToken();
   if (token) headers.set("x-csrf-token", token);
@@ -48,6 +49,21 @@ function reportClientError(input: {
       userAgent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 500) : "",
     }),
   }).catch(() => undefined);
+}
+
+/** Avoid admin alert spam for cancelled uploads and expected vendor mistakes. */
+function shouldReportClientError(input: {
+  statusCode: number;
+  code?: string;
+  message: string;
+}) {
+  const code = (input.code || "").toUpperCase();
+  const message = input.message || "";
+  if (code === "UPLOAD_ABORTED" || /aborted|AbortError/i.test(message)) return false;
+  if (code === "CONFLICT" || code === "VALIDATION" || code === "FORM_INVALID" || code === "FIELD_LOCKED" || code === "WORKFLOW") return false;
+  if (input.statusCode > 0 && input.statusCode < 500 && code !== "UPLOAD_LIMIT" && code !== "STORAGE") return false;
+  if (code === "NETWORK" && /aborted|Failed to fetch/i.test(message)) return false;
+  return true;
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -124,8 +140,8 @@ export async function download(path: string, filename: string) {
       details = payload.error?.details;
       reportClientError({ path, method: "GET", statusCode: response.status, code, message, details, correlationId: payload.error?.correlationId });
     } catch {
-      message = text.slice(0, 240) || message;
-      reportClientError({ path, method: "GET", statusCode: response.status, code: "INVALID_JSON", message, details: { bodyPreview: text.slice(0, 500) } });
+      message = "The download failed. Please try again.";
+      reportClientError({ path, method: "GET", statusCode: response.status, code: "INVALID_JSON", message });
     }
     throw toApiError(message, response.status, code, details);
   }

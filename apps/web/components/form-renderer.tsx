@@ -562,6 +562,11 @@ function FileField({
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !onUpload) return;
+    const acceptError = fileAcceptError(field, file);
+    if (acceptError) {
+      setError(acceptError);
+      return;
+    }
     setPending(true);
     setError("");
     try {
@@ -629,6 +634,26 @@ function FileField({
 
 function isStoredDocument(id: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+}
+
+/** Catch wrong file types before upload so vendors see a clear message, not a server error. */
+function fileAcceptError(field: FormField, file: File) {
+  if (field.type === "image" && !file.type.startsWith("image/")) {
+    return `${field.label} must be an image.`;
+  }
+  const accept = field.file?.accept ?? [];
+  if (!accept.length) return "";
+  const name = file.name.toLowerCase();
+  const ok = accept.some((rule) => {
+    const value = rule.trim().toLowerCase();
+    if (!value) return false;
+    if (value.startsWith(".")) return name.endsWith(value);
+    if (value.endsWith("/*")) return file.type.startsWith(value.slice(0, -1));
+    return file.type === value || name.endsWith(`.${value.replace(/^\./, "")}`);
+  });
+  if (ok) return "";
+  const formats = accept.map((item) => item.replace(/^\./, "").toUpperCase()).join(", ");
+  return `${field.label} must be uploaded as ${formats}.`;
 }
 
 function fileItems(value: unknown): { documentId: string; filename: string }[] {

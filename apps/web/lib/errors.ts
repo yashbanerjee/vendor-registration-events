@@ -12,19 +12,32 @@ type ApiLikeError = {
 export function vendorErrorMessage(error: unknown, fallback = "Something went wrong. Please try again.") {
   if (isApiLikeError(error)) {
     const status = error.status ?? 0;
-    const code = error.code || "";
+    const code = (error.code || "").toUpperCase();
+    const raw = (error.message || "").trim();
     if (code === "NETWORK" || status === 0) {
+      if (/aborted|AbortError/i.test(raw)) return "The upload was cancelled. Please try again.";
       return "Could not reach the server. Check your internet connection and try again.";
     }
+    if (code === "UPLOAD_ABORTED") return "The upload was cancelled. Please try again.";
     if (status === 401) return "Your session has expired. Please sign in again.";
     if (status === 403) return "You do not have permission for this action.";
     if (status === 404) return "That item was not found.";
     if (status === 413 || code === "UPLOAD_LIMIT") return "That file is too large. Choose a smaller file and try again.";
     if (status === 429 || code === "RATE_LIMITED") return "Too many requests were sent. Please wait a moment and try again.";
-    if (status >= 500 || code === "INVALID_JSON" || code === "STORAGE") {
-      return "Something went wrong on the server. Please try again.";
+    if (code === "STORAGE") return "The file could not be saved. Please try again.";
+    if (status === 409 || code === "CONFLICT" || code === "FORM_INVALID" || code === "FIELD_LOCKED" || code === "WORKFLOW") {
+      return raw && isHumanMessage(raw) ? raw : "This action could not be completed. Please check the file and try again.";
     }
-    return fallback;
+    if (status === 400 || code === "VALIDATION") {
+      return raw && isHumanMessage(raw) ? raw : "Please check your file and try again.";
+    }
+    if (status >= 500 || code === "INVALID_JSON") {
+      return "Something went wrong while uploading. Please try again.";
+    }
+    return raw && isHumanMessage(raw) ? raw : fallback;
+  }
+  if (error instanceof Error && /aborted|AbortError/i.test(error.message)) {
+    return "The upload was cancelled. Please try again.";
   }
   return fallback;
 }
@@ -41,6 +54,7 @@ export function vendorFieldMessage(message: unknown, fallback = "Please check th
 export function friendlyErrorMessage(error: unknown, fallback = "Something went wrong. Please try again.") {
   if (isApiLikeError(error)) return messageForApiError(error, fallback);
   if (error instanceof Error && error.message.trim()) {
+    if (/aborted|AbortError/i.test(error.message)) return "The upload was cancelled. Please try again.";
     return isHumanMessage(error.message) ? error.message.trim() : fallback;
   }
   if (typeof error === "string" && error.trim()) {
@@ -58,13 +72,15 @@ function isApiLikeError(error: unknown): error is ApiLikeError {
 function messageForApiError(error: ApiLikeError, fallback: string) {
   const raw = (error.message || "").trim();
   const status = error.status ?? 0;
-  const code = error.code || "";
+  const code = (error.code || "").toUpperCase();
 
   if (code === "NETWORK" || status === 0) {
+    if (/aborted|AbortError/i.test(raw)) return "The upload was cancelled. Please try again.";
     return "Could not reach the server. Check your internet connection and try again.";
   }
+  if (code === "UPLOAD_ABORTED") return "The upload was cancelled. Please try again.";
   if (code === "INVALID_JSON" || looksTechnical(raw) || looksLikeApiPayload(raw) || /^Internal Server Error$/i.test(raw)) {
-    return "The server had a problem with this request. Please try again in a moment.";
+    return "Something went wrong while uploading. Please try again.";
   }
   if (status === 401) return "Your session has expired. Please sign in again.";
   if (status === 403) return raw && isHumanMessage(raw) ? raw : "You do not have permission for this action.";
@@ -81,8 +97,11 @@ function messageForApiError(error: ApiLikeError, fallback: string) {
   if (status === 409 || code === "CONFLICT" || code === "WORKFLOW" || code === "FORM_INVALID" || code === "FIELD_LOCKED") {
     return raw && isHumanMessage(raw) && !looksLikeApiPayload(raw) ? raw : "This action could not be completed. Refresh the page and try again.";
   }
+  if (status === 400 || code === "VALIDATION") {
+    return raw && isHumanMessage(raw) ? raw : "Please check your file and try again.";
+  }
   if (status >= 500) {
-    return "Something went wrong on the server. Please try again.";
+    return "Something went wrong while uploading. Please try again.";
   }
   if (raw && isHumanMessage(raw) && !looksLikeApiPayload(raw)) return raw;
   return fallback;

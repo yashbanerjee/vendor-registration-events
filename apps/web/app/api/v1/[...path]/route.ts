@@ -30,8 +30,17 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       }
     }
     upstream = await fetch(target, init);
-  } catch {
-    return NextResponse.json({ error: { message: "The API is not running." } }, { status: 502 });
+  } catch (caught) {
+    const aborted = caught instanceof Error && /aborted|ECONNRESET|socket hang up/i.test(caught.message);
+    return NextResponse.json(
+      {
+        error: {
+          code: aborted ? "UPLOAD_ABORTED" : "PROXY",
+          message: aborted ? "The upload was cancelled. Please try again." : "The API is not running.",
+        },
+      },
+      { status: aborted ? 400 : 502 },
+    );
   }
   const outgoing = new Headers();
   upstream.headers.forEach((value, key) => {

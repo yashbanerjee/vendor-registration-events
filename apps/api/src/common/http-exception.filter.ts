@@ -70,6 +70,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
       status = 429;
       code = "RATE_LIMITED";
       message = exception instanceof Error ? exception.message : message;
+    } else if (exception instanceof Error && /request aborted|aborted/i.test(exception.message)) {
+      // Browser cancelled the upload (refresh, navigate away, or network drop). Not an admin incident.
+      status = HttpStatus.BAD_REQUEST;
+      code = "UPLOAD_ABORTED";
+      message = "The upload was cancelled. Please try again.";
     } else {
       const detail = exception instanceof Error ? exception.stack ?? exception.message : "Unhandled error";
       this.logger.error(detail);
@@ -84,9 +89,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       error: { code, message, details, correlationId },
     });
 
+    // Alert only on unexpected failures. Expected vendor mistakes (wrong file type, validation) stay in the UI.
     const shouldReport =
       Boolean(request.user?.organizationId) &&
-      (status >= 500 || isUploadPath(request.method, request.originalUrl || request.url) || code === "STORAGE" || code === "UPLOAD_LIMIT");
+      (status >= 500 || code === "STORAGE" || code === "UPLOAD_LIMIT");
     if (shouldReport && this.reports) {
       void this.reports.record({
         organizationId: request.user!.organizationId,
