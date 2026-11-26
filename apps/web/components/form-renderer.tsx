@@ -105,6 +105,21 @@ export function FormRenderer({
                       onUpload={onUpload}
                     />
                   </div>
+                ) : group.power ? (
+                  <div key={group.fields[0]?.id ?? "power"} className="is-wide min-w-0">
+                    <PowerDetailsTable
+                      fields={group.fields}
+                      values={values}
+                      notes={notes}
+                      errors={errors}
+                      disabled={disabled}
+                      editableFieldIds={editableFieldIds}
+                      idPrefix={idPrefix}
+                      selectedFieldId={selectedFieldId}
+                      onSelectField={onSelectField}
+                      onChange={onChange}
+                    />
+                  </div>
                 ) : group.fields.map((field) => (
                   <div
                     key={field.id}
@@ -130,14 +145,28 @@ export function FormRenderer({
 
 function groupFields(fields: FormField[], table: boolean, sectionTitle: string) {
   const documentCards = table && /order|additional/i.test(sectionTitle);
-  const groups: { table: boolean; fields: FormField[] }[] = [];
+  const groups: { table: boolean; power: boolean; fields: FormField[] }[] = [];
   for (const field of fields) {
-    const useTable = documentCards && isDocumentField(field);
+    const usePower = isPowerQtyField(field);
+    const useTable = !usePower && documentCards && isDocumentField(field);
     const last = groups.at(-1);
-    if (last && last.table && useTable) last.fields.push(field);
-    else groups.push({ table: useTable, fields: [field] });
+    if (last && last.power && usePower) last.fields.push(field);
+    else if (last && last.table && useTable) last.fields.push(field);
+    else groups.push({ table: useTable, power: usePower, fields: [field] });
   }
   return groups;
+}
+
+function isPowerQtyField(field: FormField) {
+  return field.key.startsWith("power_qty_");
+}
+
+function formatPowerCost(value?: string) {
+  const raw = (value || "").replace(/[^\d.]/g, "");
+  if (!raw) return "—";
+  const amount = Number(raw);
+  if (!Number.isFinite(amount)) return value || "—";
+  return amount.toLocaleString("en-US");
 }
 
 /** Order / Additional packs use boxed "Document required" cards for reupload fields. */
@@ -176,6 +205,87 @@ function RequiredMark({ field }: { field: FormField }) {
 
 function LockedTag() {
   return <span className="ml-2 whitespace-nowrap text-xs font-medium text-dim">Locked</span>;
+}
+
+function PowerDetailsTable({
+  fields,
+  values,
+  notes,
+  errors,
+  disabled,
+  editableFieldIds,
+  idPrefix,
+  selectedFieldId,
+  onSelectField,
+  onChange,
+}: {
+  fields: FormField[];
+  values: Record<string, unknown>;
+  notes?: { fieldId: string; note: string }[];
+  errors?: { fieldId: string; message: string }[];
+  disabled?: boolean;
+  editableFieldIds?: string[];
+  idPrefix?: string;
+  selectedFieldId?: string | null;
+  onSelectField?: (fieldId: string) => void;
+  onChange?: (fieldId: string, value: unknown) => void;
+}) {
+  return (
+    <div className="grid min-w-0 gap-3">
+      <h3 className="form-subhead">Power details</h3>
+      <div className="table-wrap">
+        <table className="data">
+          <thead>
+            <tr>
+              <th className="w-12">#</th>
+              <th>Item</th>
+              <th className="w-40">Cost per event (SR)</th>
+              <th className="w-28">Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {fields.map((field, index) => {
+              const id = `${idPrefix ? `${idPrefix}-` : ""}${field.id}`;
+              const editable = isEditable(field.id, editableFieldIds, disabled);
+              const error = errors?.find((item) => item.fieldId === field.id)?.message;
+              const note = notes?.find((item) => item.fieldId === field.id)?.note;
+              const raw = values[field.id];
+              const value = raw === undefined || raw === null ? "" : String(raw);
+              return (
+                <tr
+                  key={field.id}
+                  onClick={() => onSelectField?.(field.id)}
+                  className={cn(selectedFieldId === field.id ? "bg-[var(--badge-info-bg)]" : undefined)}
+                >
+                  <td>{index + 1}</td>
+                  <td>
+                    <span className="font-medium">{field.label}</span>
+                    {note ? <p className="mt-1 text-xs text-[var(--warning)]">{note}</p> : null}
+                    {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+                  </td>
+                  <td data-label="Cost per event (SR)">{formatPowerCost(field.description)}</td>
+                  <td data-label="Qty">
+                    <input
+                      id={id}
+                      className="ff-control h-10 w-full min-w-[4.5rem] px-2"
+                      type="number"
+                      min={0}
+                      step={1}
+                      inputMode="numeric"
+                      value={value}
+                      disabled={!editable}
+                      aria-label={`${field.label} quantity`}
+                      onChange={(event) => onChange?.(field.id, event.target.value === "" ? "" : event.target.value)}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 function DocumentTable({
