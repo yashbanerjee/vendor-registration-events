@@ -381,6 +381,9 @@ export default function VendorsPage() {
               {upload.isPending ? <Spinner size="sm" /> : null}
               {upload.isPending ? "Uploading…" : "Bulk upload"}
             </Button>
+            <Button asChild>
+              <Link href="/admin/exports">Export</Link>
+            </Button>
             {upload.isSuccess && !upload.isPending ? <span className="col-span-2 inline-flex items-center gap-1 self-center text-sm text-[var(--success)]"><Check size={16} aria-hidden /> Uploaded</span> : null}
             <Button className="col-span-2" variant="primary" onClick={() => { setError(""); setOpen(true); }}>Add vendor</Button>
             <input ref={fileRef} className="hidden" type="file" accept=".csv,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) upload.mutate(file); }} />
