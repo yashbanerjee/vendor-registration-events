@@ -97,35 +97,37 @@ export default function ExportsPage() {
 
       {forms.isLoading ? <LoadingState label="Loading forms…" description="Fetching published and draft forms." /> : null}
 
-      <div className="grid max-w-3xl gap-4">
-        <Field label="Form" hint="Uses answers from every vendor assigned to this form.">
-          <select
-            className={inputClass}
-            value={formTemplateId}
-            onChange={(event) => {
-              setFormTemplateId(event.target.value);
-              setSelectedFieldIds([]);
-              setError("");
-              setNotice("");
-            }}
-          >
-            <option value="">Select a form</option>
-            {formOptions.map((form) => (
-              <option key={form.id} value={form.id}>
-                {form.label}{form.versionHint ? ` (${form.versionHint})` : ""}
-              </option>
-            ))}
-          </select>
-        </Field>
+      <div className="grid w-full gap-4">
+        <div className="max-w-xl">
+          <Field label="Form" hint="Uses answers from every vendor assigned to this form.">
+            <select
+              className={inputClass}
+              value={formTemplateId}
+              onChange={(event) => {
+                setFormTemplateId(event.target.value);
+                setSelectedFieldIds([]);
+                setError("");
+                setNotice("");
+              }}
+            >
+              <option value="">Select a form</option>
+              {formOptions.map((form) => (
+                <option key={form.id} value={form.id}>
+                  {form.label}{form.versionHint ? ` (${form.versionHint})` : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
 
         {formTemplateId && fieldsQuery.isLoading ? (
           <LoadingState label="Loading fields…" description="Reading the form schema." />
         ) : null}
 
         {formTemplateId && !fieldsQuery.isLoading ? (
-          <div className="grid gap-3 rounded-md border border-border bg-surface p-4">
+          <div className="grid w-full gap-3 rounded-md border border-border bg-surface p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-sm font-bold uppercase tracking-[0.08em] text-[var(--heading)]">Fields</h2>
                 <p className="text-sm text-muted">
                   {fieldsQuery.data?.data.formName
@@ -148,12 +150,12 @@ export default function ExportsPage() {
             {fields.length === 0 ? (
               <p className="text-sm text-muted">This form has no answerable fields to export.</p>
             ) : (
-              <ul className="grid gap-2 sm:grid-cols-2">
+              <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {fields.map((field) => {
                   const checked = selectedFieldIds.includes(field.id);
                   return (
-                    <li key={field.id}>
-                      <label className="flex cursor-pointer items-start gap-2 rounded-md border border-transparent px-2 py-1.5 hover:border-border hover:bg-secondary">
+                    <li key={field.id} className="min-w-0">
+                      <label className="flex h-full cursor-pointer items-start gap-2 rounded-md border border-transparent px-2 py-1.5 hover:border-border hover:bg-secondary">
                         <input
                           type="checkbox"
                           className="mt-0.5 size-4 shrink-0 accent-[var(--primary)]"
@@ -161,7 +163,7 @@ export default function ExportsPage() {
                           onChange={(event) => toggleField(field.id, event.target.checked)}
                         />
                         <span className="min-w-0">
-                          <span className="block text-sm font-medium">{field.label}</span>
+                          <span className="block text-sm font-medium leading-snug">{field.label}</span>
                           <span className="block truncate text-xs text-muted">{field.type}</span>
                         </span>
                       </label>
@@ -186,6 +188,7 @@ export default function ExportsPage() {
 
         <p className="text-sm text-muted">
           CSV layout: <code className="text-xs">vendor</code>, then each selected field as its own column.
+          File fields include the filename, download URL, and storage path so you can open or download them.
         </p>
       </div>
     </div>

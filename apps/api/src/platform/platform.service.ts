@@ -343,14 +343,49 @@ export class PlatformService {
         take: 10_000,
       });
 
-      const rows = assignments.map((assignment) => {
+      const answerRows = assignments.map((assignment) => {
         const raw = assignment.submission?.revisions[0]?.data;
         const values = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-        const row: Record<string, unknown> = { vendor: assignment.vendor.companyName };
+        return { vendor: assignment.vendor.companyName, values };
+      });
+
+      const documentIds = new Set<string>();
+      for (const row of answerRows) {
+        for (const field of selected) {
+          collectDocumentIdsFromAnswer(field.id in row.values ? row.values[field.id] : row.values[field.key], documentIds);
+        }
+      }
+
+      const fileMeta = new Map<string, { filename: string; storageKey: string }>();
+      if (documentIds.size) {
+        const documents = await tx.document.findMany({
+          where: {
+            organizationId: user.organizationId,
+            id: { in: [...documentIds] },
+            deletedAt: null,
+          },
+          include: {
+            versions: {
+              orderBy: { versionNumber: "desc" },
+              take: 1,
+              select: { filename: true, storageKey: true },
+            },
+          },
+        });
+        for (const document of documents) {
+          const latest = document.versions[0];
+          if (!latest) continue;
+          fileMeta.set(document.id, { filename: latest.filename, storageKey: latest.storageKey });
+        }
+      }
+
+      const origin = env().WEB_ORIGIN.replace(/\/$/, "");
+      const rows = answerRows.map((assignment) => {
+        const row: Record<string, unknown> = { vendor: assignment.vendor };
         selected.forEach((field, index) => {
           const column = columns[index + 1]!;
-          const value = field.id in values ? values[field.id] : values[field.key];
-          row[column] = formatAnswerForExport(value);
+          const value = field.id in assignment.values ? assignment.values[field.id] : assignment.values[field.key];
+          row[column] = formatExportAnswer(value, origin, fileMeta);
         });
         return row;
       });
@@ -706,4 +741,48 @@ export class PlatformService {
       },
     };
   }
+}
+
+function collectDocumentIdsFromAnswer(value: unknown, into: Set<string>) {
+  if (value === undefined || value === null) return;
+  if (Array.isArray(value)) {
+    for (const item of value) collectDocumentIdsFromAnswer(item, into);
+    return;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (typeof record.documentId === "string" && record.documentId) into.add(record.documentId);
+    for (const nested of Object.values(record)) collectDocumentIdsFromAnswer(nested, into);
+  }
+}
+
+/** File cells include filename, portal download URL, and storage key so admins can open/download them. */
+function formatExportAnswer(
+  value: unknown,
+  origin: string,
+  fileMeta: Map<string, { filename: string; storageKey: string }>,
+): string {
+  if (value === undefined || value === null) return "";
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => formatExportAnswer(item, origin, fileMeta))
+      .filter(Boolean)
+      .join(" | ");
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const documentId = typeof record.documentId === "string" ? record.documentId : "";
+    if (documentId) {
+      const meta = fileMeta.get(documentId);
+      const filename =
+        (typeof record.filename === "string" && record.filename.trim())
+        || meta?.filename
+        || "Uploaded file";
+      const downloadUrl = `${origin}/api/v1/documents/${documentId}/content?disposition=attachment`;
+      const storageKey = meta?.storageKey ?? "";
+      return [filename, downloadUrl, storageKey].filter(Boolean).join(" — ");
+    }
+    return formatAnswerForExport(value);
+  }
+  return formatAnswerForExport(value);
 }
