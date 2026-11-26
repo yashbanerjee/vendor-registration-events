@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
-import { toCsv } from "@vmp/shared";
+import { exportableFields, formatAnswerForExport, formSchemaDefinition, toCsv } from "@vmp/shared";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 import type { AuthContext } from "../common/auth";
@@ -16,6 +16,11 @@ import { OutboxProcessor } from "../jobs/jobs.service";
 import { PrismaService, TenantService } from "../prisma/prisma.service";
 import { clientErrorBody, ErrorReportsService } from "./error-reports.service";
 import { effectiveSettings, emailSendingBody, emailTemplatesBody, nextEmailSending, nextEmailTemplates, nextStored, parseStored, publicSettings, settingsBody } from "./org-settings";
+
+const formAnswersExportBody = z.object({
+  formTemplateId: z.string().uuid(),
+  fieldIds: z.array(z.string().uuid()).min(1).max(200),
+});
 
 @Injectable()
 export class PlatformService {
@@ -254,6 +259,113 @@ export class PlatformService {
         })),
         ["vendor", "filename", "status", "size", "createdAt"],
       );
+    });
+    return csv;
+  }
+
+  /** Fields available for a form export picker (latest published version, else latest draft). */
+  async formExportFields(user: AuthContext, formTemplateId: string) {
+    const id = z.string().uuid().parse(formTemplateId);
+    return this.tenant.transaction(user.organizationId, async (tx) => {
+      const template = await tx.formTemplate.findFirst({
+        where: { id, organizationId: user.organizationId, archivedAt: null },
+        include: {
+          versions: { orderBy: [{ publishedAt: "desc" }, { versionNumber: "desc" }], take: 8 },
+        },
+      });
+      if (!template) throw new NotFoundException("Form was not found.");
+      const version = template.versions.find((item) => item.publishedAt) ?? template.versions[0];
+      if (!version) throw new ConflictException("This form has no versions to export.");
+      const parsed = formSchemaDefinition.safeParse(version.schema);
+      if (!parsed.success) throw new ConflictException("This form schema could not be read for export.");
+      return {
+        data: {
+          formTemplateId: template.id,
+          formName: template.name,
+          formVersionId: version.id,
+          versionNumber: version.versionNumber,
+          fields: exportableFields(parsed.data),
+        },
+      };
+    });
+  }
+
+  /**
+   * CSV of vendors assigned to a form, with one column per selected field:
+   * vendor | field_1 | field_2 | …
+   */
+  async formAnswersExport(user: AuthContext, body: unknown) {
+    const input = formAnswersExportBody.parse(body);
+    const csv = await this.tenant.transaction(user.organizationId, async (tx) => {
+      const template = await tx.formTemplate.findFirst({
+        where: { id: input.formTemplateId, organizationId: user.organizationId, archivedAt: null },
+        include: {
+          versions: { orderBy: [{ publishedAt: "desc" }, { versionNumber: "desc" }], take: 20 },
+        },
+      });
+      if (!template) throw new NotFoundException("Form was not found.");
+      const version = template.versions.find((item) => item.publishedAt) ?? template.versions[0];
+      if (!version) throw new ConflictException("This form has no versions to export.");
+      const parsed = formSchemaDefinition.safeParse(version.schema);
+      if (!parsed.success) throw new ConflictException("This form schema could not be read for export.");
+      const available = exportableFields(parsed.data);
+      const byId = new Map(available.map((field) => [field.id, field]));
+      const selected = input.fieldIds
+        .map((fieldId) => byId.get(fieldId))
+        .filter((field): field is NonNullable<typeof field> => Boolean(field));
+      if (!selected.length) throw new BadRequestException("Select at least one field from this form.");
+
+      const labelCounts = new Map<string, number>();
+      for (const field of selected) labelCounts.set(field.label, (labelCounts.get(field.label) ?? 0) + 1);
+      const columns = [
+        "vendor",
+        ...selected.map((field) => (labelCounts.get(field.label)! > 1 ? `${field.label} (${field.key})` : field.label)),
+      ];
+
+      const assignments = await tx.formAssignment.findMany({
+        where: {
+          organizationId: user.organizationId,
+          formVersion: { templateId: template.id },
+        },
+        include: {
+          vendor: { select: { companyName: true, email: true, reference: true } },
+          submission: {
+            select: {
+              revisions: {
+                orderBy: { revisionNumber: "desc" },
+                take: 1,
+                select: { data: true },
+              },
+            },
+          },
+        },
+        orderBy: { vendor: { companyName: "asc" } },
+        take: 10_000,
+      });
+
+      const rows = assignments.map((assignment) => {
+        const raw = assignment.submission?.revisions[0]?.data;
+        const values = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+        const row: Record<string, unknown> = { vendor: assignment.vendor.companyName };
+        selected.forEach((field, index) => {
+          const column = columns[index + 1]!;
+          const value = field.id in values ? values[field.id] : values[field.key];
+          row[column] = formatAnswerForExport(value);
+        });
+        return row;
+      });
+
+      await this.audit.record(tx, {
+        organizationId: user.organizationId,
+        actorId: user.id,
+        actorRole: user.roles.join(","),
+        action: "report.form_answers_exported",
+        resourceType: "form_template",
+        resourceId: template.id,
+        newValue: { formName: template.name, fieldCount: selected.length, rowCount: rows.length },
+      });
+
+      return toCsv(rows, columns);
     });
     return csv;
   }

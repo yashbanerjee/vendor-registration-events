@@ -316,11 +316,12 @@ export default function SettingsPage() {
             <Field label="6-digit code"><input className={inputClass} inputMode="numeric" value={code} onChange={(event) => setCode(event.target.value)} /></Field>
             <Button type="button" onClick={() => confirm.mutate()} disabled={!code.trim()}>Confirm code</Button>
           </Card>
-          <Card title="Exports" description="Download the current organization data as CSV.">
+          <Card title="Exports" description="Download organization CSVs, or build a custom form-field export.">
             <div className="flex flex-wrap gap-2">
               {["vendors", "submissions", "corrections", "emails", "documents"].map((kind) => (
                 <a key={kind} className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium capitalize hover:bg-secondary sm:h-8 sm:px-2.5" href={`/api/v1/reports/${kind}`}>{kind}</a>
               ))}
+              <a className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium hover:bg-secondary sm:h-8 sm:px-2.5" href="/admin/exports">Form field export</a>
             </div>
           </Card>
         </aside>

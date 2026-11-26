@@ -175,6 +175,51 @@ function isUncheckedCheckbox(value: unknown): boolean {
 
 export type FieldAnswer = { id: string; label: string; filled: boolean; required: boolean };
 
+/** Answerable (non-display) fields from a schema, in form order, for export pickers. */
+export function exportableFields(schema: FormSchemaDefinition): { id: string; key: string; label: string; type: FieldType }[] {
+  return schema.fields
+    .filter((field) => !DISPLAY_ONLY_TYPES.includes(field.type))
+    .slice()
+    .sort((left, right) => left.order - right.order)
+    .map((field) => ({ id: field.id, key: field.key, label: field.label, type: field.type }));
+}
+
+/** Flatten a stored answer into a single spreadsheet cell. */
+export function formatAnswerForExport(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (item && typeof item === "object") {
+          const record = item as Record<string, unknown>;
+          if (typeof record.filename === "string" && record.filename.trim()) return record.filename.trim();
+          if (typeof record.documentId === "string" && record.documentId) return "Uploaded file";
+          return formatAnswerForExport(item);
+        }
+        return formatAnswerForExport(item);
+      })
+      .filter(Boolean)
+      .join("; ");
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (typeof record.filename === "string" && record.filename.trim()) return record.filename.trim();
+    if ("documentId" in record) return record.documentId ? "Uploaded file" : "";
+    const addressParts = ["line1", "line2", "city", "region", "postalCode", "country"]
+      .map((key) => record[key])
+      .filter((part): part is string => typeof part === "string" && part.trim() !== "")
+      .map((part) => part.trim());
+    if (addressParts.length) return addressParts.join(", ");
+    return Object.values(record)
+      .map((part) => formatAnswerForExport(part))
+      .filter(Boolean)
+      .join("; ");
+  }
+  return String(value);
+}
+
 function hasAnswer(value: unknown): boolean {
   if (value === undefined || value === null) return false;
   if (typeof value === "string") return value.trim() !== "";

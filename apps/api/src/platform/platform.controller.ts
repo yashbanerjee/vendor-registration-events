@@ -50,6 +50,21 @@ export class PlatformController {
     return this.platform.audits(request.user!, cursor);
   }
 
+  @Get("reports/form-export/fields")
+  @RequirePermissions(PERMISSIONS.reportsExport)
+  formExportFields(@Req() request: AuthedRequest, @Query("formTemplateId") formTemplateId = "") {
+    return this.platform.formExportFields(request.user!, formTemplateId);
+  }
+
+  @Post("reports/form-export")
+  @RequirePermissions(PERMISSIONS.reportsExport)
+  async formAnswersExport(@Req() request: AuthedRequest, @Body() body: unknown, @Res() response: Response) {
+    const csv = await this.platform.formAnswersExport(request.user!, body);
+    response.setHeader("Content-Type", "text/csv; charset=utf-8");
+    response.setHeader("Content-Disposition", 'attachment; filename="form-answers-export.csv"');
+    response.send(csv);
+  }
+
   @Get("reports/:kind")
   @RequirePermissions(PERMISSIONS.reportsExport)
   async report(@Req() request: AuthedRequest, @Param("kind") kind: "vendors" | "submissions" | "corrections" | "emails" | "documents", @Res() response: Response) {

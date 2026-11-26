@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ClipboardCheck, ClipboardList, FilePenLine, Files, History, LayoutDashboard, Mail, Settings, Store, Tickets, Workflow } from "lucide-react";
+import { AlertTriangle, ClipboardCheck, ClipboardList, Download, FilePenLine, Files, History, LayoutDashboard, Mail, Settings, Store, Tickets, Workflow } from "lucide-react";
 import { ShellFrame } from "@/components/shell";
 
 const items = [
@@ -11,6 +11,7 @@ const items = [
   { href: "/admin/reviews", label: "Check answers", icon: <ClipboardCheck size={16} /> },
   { href: "/admin/documents", label: "Files", icon: <Files size={16} />, secondary: true },
   { href: "/admin/submissions", label: "All answers", icon: <ClipboardList size={16} />, secondary: true },
+  { href: "/admin/exports", label: "Exports", icon: <Download size={16} />, secondary: true },
   { href: "/admin/jobs", label: "Emails", icon: <Mail size={16} />, secondary: true },
   { href: "/admin/email-templates", label: "Email templates", icon: <FilePenLine size={16} />, secondary: true },
   { href: "/admin/errors", label: "Errors", icon: <AlertTriangle size={16} />, secondary: true },

@@ -122,12 +122,16 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return payload as T;
 }
 
-export async function download(path: string, filename: string) {
-  const headers = new Headers();
+export async function download(path: string, filename: string, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
   const token = csrfToken();
   if (token) headers.set("x-csrf-token", token);
   headers.set("x-requested-with", "vendor-portal");
-  const response = await fetch(`/api/v1${path}`, { headers, credentials: "include", cache: "no-store" });
+  if (init.body && !(init.body instanceof FormData) && !headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
+  const method = (init.method ?? "GET").toUpperCase();
+  const response = await fetch(`/api/v1${path}`, { ...init, headers, credentials: "include", cache: "no-store" });
   if (!response.ok) {
     const text = await response.text();
     let message = "The download failed.";
@@ -138,10 +142,10 @@ export async function download(path: string, filename: string) {
       if (payload.error?.message) message = payload.error.message;
       code = payload.error?.code;
       details = payload.error?.details;
-      reportClientError({ path, method: "GET", statusCode: response.status, code, message, details, correlationId: payload.error?.correlationId });
+      reportClientError({ path, method, statusCode: response.status, code, message, details, correlationId: payload.error?.correlationId });
     } catch {
       message = "The download failed. Please try again.";
-      reportClientError({ path, method: "GET", statusCode: response.status, code: "INVALID_JSON", message });
+      reportClientError({ path, method, statusCode: response.status, code: "INVALID_JSON", message });
     }
     throw toApiError(message, response.status, code, details);
   }
