@@ -161,14 +161,6 @@ function isPowerQtyField(field: FormField) {
   return field.key.startsWith("power_qty_");
 }
 
-function formatPowerCost(value?: string) {
-  const raw = (value || "").replace(/[^\d.]/g, "");
-  if (!raw) return "—";
-  const amount = Number(raw);
-  if (!Number.isFinite(amount)) return value || "—";
-  return amount.toLocaleString("en-US");
-}
-
 /** Order / Additional packs use boxed "Document required" cards for reupload fields. */
 function isDocumentField(field: FormField) {
   return field.type === "reupload";
@@ -239,7 +231,6 @@ function PowerDetailsTable({
             <tr>
               <th className="w-12">#</th>
               <th>Item</th>
-              <th className="w-40">Cost per event (SR)</th>
               <th className="w-28">Qty</th>
             </tr>
           </thead>
@@ -263,7 +254,6 @@ function PowerDetailsTable({
                     {note ? <p className="mt-1 text-xs text-[var(--warning)]">{note}</p> : null}
                     {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
                   </td>
-                  <td data-label="Cost per event (SR)">{formatPowerCost(field.description)}</td>
                   <td data-label="Qty">
                     <input
                       id={id}

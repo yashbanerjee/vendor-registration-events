@@ -84,6 +84,7 @@ function field(sectionId: string, order: number, input: Pick<FormField, "key" | 
 function schema(templates: { key: string; assetId: string; filename: string }[]): FormSchemaDefinition {
   const compliance = randomUUID();
   const drawings = randomUUID();
+  const powerSection = randomUUID();
   const declarationSection = randomUUID();
   const templateFor = (key: string) => {
     const template = templates.find((item) => item.key === key);
@@ -91,6 +92,18 @@ function schema(templates: { key: string; assetId: string; filename: string }[])
     return { assetId: template.assetId, filename: template.filename };
   };
   const pdfAccept = [".pdf"];
+  const powerItems: { key: string; label: string }[] = [
+    { key: "power_qty_32a_single", label: "32A Single Phase Power Point" },
+    { key: "power_qty_63a_single", label: "63A Single Phase Power Point" },
+    { key: "power_qty_32a_380", label: "32A /380 Phase Power Point" },
+    { key: "power_qty_63a_380", label: "63A /380 Phase Power Point" },
+    { key: "power_qty_100a_380", label: "100A/380V Three Phase Power Point" },
+    { key: "power_qty_200a_380", label: "200A/380V Three Phase Power Point" },
+    {
+      key: "power_qty_connection",
+      label: "Electrical connection (does not include cables, circuit breakers & panels)",
+    },
+  ];
   return formSchemaDefinition.parse({
     sections: [
       {
@@ -106,10 +119,16 @@ function schema(templates: { key: string; assetId: string; filename: string }[])
         order: 1,
       },
       {
+        id: powerSection,
+        title: "Electric Power Order",
+        description: "Select quantities for the power points you need, then add any extra remarks. No prices are shown in this section.",
+        order: 2,
+      },
+      {
         id: declarationSection,
         title: "CONTRACTOR UNDERTAKING",
         description: "Authorized representative declaration for exhibition participation.",
-        order: 2,
+        order: 3,
       },
     ],
     fields: [
@@ -123,27 +142,45 @@ function schema(templates: { key: string; assetId: string; filename: string }[])
       field(compliance, 7, { key: "cad_drawings", type: "file", label: "Technical Drawings in CAD & pdf", required: true, description: "Add one or more files", file: { accept: pdfAccept } }),
       field(compliance, 8, { key: "electrical_layout", type: "file", label: "Electrical grid plan", required: true, description: "Add one or more files", file: { accept: pdfAccept } }),
       field(compliance, 9, { key: "structural_calculations", type: "file", label: "Structural calculations for complex structures (only for double decker)", required: false, description: "Add one or more files", file: { accept: pdfAccept } }),
-      field(drawings, 10, { key: "electrical_order_form", type: "reupload", label: "Electrical Order Form", required: true, description: "PDF or image", file: { accept: pdfAccept }, template: templateFor("letter_of_undertaking") }),
-      field(drawings, 11, { key: "handling_order_form", type: "reupload", label: "Handling Order Form", required: false, description: "PDF or image", file: { accept: pdfAccept }, template: templateFor("letter_of_undertaking") }),
-      field(declarationSection, 12, { key: "client_name", type: "text", label: "Client (sponsor) name", required: true }),
-      field(declarationSection, 13, { key: "plot_number", type: "text", label: "Plot number", required: true }),
-      field(declarationSection, 14, { key: "company_organization_name", type: "text", label: "Company / Organization Name", required: true, placeholder: "Enter company / organization name" }),
-      field(declarationSection, 15, { key: "authorized_representative_name", type: "text", label: "Authorized Representative Name", required: true, placeholder: "Enter authorized representative name" }),
-      field(declarationSection, 16, { key: "designation", type: "text", label: "Designation", required: true, placeholder: "Enter designation" }),
-      field(declarationSection, 17, { key: "mobile", type: "tel", label: "Mobile", required: true }),
-      field(declarationSection, 18, { key: "email", type: "email", label: "Email", required: true }),
-      field(declarationSection, 19, { key: "declaration", type: "info", label: "CONTRACTOR UNDERTAKING", required: false, description: declaration, readOnly: true }),
-      field(declarationSection, 20, { key: "signature", type: "file", label: "Signature", required: true, description: "Upload a signed PDF that includes the company / organization name and authorized representative signature.", file: { accept: pdfAccept } }),
-      field(declarationSection, 21, { key: "company_stamp", type: "file", label: "Company Stamp (if applicable)", required: false, description: "Upload a PDF of the company stamp that includes the company / organization name.", file: { accept: pdfAccept } }),
-      field(declarationSection, 22, { key: "signed_on", type: "date", label: "Date", required: true }),
-      field(declarationSection, 23, {
+      field(drawings, 10, { key: "handling_order_form", type: "reupload", label: "Handling Order Form", required: false, description: "PDF or image", file: { accept: pdfAccept }, template: templateFor("letter_of_undertaking") }),
+      ...powerItems.map((item, index) =>
+        field(powerSection, 11 + index, {
+          key: item.key,
+          type: "number",
+          label: item.label,
+          required: false,
+          placeholder: "0",
+          validation: { min: 0 },
+        }),
+      ),
+      field(powerSection, 11 + powerItems.length, {
+        key: "power_additional_notes",
+        type: "textarea",
+        label: "Additional requirements / remarks",
+        required: false,
+        description: "Add any extra electrical notes. No price applies to this section.",
+        placeholder: "Enter additional requirements or remarks",
+        validation: { maxLength: 4000 },
+      }),
+      field(declarationSection, 20, { key: "client_name", type: "text", label: "Client (sponsor) name", required: true }),
+      field(declarationSection, 21, { key: "plot_number", type: "text", label: "Plot number", required: true }),
+      field(declarationSection, 22, { key: "company_organization_name", type: "text", label: "Company / Organization Name", required: true, placeholder: "Enter company / organization name" }),
+      field(declarationSection, 23, { key: "authorized_representative_name", type: "text", label: "Authorized Representative Name", required: true, placeholder: "Enter authorized representative name" }),
+      field(declarationSection, 24, { key: "designation", type: "text", label: "Designation", required: true, placeholder: "Enter designation" }),
+      field(declarationSection, 25, { key: "mobile", type: "tel", label: "Mobile", required: true }),
+      field(declarationSection, 26, { key: "email", type: "email", label: "Email", required: true }),
+      field(declarationSection, 27, { key: "declaration", type: "info", label: "CONTRACTOR UNDERTAKING", required: false, description: declaration, readOnly: true }),
+      field(declarationSection, 28, { key: "signature", type: "file", label: "Signature", required: true, description: "Upload a signed PDF that includes the company / organization name and authorized representative signature.", file: { accept: pdfAccept } }),
+      field(declarationSection, 29, { key: "company_stamp", type: "file", label: "Company Stamp (if applicable)", required: false, description: "Upload a PDF of the company stamp that includes the company / organization name.", file: { accept: pdfAccept } }),
+      field(declarationSection, 30, { key: "signed_on", type: "date", label: "Date", required: true }),
+      field(declarationSection, 31, {
         key: "undertaking_confirm",
         type: "checkbox",
         label: "Contractor undertaking confirmation",
         required: true,
         options: [{ value: "yes", label: "I confirm that I have read and agree to the contractor undertaking." }],
       }),
-      field(declarationSection, 24, { key: "how_to_submit", type: "info", label: "IMPORTANT NOTICE", required: false, readOnly: true, description: "This declaration is a mandatory acknowledgement of compliance for exhibition participation. Failure to comply with applicable legal requirements, venue regulations or health and safety guidelines may affect the company's participation in the exhibition." }),
+      field(declarationSection, 32, { key: "how_to_submit", type: "info", label: "IMPORTANT NOTICE", required: false, readOnly: true, description: "This declaration is a mandatory acknowledgement of compliance for exhibition participation. Failure to comply with applicable legal requirements, venue regulations or health and safety guidelines may affect the company's participation in the exhibition." }),
     ],
   });
 }

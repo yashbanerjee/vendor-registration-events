@@ -41,7 +41,6 @@ const importantNotice =
 type ReuploadSpec = { key: string; label: string; required: boolean; filename: string };
 
 const orderForms: ReuploadSpec[] = [
-  { key: "electrical_order_form", label: "Electrical Order Form", required: true, filename: "Electrical_Order_Form.pdf" },
   { key: "handling_order_form", label: "Handling Order Form", required: false, filename: "Handling_Order_Form.pdf" },
   { key: "internet_order_form", label: "Internet Connection Order Form", required: false, filename: "Internet_Connection_Order_Form.pdf" },
   { key: "security_order_form", label: "Security Order Form", required: false, filename: "Security_Order_Form.pdf" },

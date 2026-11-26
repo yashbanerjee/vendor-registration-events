@@ -3,7 +3,7 @@ import { formSchemaDefinition } from "@vmp/shared";
 
 const prisma = new PrismaClient();
 
-const requiredSections = ["GENERAL", "Order Forms", "Additional Documents", "CONTRACTOR UNDERTAKING"];
+const requiredSections = ["GENERAL", "Order Forms", "Electric Power Order", "Additional Documents", "CONTRACTOR UNDERTAKING"];
 const requiredGeneral = [
   "trade_license",
   "commercial_registration",
@@ -19,7 +19,6 @@ const requiredGeneral = [
   "fire_retardant_certificates",
 ];
 const requiredOrder = [
-  "electrical_order_form",
   "handling_order_form",
   "internet_order_form",
   "security_order_form",
@@ -27,6 +26,16 @@ const requiredOrder = [
   "cleaning_order_form",
   "waste_skips_order_form",
   "catering_order_form",
+];
+const requiredPower = [
+  "power_qty_32a_single",
+  "power_qty_63a_single",
+  "power_qty_32a_380",
+  "power_qty_63a_380",
+  "power_qty_100a_380",
+  "power_qty_200a_380",
+  "power_qty_connection",
+  "power_additional_notes",
 ];
 const requiredAdditional = [
   "av_order_form",
@@ -68,6 +77,7 @@ async function main() {
     ["sections", missingSections],
     ["GENERAL fields", requiredGeneral.filter((key) => !bySection("GENERAL").includes(key))],
     ["Order Forms fields", requiredOrder.filter((key) => !bySection("Order Forms").includes(key))],
+    ["Electric Power Order fields", requiredPower.filter((key) => !bySection("Electric Power Order").includes(key))],
     ["Additional Documents fields", requiredAdditional.filter((key) => !bySection("Additional Documents").includes(key))],
     ["Undertaking fields", requiredUndertaking.filter((key) => !bySection("CONTRACTOR UNDERTAKING").includes(key))],
   ] as const;
