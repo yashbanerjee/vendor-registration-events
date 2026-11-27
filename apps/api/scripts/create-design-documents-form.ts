@@ -142,7 +142,7 @@ function schema(templates: { key: string; assetId: string; filename: string }[])
       field(compliance, 7, { key: "cad_drawings", type: "file", label: "Technical Drawings in CAD & pdf", required: true, description: "Add one or more files", file: { accept: pdfAccept } }),
       field(compliance, 8, { key: "electrical_layout", type: "file", label: "Electrical grid plan", required: true, description: "Add one or more files", file: { accept: pdfAccept } }),
       field(compliance, 9, { key: "structural_calculations", type: "file", label: "Structural calculations for complex structures (only for double decker)", required: false, description: "Add one or more files", file: { accept: pdfAccept } }),
-      field(drawings, 10, { key: "handling_order_form", type: "reupload", label: "Handling Order Form", required: false, description: "PDF or image", file: { accept: pdfAccept }, template: templateFor("letter_of_undertaking") }),
+      field(drawings, 10, { key: "handling_order_form", type: "reupload", label: "Handling Order Form", required: false, description: "PDF or image", file: { accept: pdfAccept }, template: templateFor("handling_order_form") }),
       ...powerItems.map((item, index) =>
         field(powerSection, 11 + index, {
           key: item.key,
@@ -192,6 +192,7 @@ const templates = [
   { key: "trade_license", filename: "trade-license.pdf", title: "Trade license / commercial registration", lines: ["Attach the current trade license or commercial registration."] },
   { key: "insurance", filename: "all-risk-insurance.pdf", title: "Contractor all-risk insurance", lines: ["Public liability cover is required. See the sponsor manual."] },
   { key: "construction_phase_plan", filename: "construction-phase-plan.pdf", title: "Construction phase plan", lines: ["State the onsite team size for build and dismantling,", "plus equipment, materials and fire protection measures."] },
+  { key: "handling_order_form", filename: "Handling_Order_Form.pdf", title: "Handling Order Form", lines: ["Complete and sign the handling order form,", "then upload your completed PDF copy."] },
 ];
 
 async function putFile(organizationId: string, key: string, body: Buffer, settings: ReturnType<typeof effectiveSettings>) {

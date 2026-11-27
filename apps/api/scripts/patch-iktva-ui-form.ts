@@ -1,6 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
-import { PrismaClient } from "@prisma/client";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { PrismaClient, type Prisma } from "@prisma/client";
 import { formSchemaDefinition, type FormField } from "@vmp/shared";
+import { sniffAllowed } from "../src/documents/scan";
+import { effectiveSettings, parseStored } from "../src/platform/org-settings";
 
 const prisma = new PrismaClient();
 const FORM_NAME = "Mandatory design documents";
@@ -77,12 +82,76 @@ function ensureSection(
   return id;
 }
 
+function pdfForSpec(spec: ReuploadSpec) {
+  const escape = (value: string) => value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+  const lines = [
+    spec.label,
+    "",
+    `Document: ${spec.filename}`,
+    "Complete and sign this form, then upload your completed copy.",
+  ];
+  const commands = ["BT", "/F1 12 Tf", "72 740 Td", "16 TL"];
+  for (const line of lines) {
+    commands.push(`(${escape(line)}) Tj`, "T*");
+  }
+  commands.push("ET");
+  const stream = commands.join("\n");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let content = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(content));
+    content += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = Buffer.byteLength(content);
+  content += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let index = 1; index < offsets.length; index += 1) content += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  content += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  const bytes = Buffer.from(content);
+  const scan = sniffAllowed(bytes, spec.filename, "application/pdf");
+  if (!scan.clean) throw new Error(scan.details);
+  return bytes;
+}
+
+async function putAssetBytes(key: string, body: Buffer, settings: ReturnType<typeof effectiveSettings>) {
+  const ready = Boolean(settings.storageEndpoint && settings.storageBucket && settings.storageAccessKey && settings.storageSecret);
+  if (!ready || process.env.STORAGE_DRIVER === "local") {
+    const root = path.resolve(process.env.STORAGE_LOCAL_DIR || "storage");
+    const target = path.resolve(root, key);
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, body);
+    return;
+  }
+  const endpoint = (settings.storageEndpoint || "").replace(/\/$/, "");
+  const pathStyle = settings.storagePathStyle || /storageapi\.dev|localhost|127\.0\.0\.1/i.test(endpoint);
+  const client = new S3Client({
+    region: settings.storageRegion || "auto",
+    endpoint: endpoint || undefined,
+    forcePathStyle: pathStyle,
+    credentials: { accessKeyId: settings.storageAccessKey, secretAccessKey: settings.storageSecret },
+  });
+  await client.send(
+    new PutObjectCommand({
+      Bucket: settings.storageBucket,
+      Key: key,
+      Body: body,
+      ContentType: "application/pdf",
+    }),
+  );
+}
+
 function ensureReupload(
   fields: FormField[],
   sectionId: string,
   spec: ReuploadSpec,
   order: number,
-  templateAsset?: { assetId: string; filename: string } | null,
+  templateAsset: { assetId: string; filename: string },
 ) {
   const existing = fields.find((field) => field.key === spec.key);
   if (existing) {
@@ -93,10 +162,7 @@ function ensureReupload(
     existing.order = order;
     existing.description = "PDF or image";
     existing.file = { accept: pdfImageAccept };
-    if (templateAsset) existing.template = templateAsset;
-    else if (!existing.template && templateAsset !== null) {
-      // keep any prior template
-    }
+    existing.template = templateAsset;
     return;
   }
   fields.push({
@@ -110,7 +176,7 @@ function ensureReupload(
     order,
     conditional: null,
     file: { accept: pdfImageAccept },
-    ...(templateAsset ? { template: templateAsset } : {}),
+    template: templateAsset,
   });
 }
 
@@ -120,16 +186,63 @@ async function main() {
     const form = await tx.formTemplate.findFirst({
       where: { archivedAt: null, name: { equals: FORM_NAME, mode: "insensitive" } },
       include: {
-        versions: { orderBy: { versionNumber: "desc" }, take: 1 },
-        assets: { select: { id: true, filename: true }, take: 1 },
+        organization: { select: { id: true, settings: true } },
+        versions: { orderBy: { versionNumber: "desc" } },
+        assets: { select: { id: true, filename: true } },
       },
     });
     if (!form?.versions[0]) throw new Error("Mandatory design documents form was not found.");
 
+    const settings = effectiveSettings(parseStored(form.organization.settings as Prisma.JsonValue));
+    const admin = await tx.user.findFirst({
+      where: { organizationId: form.organizationId, vendorId: null, status: "ACTIVE" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (!admin) throw new Error("An active administrator account was not found.");
+
     const schema = formSchemaDefinition.parse(form.versions[0].schema);
-    const fallbackTemplate = form.assets[0]
-      ? { assetId: form.assets[0].id, filename: form.assets[0].filename }
-      : schema.fields.find((field) => field.type === "reupload" && field.template)?.template ?? null;
+    const assetById = new Map(form.assets.map((asset) => [asset.id, asset]));
+    const assetCounts = new Map<string, number>();
+    for (const field of schema.fields) {
+      if (field.type === "reupload" && field.template?.assetId) {
+        assetCounts.set(field.template.assetId, (assetCounts.get(field.template.assetId) ?? 0) + 1);
+      }
+    }
+
+    const templateForSpec = async (spec: ReuploadSpec): Promise<{ assetId: string; filename: string }> => {
+      const existingField = schema.fields.find((field) => field.key === spec.key);
+      const currentId = existingField?.template?.assetId;
+      const currentAsset = currentId ? assetById.get(currentId) : undefined;
+      if (currentAsset && (assetCounts.get(currentId!) ?? 0) <= 1 && currentAsset.filename === spec.filename) {
+        return { assetId: currentAsset.id, filename: currentAsset.filename };
+      }
+      const matchingAsset = form.assets.find((asset) => asset.filename === spec.filename && (assetCounts.get(asset.id) ?? 0) === 0);
+      if (matchingAsset) {
+        assetCounts.set(matchingAsset.id, 1);
+        return { assetId: matchingAsset.id, filename: matchingAsset.filename };
+      }
+      const assetId = randomUUID();
+      const storageKey = `org/${form.organizationId}/forms/${form.id}/${assetId}`;
+      const bytes = pdfForSpec(spec);
+      await putAssetBytes(storageKey, bytes, settings);
+      await tx.formAsset.create({
+        data: {
+          id: assetId,
+          organizationId: form.organizationId,
+          templateId: form.id,
+          storageKey,
+          filename: spec.filename,
+          mimeType: "application/pdf",
+          sizeBytes: bytes.length,
+          checksum: createHash("sha256").update(bytes).digest("hex"),
+          uploadedById: admin.id,
+        },
+      });
+      assetById.set(assetId, { id: assetId, filename: spec.filename });
+      assetCounts.set(assetId, 1);
+      return { assetId, filename: spec.filename };
+    };
 
     const generalId = ensureSection(
       schema.sections,
@@ -210,12 +323,17 @@ async function main() {
       }
     }
 
+    const resolvedTemplates = new Map<string, { assetId: string; filename: string }>();
     let order = Math.max(0, ...schema.fields.map((field) => field.order)) + 1;
     for (const spec of orderForms) {
-      ensureReupload(schema.fields, orderId, spec, order++, fallbackTemplate ? { assetId: fallbackTemplate.assetId, filename: spec.filename } : null);
+      const resolved = await templateForSpec(spec);
+      resolvedTemplates.set(spec.key, resolved);
+      ensureReupload(schema.fields, orderId, spec, order++, resolved);
     }
     for (const spec of additionalDocs) {
-      ensureReupload(schema.fields, additionalId, spec, order++, fallbackTemplate ? { assetId: fallbackTemplate.assetId, filename: spec.filename } : null);
+      const resolved = await templateForSpec(spec);
+      resolvedTemplates.set(spec.key, resolved);
+      ensureReupload(schema.fields, additionalId, spec, order++, resolved);
     }
 
     for (const field of schema.fields) {
@@ -275,6 +393,26 @@ async function main() {
     const parsed = formSchemaDefinition.parse(schema);
     const checksum = createHash("sha256").update(JSON.stringify(parsed)).digest("hex");
     await tx.formVersion.update({ where: { id: form.versions[0].id }, data: { schema: parsed, checksum } });
+
+    // Repair any older published versions that still point multiple order/additional fields at one shared asset.
+    for (const older of form.versions.slice(1)) {
+      const olderSchema = formSchemaDefinition.parse(older.schema);
+      let changed = false;
+      for (const field of olderSchema.fields) {
+        if (field.type !== "reupload") continue;
+        const resolved = resolvedTemplates.get(field.key);
+        if (!resolved) continue;
+        if (field.template?.assetId !== resolved.assetId || field.template?.filename !== resolved.filename) {
+          field.template = resolved;
+          changed = true;
+        }
+      }
+      if (changed) {
+        const olderChecksum = createHash("sha256").update(JSON.stringify(olderSchema)).digest("hex");
+        await tx.formVersion.update({ where: { id: older.id }, data: { schema: olderSchema, checksum: olderChecksum } });
+      }
+    }
+
     await tx.formTemplate.update({
       where: { id: form.id },
       data: {

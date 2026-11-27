@@ -7,7 +7,15 @@ export function FileLink({ documentId, filename }: { documentId: string; filenam
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="block max-w-full truncate text-left text-sm underline" title={filename} onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        className="block max-w-full truncate text-left text-sm underline"
+        title={filename}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen(true);
+        }}
+      >
         {filename}
       </button>
       <FilePreview open={open} documentId={documentId} filename={filename} onClose={() => setOpen(false)} />
@@ -38,14 +46,24 @@ function contentUrl(documentId: string, disposition: "inline" | "attachment") {
 
 export function RemoteFileLink({ path, filename }: { path: string; filename: string }) {
   const [open, setOpen] = useState(false);
-  const src = `/api/v1${path}${path.includes("?") ? "&" : "?"}disposition=inline`;
+  const separator = path.includes("?") ? "&" : "?";
+  const src = `/api/v1${path}${separator}disposition=inline`;
+  const downloadHref = `/api/v1${path}${separator}disposition=attachment`;
   return (
     <>
-      <button type="button" className="block max-w-full truncate text-left text-sm font-semibold text-[var(--link)] underline underline-offset-2" title={filename} onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        className="block max-w-full truncate text-left text-sm font-semibold text-[var(--link)] underline underline-offset-2"
+        title={filename}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen(true);
+        }}
+      >
         {filename}
       </button>
       <Modal open={open} title={filename} wide onClose={() => setOpen(false)}>
-        {open ? <PreviewPane src={src} filename={filename} downloadHref={`/api/v1${path}?disposition=attachment`} /> : null}
+        {open ? <PreviewPane src={src} filename={filename} downloadHref={downloadHref} /> : null}
       </Modal>
     </>
   );
@@ -65,7 +83,7 @@ function PreviewPane({ src, filename, tall, downloadHref }: { src: string; filen
       {kind === "audio" ? <MediaView src={src} kind="audio" /> : null}
       {kind === "model" ? <ModelView src={src} filename={filename} tall={tall} /> : null}
       {kind === "text" || kind === "other" ? <FileBody src={src} filename={filename} tall={tall} /> : null}
-      <a className="text-sm underline" href={downloadHref}>
+      <a className="text-sm underline" href={downloadHref} download={filename}>
         Download
       </a>
     </div>
