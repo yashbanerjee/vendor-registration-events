@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
-import { vendorErrorMessage } from "@/lib/errors";
+import { passwordSchema } from "@vmp/shared";
+import { ApiError, api } from "@/lib/api";
+import { vendorErrorMessage, vendorFieldMessage } from "@/lib/errors";
 import { AuthFrame, FloatingInput } from "@/components/auth-frame";
 import { Button, ErrorNote, LoadingState } from "@/components/ui";
 import { useSession } from "@/components/providers";
@@ -22,6 +23,11 @@ export default function ChangePasswordPage() {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    const check = passwordSchema.safeParse(password);
+    if (!check.success) {
+      setError(check.error.issues[0]?.message ?? "Use at least 8 characters.");
+      return;
+    }
     setError("");
     setPending(true);
     try {
@@ -32,6 +38,15 @@ export default function ChangePasswordPage() {
       await refresh();
       router.push(session?.vendorId ? "/vendor" : "/admin");
     } catch (caught) {
+      if (caught instanceof ApiError && Array.isArray(caught.details)) {
+        const detail = caught.details.find(
+          (item): item is { message: string } => Boolean(item && typeof item === "object" && "message" in item && typeof (item as { message?: unknown }).message === "string"),
+        );
+        if (detail) {
+          setError(vendorFieldMessage(detail.message, "Use at least 8 characters."));
+          return;
+        }
+      }
       setError(vendorErrorMessage(caught, "The password could not be changed. Please check your details and try again."));
     } finally {
       setPending(false);
@@ -43,7 +58,7 @@ export default function ChangePasswordPage() {
   return (
     <AuthFrame
       title="Change your temporary password"
-      description="Use at least 12 characters, with an uppercase letter, a lowercase letter, and a number. After this, you can complete your exhibition form."
+      description="Use at least 8 characters. After this, you can complete your exhibition form."
       onSubmit={(event) => void submit(event)}
       overlay={pending ? <LoadingState label="Updating password…" description="Please wait a moment." /> : null}
     >
