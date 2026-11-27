@@ -37,7 +37,7 @@ export default function LoginPage() {
     setPending(true);
     try {
       if (mode === "reset") {
-        await api("/auth/password/forgot", { method: "POST", body: JSON.stringify({ email }) });
+        await api("/auth/password/forgot", { method: "POST", body: JSON.stringify({ email: email.trim() }) });
         setSent(true);
         return;
       }

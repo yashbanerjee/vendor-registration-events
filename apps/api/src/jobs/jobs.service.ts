@@ -282,7 +282,7 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
 
   private async emailSendingAllowed(organizationId: string, type: string) {
     if (!type.startsWith("email.")) return true;
-    if (type === "email.test" || type === "email.error-alert") return true;
+    if (type === "email.test" || type === "email.error-alert" || type === "email.password-reset") return true;
     const organization = await this.tenant.transaction(organizationId, (tx) =>
       tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } }),
     );

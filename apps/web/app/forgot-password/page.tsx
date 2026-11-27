@@ -18,7 +18,7 @@ export default function ForgotPasswordPage() {
     setError("");
     setPending(true);
     try {
-      await api("/auth/password/forgot", { method: "POST", body: JSON.stringify({ email }) });
+      await api("/auth/password/forgot", { method: "POST", body: JSON.stringify({ email: email.trim() }) });
       setSent(true);
     } catch (caught) {
       setError(vendorErrorMessage(caught, "The reset email could not be requested. Please try again."));

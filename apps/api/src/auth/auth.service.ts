@@ -11,7 +11,7 @@ import { assertRateLimit } from "../common/http";
 import { AuditService } from "../audit/audit.service";
 import { composeEmailTemplate } from "../jobs/email-catalog";
 import { EMAIL_BRAND_NAME } from "../jobs/email-templates";
-import { OutboxService } from "../jobs/jobs.service";
+import { OutboxProcessor, OutboxService } from "../jobs/jobs.service";
 import { effectiveSettings, parseStored } from "../platform/org-settings";
 import { TenantService, type Tx } from "../prisma/prisma.service";
 
@@ -41,6 +41,7 @@ export class AuthService {
     @Inject(TenantService) private readonly tenant: TenantService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(OutboxService) private readonly outbox: OutboxService,
+    @Inject(OutboxProcessor) private readonly processor: OutboxProcessor,
   ) {}
 
   async authenticate(rawToken: string): Promise<AuthContext | null> {
@@ -319,17 +320,37 @@ export class AuthService {
   }
 
   async forgotPassword(body: unknown) {
-    const input = z.object({ email: z.string().email() }).parse(body);
+    const input = z.object({ email: z.string().trim().email() }).parse(body);
     const email = input.email.toLowerCase();
-    await this.tenant.unscoped(async (tx) => {
-      const user = await tx.user.findUnique({ where: { email } });
-      if (!user || user.status === "DISABLED") return;
+    const queued = await this.tenant.unscoped(async (tx) => {
+      let user = await tx.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
+      if (!user) {
+        const vendor = await tx.vendor.findFirst({
+          where: { archivedAt: null, status: { not: "SUSPENDED" }, email: { equals: email, mode: "insensitive" } },
+          orderBy: { createdAt: "desc" },
+        });
+        if (!vendor) return false;
+        const vendorRole = await tx.role.findUnique({ where: { name: "VENDOR" } });
+        if (!vendorRole) return false;
+        user = await tx.user.create({
+          data: {
+            organizationId: vendor.organizationId,
+            email: vendor.email.toLowerCase(),
+            name: vendor.contactName || vendor.companyName || email,
+            status: "ACTIVE",
+            vendorId: vendor.id,
+            roles: { create: { roleId: vendorRole.id } },
+          },
+        });
+      }
+      if (user.status === "DISABLED") return false;
+      if (await vendorAccessRetired(tx, user.vendorId)) return false;
       const token = randomToken();
       const invitation = await tx.invitation.create({
         data: {
           organizationId: user.organizationId,
           purpose: "PASSWORD_RESET",
-          email,
+          email: user.email,
           tokenHash: sha256(token),
           userId: user.id,
           vendorId: user.vendorId,
@@ -340,7 +361,7 @@ export class AuthService {
       const organization = await tx.organization.findUnique({ where: { id: user.organizationId }, select: { name: true, settings: true } });
       const vars = {
         link,
-        userName: user.name || email,
+        userName: user.name || user.email,
         expiryText: "1 hour",
         exhibitionName: EMAIL_BRAND_NAME,
       };
@@ -350,7 +371,7 @@ export class AuthService {
         type: "email.password-reset",
         idempotencyKey: `password-reset:${invitation.id}`,
         payload: {
-          to: email,
+          to: user.email,
           userId: user.id,
           template: "password-reset",
           subject: copy.subject,
@@ -364,7 +385,9 @@ export class AuthService {
           idempotencyKey: `password-reset:${invitation.id}`,
         },
       });
+      return true;
     });
+    if (queued && env().JOBS_MODE === "inline") void this.processor.flush(5);
     return { data: { accepted: true } };
   }
 
@@ -377,8 +400,14 @@ export class AuthService {
       }
       await tx.user.update({
         where: { id: invitation.userId },
-        data: { passwordHash: await argonHash(input.password, argonOptions), status: "ACTIVE" },
+        data: { passwordHash: await argonHash(input.password, argonOptions), status: "ACTIVE", mustChangePassword: false },
       });
+      if (invitation.vendorId) {
+        await tx.vendor.updateMany({
+          where: { id: invitation.vendorId, status: "INVITED" },
+          data: { status: "ACTIVE" },
+        });
+      }
       await tx.session.updateMany({ where: { userId: invitation.userId, revokedAt: null }, data: { revokedAt: new Date() } });
       await tx.invitation.update({ where: { id: invitation.id }, data: { usedAt: new Date() } });
       await this.audit.record(tx, {
